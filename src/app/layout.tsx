@@ -4,8 +4,8 @@ import { Providers } from "@/components/session-provider";
 import { Nav } from "@/components/nav";
 
 export const metadata: Metadata = {
-  title: "CYPHR | Underground Dance Battles",
-  description: "The underground dance battle platform and artist marketplace.",
+  title: "CYPHR | Underground Artist Platform",
+  description: "The underground platform connecting dancers, DJs, guitarists, drummers, performers, organizers, and judges.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

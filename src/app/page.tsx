@@ -34,42 +34,96 @@ export default async function Home() {
     <main className="min-h-screen bg-paper">
       {/* Hero */}
       <section className="border-b border-line">
-        <div className="mx-auto max-w-7xl px-md py-section md:px-xl">
-          <p className="font-mono text-center text-body-sm uppercase tracking-[0.18em] text-accent sm:text-left">
-            Underground dance network
-          </p>
-          <h1 className="mt-lg max-w-2xl font-display text-center text-display-xl uppercase tracking-[-0.03em] leading-tight text-ink sm:text-left sm:text-display-2xl">
-            The floor is calling.
-          </h1>
-          <p className="mt-md max-w-xl text-center text-body-md text-ink-muted sm:text-left">
-            Find the next cypher. Enter the battle. Build your name. CYPHR connects
-            artists, organizers, judges, and the people who keep the floor alive.
-          </p>
-          <div className="mt-xl flex flex-wrap justify-center gap-sm sm:justify-start">
-            <Link
-              href="/events"
-              className="border border-accent bg-accent px-lg py-sm text-button-md font-bold uppercase text-paper transition-opacity hover:opacity-80"
-            >
-              Browse events
-            </Link>
-            <Link
-              href="/login"
-              className="border border-line px-lg py-sm text-button-md font-bold uppercase text-ink transition-colors hover:border-accent"
-            >
-              Sign in
-            </Link>
+        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-section md:grid-cols-[1fr_0.42fr]">
+          <div className="px-md pt-section md:px-xl">
+            <p className="font-mono text-center text-body-sm uppercase tracking-[0.18em] text-accent sm:text-left">
+              Underground artist network
+            </p>
+            <h1 className="mt-lg max-w-2xl font-display text-center text-display-xl uppercase tracking-[-0.03em] leading-tight text-ink sm:text-left">
+              The floor is calling.
+            </h1>
+            <p className="mt-md max-w-xl text-center text-body-md text-ink-muted sm:max-w-2xl sm:text-left">
+              Find the next cypher. Enter the battle. Build your name. CYPHR connects
+              dancers, choreographers, DJs, guitarists, drummers, and performers to
+              the underground community.
+            </p>
+            <div className="mt-xl flex flex-wrap justify-center gap-sm sm:justify-start">
+              <Link
+                href="/events"
+                className="border border-accent bg-accent px-lg py-sm text-button-md font-bold uppercase text-paper transition-opacity hover:opacity-80"
+              >
+                Browse events
+              </Link>
+              <Link
+                href="/login"
+                className="border border-line px-lg py-sm text-button-md font-bold uppercase text-ink transition-colors hover:border-accent"
+              >
+                Sign in
+              </Link>
+            </div>
           </div>
+
+          <aside className="flex items-start border-t border-line bg-paper-soft px-md pt-lg md:border-t-0 md:border-l md:px-xl">
+            <div className="w-full">
+              <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-ink-muted">
+                Built for every stage
+              </p>
+              <ul className="mt-lg space-y-md">
+                <li className="border-b border-line pb-sm">
+                  <span className="text-accent">01 — </span>Battles & cyphers
+                </li>
+                <li className="border-b border-line pb-sm">
+                  <span className="text-accent">02 — </span>Marketplace
+                </li>
+                <li className="border-b border-line pb-sm">
+                  <span className="text-accent">03 — </span>Live scoring
+                </li>
+              </ul>
+            </div>
+          </aside>
         </div>
-        <aside className="border-t border-line bg-paper-soft px-md py-xl md:px-xl">
-          <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-ink-muted">
-            What we build
-          </p>
-          <ul className="mt-lg space-y-sm font-display text-title-md uppercase">
-            <li>01 — Battle</li>
-            <li>02 — Market</li>
-            <li>03 — Live score</li>
-          </ul>
-        </aside>
+      </section>
+
+      {/* Artist types */}
+      <section className="mx-auto max-w-7xl px-md py-section md:px-xl">
+        <p className="font-mono text-center text-body-sm uppercase tracking-[0.2em] text-accent">
+          For every creator
+        </p>
+        <ul className="mt-lg flex flex-wrap justify-center gap-sm text-center font-display text-title-md uppercase sm:justify-start">
+          <li>
+            Dancers
+          </li>
+          <li className="text-ink-muted">
+            •
+          </li>
+          <li>
+            Choreographers
+          </li>
+          <li className="text-ink-muted">
+            •
+          </li>
+          <li>
+            DJs
+          </li>
+          <li className="text-ink-muted">
+            •
+          </li>
+          <li>
+            Guitarists
+          </li>
+          <li className="text-ink-muted">
+            •
+          </li>
+          <li>
+            Drummers
+          </li>
+          <li className="text-ink-muted">
+            •
+          </li>
+          <li>
+            Performers
+          </li>
+        </ul>
       </section>
 
       {/* Live now */}
@@ -132,7 +186,7 @@ export default async function Home() {
             CYPHR
           </p>
           <p className="font-mono text-[0.6rem] uppercase tracking-[0.15em] text-ink-muted">
-            Underground dance battle platform
+            Underground artist and performance platform
           </p>
         </div>
       </footer>

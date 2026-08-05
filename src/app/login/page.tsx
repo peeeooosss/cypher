@@ -31,11 +31,13 @@ export default function LoginPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-paper px-md py-section">
-      <section className="w-full max-w-md border border-line bg-paper-soft p-lg md:p-xl">
+      <section className="w-full max-w-lg border border-line bg-paper-soft p-lg sm:p-xl">
         <p className="font-display text-title-md uppercase tracking-[-0.08em]">
           CYPHR
         </p>
-        <h1 className="mt-section font-display text-display-lg uppercase">Enter the circle</h1>
+        <h1 className="mt-xl font-display text-display-lg uppercase">
+          Enter the circle
+        </h1>
         <p className="mt-sm text-body-sm text-ink-muted">
           Sign in to manage events, enter battles, or judge the floor.
         </p>
@@ -46,7 +48,7 @@ export default function LoginPage() {
             <input
               required
               autoComplete="email"
-              className="mt-sm block w-full border border-line bg-paper px-md py-sm text-body-md outline-none focus:border-accent"
+              className="mt-sm block w-full border border-line bg-paper px-md py-md text-body-md outline-none focus:border-accent"
               name="email"
               type="email"
             />
@@ -56,7 +58,7 @@ export default function LoginPage() {
             <input
               required
               autoComplete="current-password"
-              className="mt-sm block w-full border border-line bg-paper px-md py-sm text-body-md outline-none focus:border-accent"
+              className="mt-sm block w-full border border-line bg-paper px-md py-md text-body-md outline-none focus:border-accent"
               minLength={8}
               name="password"
               type="password"
@@ -66,7 +68,7 @@ export default function LoginPage() {
           {error ? <p className="text-body-sm text-accent">{error}</p> : null}
 
           <button
-            className="w-full border border-accent bg-accent px-lg py-sm text-button-md font-bold uppercase text-paper disabled:cursor-wait disabled:opacity-60"
+            className="w-full border border-accent bg-accent px-lg py-md text-button-md font-bold uppercase text-paper disabled:cursor-wait disabled:opacity-60"
             disabled={isSubmitting}
             type="submit"
           >
