@@ -30,8 +30,8 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-paper px-md py-section">
-      <section className="w-full max-w-lg border border-line bg-paper-soft p-lg sm:p-xl">
+    <main className="flex min-h-screen items-center justify-center bg-paper px-sm py-section">
+      <section className="w-full max-w-xl border border-line bg-paper-soft p-lg sm:p-xl">
         <p className="font-display text-title-md uppercase tracking-[-0.08em]">
           CYPHR
         </p>
