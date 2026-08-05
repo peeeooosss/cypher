@@ -110,24 +110,24 @@ const hiphopPhases = [
 for (const phase of breakingPhases) {
   await prisma.roundFormat.upsert({
     where: { categoryId_order: { categoryId: breaking.id, order: phase.order } },
-    update: { type: phase.type, label: phase.label, roundCount: phase.roundCount, roundDuration: phase.roundDuration, advanceCount: phase.advanceCount },
-    create: { categoryId: breaking.id, order: phase.order, type: phase.type, label: phase.label, roundCount: phase.roundCount, roundDuration: phase.roundDuration, advanceCount: phase.advanceCount },
+    update: { type: phase.type, label: phase.label, roundCount: phase.roundCount, roundDuration: phase.roundDuration, advanceCount: phase.advanceCount, phaseStatus: "PENDING" },
+    create: { categoryId: breaking.id, order: phase.order, type: phase.type, label: phase.label, roundCount: phase.roundCount, roundDuration: phase.roundDuration, advanceCount: phase.advanceCount, phaseStatus: "PENDING" },
   });
 }
 
 for (const phase of poppingPhases) {
   await prisma.roundFormat.upsert({
     where: { categoryId_order: { categoryId: popping.id, order: phase.order } },
-    update: { type: phase.type, label: phase.label, roundCount: phase.roundCount, roundDuration: phase.roundDuration, advanceCount: phase.advanceCount },
-    create: { categoryId: popping.id, order: phase.order, type: phase.type, label: phase.label, roundCount: phase.roundCount, roundDuration: phase.roundDuration, advanceCount: phase.advanceCount },
+    update: { type: phase.type, label: phase.label, roundCount: phase.roundCount, roundDuration: phase.roundDuration, advanceCount: phase.advanceCount, phaseStatus: "PENDING" },
+    create: { categoryId: popping.id, order: phase.order, type: phase.type, label: phase.label, roundCount: phase.roundCount, roundDuration: phase.roundDuration, advanceCount: phase.advanceCount, phaseStatus: "PENDING" },
   });
 }
 
 for (const phase of hiphopPhases) {
   await prisma.roundFormat.upsert({
     where: { categoryId_order: { categoryId: hiphop.id, order: phase.order } },
-    update: { type: phase.type, label: phase.label, roundCount: phase.roundCount, roundDuration: phase.roundDuration, advanceCount: phase.advanceCount },
-    create: { categoryId: hiphop.id, order: phase.order, type: phase.type, label: phase.label, roundCount: phase.roundCount, roundDuration: phase.roundDuration, advanceCount: phase.advanceCount },
+    update: { type: phase.type, label: phase.label, roundCount: phase.roundCount, roundDuration: phase.roundDuration, advanceCount: phase.advanceCount, phaseStatus: "PENDING" },
+    create: { categoryId: hiphop.id, order: phase.order, type: phase.type, label: phase.label, roundCount: phase.roundCount, roundDuration: phase.roundDuration, advanceCount: phase.advanceCount, phaseStatus: "PENDING" },
   });
 }
 

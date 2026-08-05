@@ -26,7 +26,7 @@ export async function POST(_request: Request, { params }: Context) {
 
   await prisma.roundFormat.update({ where: { id: currentPhase.id }, data: { phaseStatus: "COMPLETE" } });
 
-  const nextPhase = category.rounds.find((r) => r.order > (category.currentPhaseOrder ?? 0) && r.phaseStatus === "PENDING");
+  const nextPhase = category.rounds.find((r) => r.order > (category.currentPhaseOrder ?? 0) && r.phaseStatus !== "COMPLETE" && r.phaseStatus !== "ACTIVE");
 
   if (nextPhase) {
     await prisma.category.update({ where: { id: categoryId }, data: { currentPhaseOrder: nextPhase.order } });

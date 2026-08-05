@@ -21,7 +21,7 @@ export async function POST(_request: Request, { params }: Context) {
   if (!category) return notFound("Category");
   if (category.event.organizerId !== user.id) return forbidden();
 
-  const nextPhase = category.rounds.find((r) => r.phaseStatus === "PENDING");
+  const nextPhase = category.rounds.find((r) => r.phaseStatus !== "COMPLETE" && r.phaseStatus !== "ACTIVE");
   if (!nextPhase) return badRequest("No pending phases to start");
 
   await prisma.category.update({ where: { id: categoryId }, data: { currentPhaseOrder: nextPhase.order } });
