@@ -1,29 +1,80 @@
-import { JudgePortal } from "@/components/judge-portal";
-import { SignOutButton } from "@/components/sign-out-button";
-import { requireRole } from "@/lib/rbac";
-import { prisma } from "@/lib/prisma";
+"use client";
 
-export const dynamic = "force-dynamic";
+import { FormEvent, useState } from "react";
+import { useRouter } from "next/navigation";
 
-export default async function JudgePage() {
-  const user = await requireRole("JUDGE");
-  const events = await prisma.event.findMany({
-    where: { judges: { some: { id: user.id } } },
-    select: { id: true, title: true, status: true },
-    orderBy: { startsAt: "asc" },
-  });
+export default function JudgeEntryPage() {
+  const router = useRouter();
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setIsSubmitting(true);
+
+    const formData = new FormData(event.currentTarget);
+    const code = formData.get("code") as string;
+
+    const res = await fetch(`/api/judge-slots/${code}`);
+
+    if (res.ok) {
+      router.push(`/judge/${code}`);
+      return;
+    }
+
+    if (res.status === 404) {
+      setError("Invalid code");
+    } else {
+      setError("Something went wrong. Try again.");
+    }
+    setIsSubmitting(false);
+  }
 
   return (
-    <main className="min-h-screen bg-paper px-md py-section md:px-xl">
-      <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-accent">Judge portal</p>
-      <div className="mt-lg flex flex-wrap items-end justify-between gap-md">
-        <div>
-          <h1 className="font-display text-display-lg uppercase">Keep the score honest.</h1>
-          <p className="mt-sm text-body-sm text-ink-muted">Signed in as {user.email}</p>
-        </div>
-        <SignOutButton />
-      </div>
-      <JudgePortal events={events} />
+    <main className="flex min-h-screen items-center justify-center bg-paper px-sm py-section">
+      <section className="w-full max-w-md border border-line bg-paper-soft p-lg sm:p-xl">
+        <p className="font-display text-title-md uppercase">CYPHR</p>
+        <h1 className="mt-xl font-display text-display-lg uppercase">
+          Judge the floor
+        </h1>
+        <p className="mt-sm text-body-sm text-ink-muted">
+          Enter the access code provided by the event organizer.
+        </p>
+
+        <form className="mt-xl flex w-full flex-col gap-6" onSubmit={handleSubmit}>
+          <input
+            required
+            autoComplete="off"
+            className="mt-sm block w-full border border-line bg-paper px-md py-md text-body-md uppercase outline-none focus:border-accent"
+            maxLength={6}
+            minLength={6}
+            name="code"
+            placeholder="XXXXXX"
+            type="text"
+          />
+
+          {error ? <p className="text-body-sm text-accent">{error}</p> : null}
+
+          <button
+            className="w-full border border-accent bg-accent px-lg py-md text-button-md font-bold uppercase text-paper disabled:cursor-wait disabled:opacity-60"
+            disabled={isSubmitting}
+            type="submit"
+          >
+            {isSubmitting ? "Checking..." : "Enter"}
+          </button>
+        </form>
+
+        <p className="mt-xl text-body-sm text-ink-muted">
+          Are you an organizer?{" "}
+          <a
+            className="font-bold uppercase text-ink underline decoration-accent underline-offset-4 hover:text-accent"
+            href="/login"
+          >
+            Sign in
+          </a>
+        </p>
+      </section>
     </main>
   );
 }

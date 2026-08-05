@@ -7,6 +7,13 @@ import { prisma } from "@/lib/prisma";
 
 const registrationSchema = z.object({
   categoryId: z.string().cuid(),
+  style: z.string().trim().max(80).optional(),
+  crew: z.string().trim().max(120).optional(),
+  city: z.string().trim().max(120).optional(),
+  country: z.string().trim().max(2).optional(),
+  experience: z.string().trim().max(50).optional(),
+  socialHandle: z.string().trim().max(120).optional(),
+  referral: z.string().trim().max(200).optional(),
 });
 
 export async function GET() {
@@ -58,8 +65,10 @@ export async function POST(request: Request) {
   }
 
   try {
+    const { categoryId, ...profileFields } = parsed.data;
+    void categoryId;
     const registration = await prisma.registration.create({
-      data: { user: { connect: { id: user.id } }, category: { connect: { id: category.id } } },
+      data: { user: { connect: { id: user.id } }, category: { connect: { id: category.id } }, ...profileFields },
       include: { category: true },
     });
 

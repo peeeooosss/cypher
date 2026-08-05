@@ -51,7 +51,7 @@ export default function SignupPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-paper px-sm py-section">
-      <section className="w-full max-w-lg border border-line bg-paper-soft p-lg sm:p-xl">
+      <section className="w-full max-w-2xl border border-line bg-paper-soft p-lg sm:p-xl">
         <p className="font-display text-title-md uppercase tracking-[-0.08em]">
           CYPHR
         </p>

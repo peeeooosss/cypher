@@ -34,5 +34,5 @@ export default function proxy(...args: Parameters<typeof authProxy>) {
 }
 
 export const config = {
-  matcher: ["/organizer/:path*", "/artist/:path*", "/judge/:path*"],
+  matcher: ["/organizer/:path*", "/artist/:path*"],
 };

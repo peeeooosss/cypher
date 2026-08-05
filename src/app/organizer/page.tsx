@@ -55,6 +55,9 @@ export default async function OrganizerPage() {
                 </ul>
                 <CategoryForm eventId={event.id} />
               </div>
+              <a className="mt-md block border border-accent px-md py-sm text-center text-body-sm font-bold uppercase text-accent hover:bg-accent hover:text-paper" href={`/organizer/${event.id}`}>
+                Manage event
+              </a>
             </article>
           ))}
         </div>

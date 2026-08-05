@@ -1,0 +1,1143 @@
+"use client";
+
+import { useState, useEffect, FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import type { EventStatus, RoundType, RegistrationStatus } from "@/generated/prisma/enums";
+
+type Round = {
+  id: string;
+  categoryId: string;
+  order: number;
+  type: RoundType;
+  label: string | null;
+  roundCount: number;
+  roundDuration: number | null;
+  advanceCount: number | null;
+};
+
+type JudgeSlot = {
+  id: string;
+  code: string;
+  name: string | null;
+  isActive: boolean;
+};
+
+type JudgeSlotWithCategory = JudgeSlot & {
+  category: { id: string; name: string };
+};
+
+type PrizePool = {
+  id: string;
+  categoryId: string;
+  totalAmount: number;
+  currency: string;
+  distribution: unknown;
+  isPaid: boolean;
+  paidAt: Date | null;
+};
+
+type Category = {
+  id: string;
+  eventId: string;
+  name: string;
+  rounds: Round[];
+  judgeSlots: JudgeSlot[];
+  prizePool: PrizePool | null;
+  _count: { registrations: number };
+};
+
+type EventWithRelations = {
+  id: string;
+  organizerId: string;
+  title: string;
+  slug: string;
+  startsAt: Date;
+  status: EventStatus;
+  venue: string | null;
+  city: string | null;
+  categories: Category[];
+  judgeSlots: JudgeSlotWithCategory[];
+};
+
+type RegistrationRow = {
+  id: string;
+  userId: string;
+  categoryId: string;
+  status: RegistrationStatus;
+  seed: number | null;
+  style: string | null;
+  crew: string | null;
+  experience: string | null;
+  user: { name: string | null; email: string };
+};
+
+const TABS = ["Overview", "Categories", "Judges", "Registrations", "Prizes"] as const;
+
+const STATUS_OPTIONS: EventStatus[] = ["DRAFT", "PUBLISHED", "LIVE", "COMPLETED"];
+
+const ROUND_TYPES: RoundType[] = [
+  "CYPHER",
+  "QUALIFIER",
+  "BATTLE_1V1",
+  "BATTLE_2V2",
+  "BATTLE_3V3",
+  "BATTLE_4V4",
+  "SEVEN_TO_SMOKE",
+  "FINAL",
+];
+
+export function EventDashboard({ event: initialEvent }: { event: EventWithRelations }) {
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<string>("Overview");
+  const [event, setEvent] = useState(initialEvent);
+
+  const refresh = () => router.refresh();
+
+  return (
+    <div className="mt-section">
+      <div className="grid grid-cols-5 gap-sm mb-xl">
+        {TABS.map((tab) => (
+          <button
+            key={tab}
+            className={`border px-md py-sm text-button-md font-bold uppercase ${
+              activeTab === tab
+                ? "border-accent bg-accent text-paper"
+                : "border-line bg-paper text-ink hover:border-accent"
+            }`}
+            onClick={() => setActiveTab(tab)}
+            type="button"
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "Overview" && (
+        <OverviewTab event={event} setEvent={setEvent} />
+      )}
+      {activeTab === "Categories" && (
+        <CategoriesTab event={event} refresh={refresh} />
+      )}
+      {activeTab === "Judges" && (
+        <JudgesTab event={event} refresh={refresh} />
+      )}
+      {activeTab === "Registrations" && (
+        <RegistrationsTab event={event} />
+      )}
+      {activeTab === "Prizes" && (
+        <PrizesTab event={event} refresh={refresh} />
+      )}
+    </div>
+  );
+}
+
+function OverviewTab({
+  event,
+  setEvent,
+}: {
+  event: EventWithRelations;
+  setEvent: (e: EventWithRelations) => void;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSave(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError("");
+    setSaving(true);
+    const form = new FormData(e.currentTarget);
+    const body: Record<string, unknown> = {};
+    const title = form.get("title") as string;
+    const slug = form.get("slug") as string;
+    const venue = form.get("venue") as string;
+    const city = form.get("city") as string;
+    const startsAt = form.get("startsAt") as string;
+
+    if (title && title !== event.title) body.title = title;
+    if (slug && slug !== event.slug) body.slug = slug;
+    body.venue = venue || null;
+    body.city = city || null;
+    if (startsAt) body.startsAt = new Date(startsAt).toISOString();
+
+    const res = await fetch(`/api/events/${event.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      setError(err?.error ?? "Failed to save");
+      setSaving(false);
+      return;
+    }
+    const updated = await res.json();
+    setEvent({ ...event, ...updated });
+    setSaving(false);
+  }
+
+  async function handleStatusChange(status: EventStatus) {
+    setError("");
+    const res = await fetch(`/api/events/${event.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      setError(err?.error ?? "Failed to update status");
+      return;
+    }
+    const updated = await res.json();
+    setEvent({ ...event, ...updated });
+  }
+
+  const totalRegistrations = event.categories.reduce(
+    (s, c) => s + c._count.registrations,
+    0,
+  );
+  const totalJudgeSlots = event.judgeSlots.length;
+
+  return (
+    <div className="grid gap-xl lg:grid-cols-3">
+      <form className="border border-line p-lg lg:col-span-2" onSubmit={handleSave}>
+        <p className="font-display text-title-md uppercase">Event details</p>
+        <div className="mt-lg grid gap-md md:grid-cols-2">
+          <input
+            className="border border-line bg-paper px-md py-sm text-body-sm"
+            name="title"
+            defaultValue={event.title}
+            placeholder="Event title"
+          />
+          <input
+            className="border border-line bg-paper px-md py-sm text-body-sm"
+            name="slug"
+            defaultValue={event.slug}
+            placeholder="event-slug"
+          />
+          <input
+            className="border border-line bg-paper px-md py-sm text-body-sm"
+            name="venue"
+            defaultValue={event.venue ?? ""}
+            placeholder="Venue"
+          />
+          <input
+            className="border border-line bg-paper px-md py-sm text-body-sm"
+            name="city"
+            defaultValue={event.city ?? ""}
+            placeholder="City"
+          />
+          <input
+            className="border border-line bg-paper px-md py-sm text-body-sm md:col-span-2"
+            name="startsAt"
+            type="datetime-local"
+            defaultValue={event.startsAt.toISOString().slice(0, 16)}
+          />
+        </div>
+
+        <div className="mt-lg">
+          <p className="font-mono text-[0.7rem] uppercase text-ink-muted">Status</p>
+          <div className="mt-sm flex flex-wrap gap-sm">
+            {STATUS_OPTIONS.map((s) => (
+              <button
+                key={s}
+                type="button"
+                className={`border px-md py-sm text-button-md font-bold uppercase ${
+                  event.status === s
+                    ? "border-accent bg-accent text-paper"
+                    : "border-line bg-paper text-ink hover:border-accent"
+                }`}
+                onClick={() => handleStatusChange(s)}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {error && <p className="mt-md text-body-sm text-accent">{error}</p>}
+        <button
+          className="mt-lg border border-accent bg-accent px-lg py-sm font-bold uppercase text-paper disabled:opacity-60"
+          disabled={saving}
+          type="submit"
+        >
+          {saving ? "Saving..." : "Save changes"}
+        </button>
+      </form>
+
+      <div className="space-y-md">
+        <div className="border border-line p-lg">
+          <p className="font-mono text-[0.7rem] uppercase text-ink-muted">Stats</p>
+          <div className="mt-md space-y-sm">
+            <div className="flex justify-between text-body-sm">
+              <span>Categories</span>
+              <span className="font-mono text-accent">{event.categories.length}</span>
+            </div>
+            <div className="flex justify-between text-body-sm">
+              <span>Registrations</span>
+              <span className="font-mono text-accent">{totalRegistrations}</span>
+            </div>
+            <div className="flex justify-between text-body-sm">
+              <span>Judge slots</span>
+              <span className="font-mono text-accent">{totalJudgeSlots}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CategoriesTab({
+  event,
+  refresh,
+}: {
+  event: EventWithRelations;
+  refresh: () => void;
+}) {
+  return (
+    <div className="space-y-xl">
+      {event.categories.map((category) => (
+        <div key={category.id} className="border border-line p-lg">
+          <p className="font-display text-title-md uppercase">
+            {category.name}
+          </p>
+          <p className="mt-xs text-body-sm text-ink-muted">
+            {category._count.registrations} registered
+          </p>
+
+          {category.rounds.length > 0 && (
+            <div className="mt-lg">
+              <p className="font-mono text-[0.7rem] uppercase text-ink-muted">
+                Round phases
+              </p>
+              <div className="mt-sm space-y-sm">
+                {category.rounds.map((round) => (
+                  <div
+                    key={round.id}
+                    className="flex flex-wrap items-center justify-between gap-sm border border-line bg-paper-soft px-md py-sm"
+                  >
+                    <div className="text-body-sm">
+                      <span className="font-mono uppercase text-accent">
+                        {round.type}
+                      </span>{" "}
+                      {round.label && (
+                        <span className="text-ink-muted">
+                          &mdash; {round.label}
+                        </span>
+                      )}
+                      <span className="ml-sm text-ink-muted">
+                        ({round.roundCount} round{round.roundCount > 1 ? "s" : ""}
+                        {round.roundDuration ? `, ${round.roundDuration}s` : ""}
+                        {round.advanceCount
+                          ? `, advance ${round.advanceCount}`
+                          : ""}
+                        )
+                      </span>
+                    </div>
+                    <DeleteRoundButton
+                      categoryId={category.id}
+                      roundId={round.id}
+                      refresh={refresh}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <AddRoundForm categoryId={category.id} refresh={refresh} />
+        </div>
+      ))}
+
+      <AddCategoryForm eventId={event.id} refresh={refresh} />
+    </div>
+  );
+}
+
+function DeleteRoundButton({
+  categoryId,
+  roundId,
+  refresh,
+}: {
+  categoryId: string;
+  roundId: string;
+  refresh: () => void;
+}) {
+  const [deleting, setDeleting] = useState(false);
+  async function handleDelete() {
+    setDeleting(true);
+    await fetch(`/api/categories/${categoryId}/rounds/${roundId}`, {
+      method: "DELETE",
+    });
+    refresh();
+  }
+  return (
+    <button
+      className="border border-line px-sm py-xs text-[0.7rem] font-bold uppercase text-accent hover:border-accent disabled:opacity-60"
+      disabled={deleting}
+      onClick={handleDelete}
+      type="button"
+    >
+      {deleting ? "..." : "Delete"}
+    </button>
+  );
+}
+
+function AddRoundForm({
+  categoryId,
+  refresh,
+}: {
+  categoryId: string;
+  refresh: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError("");
+    setSubmitting(true);
+    const form = new FormData(e.currentTarget);
+    const res = await fetch(`/api/categories/${categoryId}/rounds`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: form.get("type"),
+        label: form.get("label") || undefined,
+        roundCount: Number(form.get("roundCount")) || 1,
+        roundDuration: form.get("roundDuration")
+          ? Number(form.get("roundDuration"))
+          : undefined,
+        advanceCount: form.get("advanceCount")
+          ? Number(form.get("advanceCount"))
+          : undefined,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      setError(err?.error ?? "Failed to add round");
+      setSubmitting(false);
+      return;
+    }
+    setSubmitting(false);
+    setOpen(false);
+    refresh();
+  }
+
+  if (!open) {
+    return (
+      <button
+        className="mt-md border border-line px-md py-sm text-body-sm font-bold uppercase hover:border-accent"
+        onClick={() => setOpen(true)}
+        type="button"
+      >
+        + Add round phase
+      </button>
+    );
+  }
+
+  return (
+    <form className="mt-md border border-line bg-paper-soft p-md" onSubmit={handleSubmit}>
+      <div className="grid gap-sm sm:grid-cols-2">
+        <select
+          className="border border-line bg-paper px-md py-sm text-body-sm"
+          name="type"
+          required
+        >
+          <option value="">Select round type</option>
+          {ROUND_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+        <input
+          className="border border-line bg-paper px-md py-sm text-body-sm"
+          name="label"
+          placeholder="Label (e.g. Top 16)"
+        />
+        <input
+          className="border border-line bg-paper px-md py-sm text-body-sm"
+          name="roundCount"
+          type="number"
+          min={1}
+          defaultValue={1}
+          placeholder="Round count"
+        />
+        <input
+          className="border border-line bg-paper px-md py-sm text-body-sm"
+          name="roundDuration"
+          type="number"
+          min={1}
+          placeholder="Duration (seconds)"
+        />
+        <input
+          className="border border-line bg-paper px-md py-sm text-body-sm sm:col-span-2"
+          name="advanceCount"
+          type="number"
+          min={0}
+          placeholder="Advance count"
+        />
+      </div>
+      {error && <p className="mt-sm text-body-sm text-accent">{error}</p>}
+      <div className="mt-md flex gap-sm">
+        <button
+          className="border border-accent bg-accent px-lg py-sm font-bold uppercase text-paper disabled:opacity-60"
+          disabled={submitting}
+          type="submit"
+        >
+          {submitting ? "Adding..." : "Add"}
+        </button>
+        <button
+          className="border border-line px-md py-sm font-bold uppercase hover:border-accent"
+          onClick={() => setOpen(false)}
+          type="button"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function AddCategoryForm({
+  eventId,
+  refresh,
+}: {
+  eventId: string;
+  refresh: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError("");
+    setSubmitting(true);
+    const form = new FormData(e.currentTarget);
+    const res = await fetch(`/api/events/${eventId}/categories`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: form.get("name"),
+        maxCompetitors: form.get("maxCompetitors")
+          ? Number(form.get("maxCompetitors"))
+          : null,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      setError(err?.error ?? "Failed to add category");
+      setSubmitting(false);
+      return;
+    }
+    setSubmitting(false);
+    setOpen(false);
+    refresh();
+  }
+
+  if (!open) {
+    return (
+      <button
+        className="border border-line px-md py-sm text-body-sm font-bold uppercase hover:border-accent"
+        onClick={() => setOpen(true)}
+        type="button"
+      >
+        + Add category
+      </button>
+    );
+  }
+
+  return (
+    <form className="border border-line p-lg" onSubmit={handleSubmit}>
+      <p className="font-display text-title-md uppercase">New category</p>
+      <div className="mt-lg flex flex-wrap gap-sm">
+        <input
+          className="min-w-48 border border-line bg-paper px-md py-sm text-body-sm"
+          name="name"
+          required
+          placeholder="Category name"
+        />
+        <input
+          className="w-32 border border-line bg-paper px-md py-sm text-body-sm"
+          name="maxCompetitors"
+          type="number"
+          min={2}
+          placeholder="Max"
+        />
+      </div>
+      {error && <p className="mt-sm text-body-sm text-accent">{error}</p>}
+      <div className="mt-md flex gap-sm">
+        <button
+          className="border border-accent bg-accent px-lg py-sm font-bold uppercase text-paper disabled:opacity-60"
+          disabled={submitting}
+          type="submit"
+        >
+          {submitting ? "Adding..." : "Create"}
+        </button>
+        <button
+          className="border border-line px-md py-sm font-bold uppercase hover:border-accent"
+          onClick={() => setOpen(false)}
+          type="button"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function JudgesTab({
+  event,
+  refresh,
+}: {
+  event: EventWithRelations;
+  refresh: () => void;
+}) {
+  return (
+    <div className="space-y-xl">
+      {event.categories.map((category) => (
+        <div key={category.id} className="border border-line p-lg">
+          <div className="flex flex-wrap items-center justify-between gap-md">
+            <p className="font-display text-title-md uppercase">
+              {category.name}
+            </p>
+            <GenerateJudgeCodeButton
+              eventId={event.id}
+              categoryId={category.id}
+              refresh={refresh}
+            />
+          </div>
+
+          {category.judgeSlots.length === 0 ? (
+            <p className="mt-lg text-body-sm text-ink-muted">
+              No judge slots yet.
+            </p>
+          ) : (
+            <div className="mt-lg space-y-sm">
+              {category.judgeSlots.map((slot) => (
+                <JudgeSlotRow key={slot.id} slot={slot} refresh={refresh} />
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function GenerateJudgeCodeButton({
+  eventId,
+  categoryId,
+  refresh,
+}: {
+  eventId: string;
+  categoryId: string;
+  refresh: () => void;
+}) {
+  const [generating, setGenerating] = useState(false);
+  const [generatedCode, setGeneratedCode] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  async function handleGenerate() {
+    setGenerating(true);
+    setGeneratedCode(null);
+    const res = await fetch(`/api/events/${eventId}/judge-slots`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ categoryId }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setGeneratedCode(data.code);
+      refresh();
+    }
+    setGenerating(false);
+  }
+
+  async function copyCode() {
+    if (!generatedCode) return;
+    await navigator.clipboard.writeText(generatedCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-sm">
+      <button
+        className="border border-line px-md py-sm text-body-sm font-bold uppercase hover:border-accent disabled:opacity-60"
+        disabled={generating}
+        onClick={handleGenerate}
+        type="button"
+      >
+        {generating ? "..." : "+ Generate code"}
+      </button>
+      {generatedCode && (
+        <div className="flex items-center gap-sm">
+          <code className="border border-accent bg-paper-soft px-md py-sm font-mono text-display-lg text-accent">
+            {generatedCode}
+          </code>
+          <button
+            className="border border-line px-md py-sm text-body-sm font-bold uppercase hover:border-accent"
+            onClick={copyCode}
+            type="button"
+          >
+            {copied ? "Copied" : "Copy"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function JudgeSlotRow({
+  slot,
+  refresh,
+}: {
+  slot: JudgeSlot;
+  refresh: () => void;
+}) {
+  const [toggling, setToggling] = useState(false);
+
+  async function handleToggle() {
+    setToggling(true);
+    await fetch(`/api/judge-slots/${slot.code}/toggle`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isActive: !slot.isActive }),
+    });
+    setToggling(false);
+    refresh();
+  }
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-sm border border-line bg-paper-soft px-md py-sm">
+      <div className="text-body-sm">
+        <code className="font-mono text-accent">{slot.code}</code>
+        {slot.name && (
+          <span className="ml-sm text-ink-muted">{slot.name}</span>
+        )}
+      </div>
+      <button
+        className={`border px-md py-xs text-[0.7rem] font-bold uppercase disabled:opacity-60 ${
+          slot.isActive
+            ? "border-line text-ink hover:border-accent"
+            : "border-accent bg-accent text-paper"
+        }`}
+        disabled={toggling}
+        onClick={handleToggle}
+        type="button"
+      >
+        {slot.isActive ? "Deactivate" : "Activate"}
+      </button>
+    </div>
+  );
+}
+
+function RegistrationsTab({ event }: { event: EventWithRelations }) {
+  const [categoryId, setCategoryId] = useState(event.categories[0]?.id ?? "");
+  const [registrations, setRegistrations] = useState<RegistrationRow[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!categoryId) return;
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/events/${event.id}/registrations?categoryId=${categoryId}`);
+        const data = await res.json();
+        if (!cancelled) setRegistrations(Array.isArray(data) ? data : []);
+      } catch {
+        if (!cancelled) setRegistrations([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    void load();
+    return () => { cancelled = true; };
+  }, [categoryId, event.id]);
+
+  return (
+    <div>
+      <div className="mb-lg flex flex-wrap items-center gap-sm">
+        <label className="font-mono text-[0.7rem] uppercase text-ink-muted">
+          Filter by category
+        </label>
+        <select
+          className="border border-line bg-paper px-md py-sm text-body-sm"
+          value={categoryId}
+          onChange={(e) => setCategoryId(e.target.value)}
+        >
+          {event.categories.map((cat) => (
+            <option key={cat.id} value={cat.id}>
+              {cat.name}
+            </option>
+          ))}
+        </select>
+        <span className="text-body-sm text-ink-muted">
+          ({registrations.length} registrations)
+        </span>
+      </div>
+
+      {loading ? (
+        <p className="border border-line p-lg text-ink-muted">Loading...</p>
+      ) : registrations.length === 0 ? (
+        <p className="border border-line p-lg text-ink-muted">
+          No registrations for this category.
+        </p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full border border-line text-body-sm">
+            <thead>
+              <tr className="border-b border-line bg-paper-soft text-left">
+                <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
+                  Name
+                </th>
+                <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
+                  Email
+                </th>
+                <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
+                  Crew
+                </th>
+                <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
+                  Style
+                </th>
+                <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
+                  Exp
+                </th>
+                <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
+                  Status
+                </th>
+                <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
+                  Seed
+                </th>
+                <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {registrations.map((reg) => (
+                <RegistrationRow
+                  key={reg.id}
+                  registration={reg}
+                  onUpdate={() => {
+                    const url = `/api/events/${event.id}/registrations?categoryId=${categoryId}`;
+                    fetch(url)
+                      .then((r) => r.json())
+                      .then((data) => setRegistrations(data));
+                  }}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RegistrationRow({
+  registration,
+  onUpdate,
+}: {
+  registration: RegistrationRow;
+  onUpdate: () => void;
+}) {
+  const [seed, setSeed] = useState(registration.seed?.toString() ?? "");
+  const [updating, setUpdating] = useState(false);
+
+  async function handleStatus(status: "CONFIRMED" | "WITHDRAWN") {
+    setUpdating(true);
+    await fetch(`/api/registrations/${registration.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    setUpdating(false);
+    onUpdate();
+  }
+
+  async function handleSeed() {
+    setUpdating(true);
+    await fetch(`/api/registrations/${registration.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ seed: seed ? Number(seed) : null }),
+    });
+    setUpdating(false);
+    onUpdate();
+  }
+
+  return (
+    <tr className="border-b border-line hover:bg-paper-soft">
+      <td className="px-md py-sm">{registration.user.name ?? "—"}</td>
+      <td className="px-md py-sm text-ink-muted">{registration.user.email}</td>
+      <td className="px-md py-sm">{registration.crew ?? "—"}</td>
+      <td className="px-md py-sm">{registration.style ?? "—"}</td>
+      <td className="px-md py-sm">{registration.experience ?? "—"}</td>
+      <td className="px-md py-sm">
+        <span
+          className={`font-mono text-[0.7rem] uppercase ${
+            registration.status === "CONFIRMED"
+              ? "text-accent"
+              : registration.status === "WITHDRAWN"
+                ? "text-ink-muted"
+                : ""
+          }`}
+        >
+          {registration.status}
+        </span>
+      </td>
+      <td className="px-md py-sm">
+        <div className="flex items-center gap-xs">
+          <input
+            className="w-16 border border-line bg-paper px-sm py-xs text-body-sm"
+            type="number"
+            value={seed}
+            onChange={(e) => setSeed(e.target.value)}
+            onBlur={handleSeed}
+            min={1}
+          />
+        </div>
+      </td>
+      <td className="px-md py-sm">
+        <div className="flex gap-xs">
+          <button
+            className="border border-line px-sm py-xs text-[0.7rem] font-bold uppercase hover:border-accent disabled:opacity-60"
+            disabled={updating || registration.status === "CONFIRMED"}
+            onClick={() => handleStatus("CONFIRMED")}
+            type="button"
+          >
+            Approve
+          </button>
+          <button
+            className="border border-line px-sm py-xs text-[0.7rem] font-bold uppercase text-ink-muted hover:border-accent disabled:opacity-60"
+            disabled={updating || registration.status === "WITHDRAWN"}
+            onClick={() => handleStatus("WITHDRAWN")}
+            type="button"
+          >
+            Reject
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function PrizesTab({
+  event,
+  refresh,
+}: {
+  event: EventWithRelations;
+  refresh: () => void;
+}) {
+  return (
+    <div className="space-y-xl">
+      {event.categories.map((category) => (
+        <PrizePoolSection
+          key={category.id}
+          category={category}
+          refresh={refresh}
+        />
+      ))}
+    </div>
+  );
+}
+
+type DistributionEntry = { rank: number; label: string; percentage: number };
+
+function PrizePoolSection({
+  category,
+  refresh,
+}: {
+  category: Category;
+  refresh: () => void;
+}) {
+  const initialDistribution: DistributionEntry[] = category.prizePool
+    ? (category.prizePool.distribution as DistributionEntry[])
+    : [];
+  const [totalAmount, setTotalAmount] = useState(
+    category.prizePool?.totalAmount?.toString() ?? "",
+  );
+  const [currency, setCurrency] = useState(category.prizePool?.currency ?? "USD");
+  const [distribution, setDistribution] =
+    useState<DistributionEntry[]>(initialDistribution);
+  const [isPaid, setIsPaid] = useState(category.prizePool?.isPaid ?? false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const sum = distribution.reduce((s, d) => s + d.percentage, 0);
+  const valid = sum === 100 || distribution.length === 0;
+
+  function addEntry() {
+    const nextRank = distribution.length + 1;
+    const label =
+      nextRank === 1
+        ? "1st place"
+        : nextRank === 2
+          ? "2nd place"
+          : nextRank === 3
+            ? "3rd place"
+            : `${nextRank}th place`;
+    setDistribution([...distribution, { rank: nextRank, label, percentage: 0 }]);
+  }
+
+  function updateEntry(index: number, field: keyof DistributionEntry, value: string) {
+    setDistribution((prev) =>
+      prev.map((d, i) =>
+        i === index ? { ...d, [field]: field === "percentage" ? Number(value) || 0 : value } : d,
+      ),
+    );
+  }
+
+  function removeEntry(index: number) {
+    setDistribution((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  async function handleSave() {
+    setError("");
+    setSubmitting(true);
+    const res = await fetch(`/api/categories/${category.id}/prize-pool`, {
+      method: category.prizePool ? "PATCH" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        totalAmount: Number(totalAmount),
+        currency,
+        distribution,
+        isPaid,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      setError(err?.error ?? "Failed to save prize pool");
+      setSubmitting(false);
+      return;
+    }
+    setSubmitting(false);
+    refresh();
+  }
+
+  return (
+    <div className="border border-line p-lg">
+      <p className="font-display text-title-md uppercase">{category.name}</p>
+      {!category.prizePool && (
+        <p className="mt-sm text-body-sm text-ink-muted">No prize set</p>
+      )}
+
+      <div className="mt-lg grid gap-md md:grid-cols-2">
+        <div>
+          <label className="font-mono text-[0.7rem] uppercase text-ink-muted">
+            Total amount
+          </label>
+          <input
+            className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm"
+            type="number"
+            min={0}
+            value={totalAmount}
+            onChange={(e) => setTotalAmount(e.target.value)}
+            placeholder="1000"
+          />
+        </div>
+        <div>
+          <label className="font-mono text-[0.7rem] uppercase text-ink-muted">
+            Currency
+          </label>
+          <input
+            className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm"
+            value={currency}
+            onChange={(e) => setCurrency(e.target.value)}
+            placeholder="USD"
+          />
+        </div>
+      </div>
+
+      <div className="mt-lg">
+        <label className="flex items-center gap-sm font-mono text-[0.7rem] uppercase text-ink-muted">
+          <input
+            type="checkbox"
+            checked={isPaid}
+            onChange={(e) => setIsPaid(e.target.checked)}
+            className="border border-line bg-paper"
+          />
+          Paid
+        </label>
+      </div>
+
+      <div className="mt-lg">
+        <p className="font-mono text-[0.7rem] uppercase text-ink-muted">
+          Distribution
+        </p>
+        {distribution.length === 0 && (
+          <p className="mt-sm text-body-sm text-ink-muted">
+            No distribution entries.
+          </p>
+        )}
+        <div className="mt-sm space-y-sm">
+          {distribution.map((entry, i) => (
+            <div
+              key={i}
+              className="flex flex-wrap items-center gap-sm border border-line bg-paper-soft px-md py-sm"
+            >
+              <span className="font-mono text-[0.7rem] text-ink-muted">
+                #{entry.rank}
+              </span>
+              <input
+                className="border border-line bg-paper px-sm py-xs text-body-sm"
+                value={entry.label}
+                onChange={(e) => updateEntry(i, "label", e.target.value)}
+                placeholder="Label"
+              />
+              <input
+                className="w-20 border border-line bg-paper px-sm py-xs text-body-sm"
+                type="number"
+                min={0}
+                max={100}
+                value={entry.percentage || ""}
+                onChange={(e) => updateEntry(i, "percentage", e.target.value)}
+                placeholder="%"
+              />
+              <span className="text-body-sm text-ink-muted">%</span>
+              <button
+                className="border border-line px-sm py-xs text-[0.7rem] font-bold uppercase text-accent hover:border-accent"
+                onClick={() => removeEntry(i)}
+                type="button"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+        <div className="mt-sm flex flex-wrap items-center gap-sm">
+          <button
+            className="border border-line px-md py-sm text-body-sm font-bold uppercase hover:border-accent"
+            onClick={addEntry}
+            type="button"
+          >
+            + Add rank
+          </button>
+          {distribution.length > 0 && (
+            <span
+              className={`font-mono text-body-sm ${sum === 100 ? "text-accent" : "text-accent"}`}
+            >
+              {sum}%
+            </span>
+          )}
+        </div>
+      </div>
+
+      {error && <p className="mt-md text-body-sm text-accent">{error}</p>}
+      <button
+        className="mt-lg border border-accent bg-accent px-lg py-sm font-bold uppercase text-paper disabled:opacity-60"
+        disabled={submitting || !valid || !totalAmount}
+        onClick={handleSave}
+        type="button"
+      >
+        {submitting ? "Saving..." : category.prizePool ? "Update prize pool" : "Create prize pool"}
+      </button>
+    </div>
+  );
+}

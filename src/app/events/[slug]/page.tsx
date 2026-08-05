@@ -23,7 +23,6 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
         include: { _count: { select: { registrations: true, matches: true } } },
         orderBy: { name: "asc" },
       },
-      judges: { select: { id: true, name: true } },
     },
   });
 
@@ -70,12 +69,6 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
               <p className="font-mono text-[0.6rem] uppercase tracking-[0.2em] text-ink-muted">Organizer</p>
               <p className="mt-xs">{event.organizer.name ?? "Anonymous"}</p>
             </div>
-            {event.judges.length > 0 && (
-              <div>
-                <p className="font-mono text-[0.6rem] uppercase tracking-[0.2em] text-ink-muted">Judges</p>
-                <p className="mt-xs">{event.judges.map((j) => j.name ?? "Anonymous").join(", ")}</p>
-              </div>
-            )}
           </div>
         </div>
       </div>

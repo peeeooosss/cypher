@@ -1,10 +1,10 @@
 import "dotenv/config";
 import { getToken } from "next-auth/jwt";
 import type { NextApiRequest } from "next";
+import { prisma } from "../src/lib/prisma";
 import { Server } from "socket.io";
 import { z } from "zod";
 import { completeMatch } from "../src/lib/bracket";
-import { prisma } from "../src/lib/prisma";
 
 const connectionString = process.env.DATABASE_URL;
 const secret = process.env.NEXTAUTH_SECRET;
@@ -19,18 +19,17 @@ const io = new Server(port, {
   cors: { origin: allowedOrigin, credentials: true },
 });
 
-const joinSchema = z.object({ eventId: z.string().cuid() });
 const scoreSchema = z.object({
   eventId: z.string().cuid(),
   matchId: z.string().cuid(),
   scoreA: z.number().int().min(0).max(10),
   scoreB: z.number().int().min(0).max(10),
+  feedback: z.string().optional(),
 });
-const completeSchema = z.object({
-  eventId: z.string().cuid(),
-  matchId: z.string().cuid(),
-  winnerId: z.string().cuid(),
-});
+
+type JudgeSocketData = { type: "judge"; slotId: string; eventId: string };
+type OrganizerSocketData = { type: "organizer"; userId: string };
+type SocketUser = JudgeSocketData | OrganizerSocketData;
 
 function parseCookies(header: string | undefined) {
   return Object.fromEntries(
@@ -41,22 +40,6 @@ function parseCookies(header: string | undefined) {
   );
 }
 
-async function getSocketUser(socket: Parameters<Parameters<typeof io.use>[0]>[0]) {
-  const token = await getToken({
-    req: {
-      headers: socket.request.headers,
-      cookies: parseCookies(socket.request.headers.cookie),
-    } as unknown as NextApiRequest,
-    secret,
-  });
-
-  if (!token?.id || !token.role) {
-    return null;
-  }
-
-  return { id: token.id, role: token.role };
-}
-
 async function getMatchState(eventId: string) {
   return prisma.battleMatch.findMany({
     where: { eventId },
@@ -64,7 +47,7 @@ async function getMatchState(eventId: string) {
       competitorA: { include: { user: { select: { id: true, name: true } } } },
       competitorB: { include: { user: { select: { id: true, name: true } } } },
       winner: { include: { user: { select: { id: true, name: true } } } },
-      scores: true,
+      scores: { include: { judgeSlot: { select: { name: true, code: true } } } },
     },
     orderBy: [{ round: "asc" }, { position: "asc" }],
   });
@@ -72,14 +55,38 @@ async function getMatchState(eventId: string) {
 
 io.use(async (socket, next) => {
   try {
-    const user = await getSocketUser(socket);
+    const code = socket.handshake.query.code as string | undefined;
 
-    if (!user) {
+    if (code) {
+      const slot = await prisma.judgeSlot.findUnique({
+        where: { code: code.toUpperCase() },
+        select: { id: true, isActive: true, eventId: true },
+      });
+
+      if (!slot || !slot.isActive) {
+        next(new Error("Invalid or expired code"));
+        return;
+      }
+
+      socket.data.user = { type: "judge", slotId: slot.id, eventId: slot.eventId } as JudgeSocketData;
+      next();
+      return;
+    }
+
+    const token = await getToken({
+      req: {
+        headers: socket.request.headers,
+        cookies: parseCookies(socket.request.headers.cookie),
+      } as unknown as NextApiRequest,
+      secret,
+    });
+
+    if (!token?.id) {
       next(new Error("UNAUTHORIZED"));
       return;
     }
 
-    socket.data.user = user;
+    socket.data.user = { type: "organizer", userId: token.id } as OrganizerSocketData;
     next();
   } catch (error) {
     console.error(error);
@@ -88,42 +95,44 @@ io.use(async (socket, next) => {
 });
 
 io.on("connection", (socket) => {
-  socket.on("event:join", async (payload: unknown, acknowledge?: (response: { error?: string }) => void) => {
-    const parsed = joinSchema.safeParse(payload);
+  const user = socket.data.user as SocketUser;
 
+  socket.on("event:join", async (payload: unknown, acknowledge?: (response: { error?: string }) => void) => {
+    const parsed = z.object({ eventId: z.string().cuid() }).safeParse(payload);
     if (!parsed.success) {
       acknowledge?.({ error: "Invalid eventId" });
       return;
     }
 
-    const event = await prisma.event.findUnique({
-      where: { id: parsed.data.eventId },
-      include: { judges: { select: { id: true } } },
-    });
+    const room = `event:${parsed.data.eventId}`;
 
-    const user = socket.data.user;
-    const canView = event && (
-      event.organizerId === user.id ||
-      event.judges.some((judge) => judge.id === user.id) ||
-      ["PUBLISHED", "LIVE"].includes(event.status)
-    );
-
-    if (!canView) {
-      acknowledge?.({ error: "Event not found or unavailable" });
-      return;
+    if (user.type === "judge") {
+      if (user.eventId !== parsed.data.eventId) {
+        acknowledge?.({ error: "Code is not valid for this event" });
+        return;
+      }
+    } else {
+      const event = await prisma.event.findUnique({ where: { id: parsed.data.eventId }, select: { organizerId: true } });
+      if (!event || event.organizerId !== user.userId) {
+        acknowledge?.({ error: "Only the organizer can join this event" });
+        return;
+      }
     }
 
-    const room = `event:${event.id}`;
     await socket.join(room);
-    socket.emit("event:state", await getMatchState(event.id));
+    socket.emit("event:state", await getMatchState(parsed.data.eventId));
     acknowledge?.({});
   });
 
   socket.on("match:score", async (payload: unknown, acknowledge?: (response: { error?: string }) => void) => {
-    const parsed = scoreSchema.safeParse(payload);
+    if (user.type !== "judge") {
+      acknowledge?.({ error: "Only judges can submit scores" });
+      return;
+    }
 
-    if (!parsed.success || !["JUDGE", "ORGANIZER"].includes(socket.data.user.role)) {
-      acknowledge?.({ error: "Invalid score or insufficient permissions" });
+    const parsed = scoreSchema.safeParse(payload);
+    if (!parsed.success) {
+      acknowledge?.({ error: "Invalid score data" });
       return;
     }
 
@@ -133,32 +142,25 @@ io.on("connection", (socket) => {
     }
 
     const match = await prisma.battleMatch.findFirst({
-      where: {
-        id: parsed.data.matchId,
-        eventId: parsed.data.eventId,
-        event: {
-          OR: [
-            { organizerId: socket.data.user.id },
-            { judges: { some: { id: socket.data.user.id } } },
-          ],
-        },
-      },
+      where: { id: parsed.data.matchId, eventId: parsed.data.eventId },
     });
 
     if (!match) {
-      acknowledge?.({ error: "Match not found or judge is not assigned" });
+      acknowledge?.({ error: "Match not found" });
       return;
     }
 
     const score = await prisma.matchScore.upsert({
-      where: { matchId_judgeId: { matchId: match.id, judgeId: socket.data.user.id } },
-      update: { scoreA: parsed.data.scoreA, scoreB: parsed.data.scoreB },
-      create: { matchId: match.id, judgeId: socket.data.user.id, scoreA: parsed.data.scoreA, scoreB: parsed.data.scoreB },
+      where: { matchId_judgeSlotId: { matchId: match.id, judgeSlotId: user.slotId } },
+      update: { scoreA: parsed.data.scoreA, scoreB: parsed.data.scoreB, feedback: parsed.data.feedback ?? null },
+      create: { matchId: match.id, judgeSlotId: user.slotId, scoreA: parsed.data.scoreA, scoreB: parsed.data.scoreB, feedback: parsed.data.feedback ?? null },
     });
+
     const totals = await prisma.matchScore.aggregate({
       where: { matchId: match.id },
       _sum: { scoreA: true, scoreB: true },
     });
+
     const updatedMatch = await prisma.battleMatch.update({
       where: { id: match.id },
       data: { status: "LIVE", scoreA: totals._sum.scoreA ?? 0, scoreB: totals._sum.scoreB ?? 0 },
@@ -169,10 +171,14 @@ io.on("connection", (socket) => {
   });
 
   socket.on("match:complete", async (payload: unknown, acknowledge?: (response: { error?: string }) => void) => {
-    const parsed = completeSchema.safeParse(payload);
-
-    if (!parsed.success || socket.data.user.role !== "ORGANIZER") {
+    if (user.type !== "organizer") {
       acknowledge?.({ error: "Only organizers can complete matches" });
+      return;
+    }
+
+    const parsed = z.object({ eventId: z.string().cuid(), matchId: z.string().cuid(), winnerId: z.string().cuid() }).safeParse(payload);
+    if (!parsed.success) {
+      acknowledge?.({ error: "Invalid data" });
       return;
     }
 
@@ -182,7 +188,7 @@ io.on("connection", (socket) => {
     }
 
     try {
-      const match = await completeMatch(parsed.data.matchId, parsed.data.winnerId, socket.data.user.id);
+      const match = await completeMatch(parsed.data.matchId, parsed.data.winnerId, user.userId);
       io.to(`event:${parsed.data.eventId}`).emit("match:updated", { match });
       acknowledge?.({});
     } catch (error) {
@@ -191,7 +197,7 @@ io.on("connection", (socket) => {
   });
 });
 
-console.log(`CallOut Socket.io server listening on port ${port}`);
+console.log(`CYPHR Socket.io server listening on port ${port}`);
 
 async function shutdown() {
   await prisma.$disconnect();

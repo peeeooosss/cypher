@@ -33,36 +33,46 @@ enum MatchStatus {
   COMPLETE
 }
 
+enum RoundType {
+  CYPHER
+  QUALIFIER
+  BATTLE_1V1
+  BATTLE_2V2
+  BATTLE_3V3
+  BATTLE_4V4
+  SEVEN_TO_SMOKE
+  FINAL
+}
+
 model User {
-  id              String         @id @default(cuid())
-  email           String         @unique
+  id              String            @id @default(cuid())
+  email           String            @unique
   name            String?
   passwordHash    String?
-  role            UserRole       @default(ARTIST)
-  organizedEvents Event[]        @relation("EventOrganizer")
-  judgedEvents    Event[]        @relation("EventJudges")
+  role            UserRole          @default(ARTIST)
+  organizedEvents Event[]           @relation("EventOrganizer")
   registrations   Registration[]
-  matchScores     MatchScore[]
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  feedbackTemplates FeedbackTemplate[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
 }
 
 model Event {
-  id          String        @id @default(cuid())
-  organizerId String
-  title       String
-  slug        String        @unique
-  description String?
-  venue       String?
-  city        String?
-  startsAt    DateTime
-  status      EventStatus   @default(DRAFT)
-  organizer   User          @relation("EventOrganizer", fields: [organizerId], references: [id])
-  judges      User[]        @relation("EventJudges")
-  categories  Category[]
-  matches     BattleMatch[]
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id             String       @id @default(cuid())
+  organizerId    String
+  title          String
+  slug           String       @unique
+  description    String?
+  venue          String?
+  city           String?
+  startsAt       DateTime
+  status         EventStatus  @default(DRAFT)
+  organizer      User         @relation("EventOrganizer", fields: [organizerId], references: [id])
+  categories     Category[]
+  judgeSlots     JudgeSlot[]
+  matches        BattleMatch[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   @@index([organizerId])
   @@index([startsAt])
@@ -74,8 +84,11 @@ model Category {
   name           String
   maxCompetitors Int?
   event          Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  rounds         RoundFormat[]
   registrations  Registration[]
   matches        BattleMatch[]
+  judgeSlots     JudgeSlot[]
+  prizePool      PrizePool?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
@@ -83,19 +96,42 @@ model Category {
   @@index([eventId])
 }
 
+model RoundFormat {
+  id            String    @id @default(cuid())
+  categoryId    String
+  order         Int
+  type          RoundType
+  label         String?
+  roundCount    Int       @default(1)
+  roundDuration Int?
+  advanceCount  Int?
+  category      Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([categoryId, order])
+}
+
 model Registration {
-  id         String             @id @default(cuid())
-  userId     String
-  categoryId String
-  status     RegistrationStatus @default(PENDING)
-  seed       Int?
-  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  category   Category           @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  matchesAsA BattleMatch[]      @relation("CompetitorA")
-  matchesAsB BattleMatch[]      @relation("CompetitorB")
-  matchesWon BattleMatch[]      @relation("MatchWinner")
-  createdAt  DateTime           @default(now())
-  updatedAt  DateTime           @updatedAt
+  id           String             @id @default(cuid())
+  userId       String
+  categoryId   String
+  status       RegistrationStatus @default(PENDING)
+  seed         Int?
+  style        String?
+  crew         String?
+  city         String?
+  country      String?
+  experience   String?
+  socialHandle String?
+  referral     String?
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category     Category           @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  matchesAsA   BattleMatch[]      @relation("CompetitorA")
+  matchesAsB   BattleMatch[]      @relation("CompetitorB")
+  matchesWon   BattleMatch[]      @relation("MatchWinner")
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
 
   @@unique([userId, categoryId])
   @@index([categoryId, status])
@@ -114,6 +150,8 @@ model BattleMatch {
   scoreB          Int           @default(0)
   winnerId        String?
   nextMatchId     String?
+  teamLabelA      String?
+  teamLabelB      String?
   event           Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
   category        Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   competitorA     Registration? @relation("CompetitorA", fields: [competitorAId], references: [id])
@@ -132,17 +170,60 @@ model BattleMatch {
   @@index([nextMatchId])
 }
 
+model JudgeSlot {
+  id         String       @id @default(cuid())
+  eventId    String
+  categoryId String
+  code       String       @unique
+  name       String?
+  isActive   Boolean      @default(true)
+  event      Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  category   Category     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  scores     MatchScore[]
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@unique([categoryId, code])
+}
+
 model MatchScore {
   id          String      @id @default(cuid())
   matchId     String
-  judgeId     String
+  judgeSlotId String
   scoreA      Int
   scoreB      Int
+  feedback    String?
   match       BattleMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  judge       User        @relation(fields: [judgeId], references: [id], onDelete: Cascade)
+  judgeSlot   JudgeSlot   @relation(fields: [judgeSlotId], references: [id], onDelete: Cascade)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
-  @@unique([matchId, judgeId])
-  @@index([judgeId])
+  @@unique([matchId, judgeSlotId])
+  @@index([judgeSlotId])
+}
+
+model FeedbackTemplate {
+  id          String   @id @default(cuid())
+  organizerId String
+  text        String
+  scoreLabel  String?
+  minScore    Int      @default(0)
+  maxScore    Int      @default(10)
+  category    String?
+  organizer   User     @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model PrizePool {
+  id           String   @id @default(cuid())
+  categoryId   String   @unique
+  totalAmount  Int
+  currency     String   @default("USD")
+  distribution Json
+  isPaid       Boolean  @default(false)
+  paidAt       DateTime?
+  category     Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }

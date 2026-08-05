@@ -7,13 +7,43 @@ export const dynamic = "force-dynamic";
 
 export default async function ArtistPage() {
   const user = await requireRole("ARTIST");
-  const [events, registrations] = await Promise.all([
+  const [events, registrations, battleResults] = await Promise.all([
     prisma.event.findMany({
       where: { status: { in: ["PUBLISHED", "LIVE"] } },
       include: { categories: { include: { _count: { select: { registrations: true } } } } },
       orderBy: { startsAt: "asc" },
     }),
     prisma.registration.findMany({ where: { userId: user.id }, select: { categoryId: true } }),
+    prisma.registration.findMany({
+      where: { userId: user.id },
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true,
+            event: { select: { id: true, title: true } },
+            prizePool: { select: { distribution: true, isPaid: true } },
+          },
+        },
+        matchesAsA: {
+          include: {
+            competitorB: { include: { user: { select: { name: true } } } },
+            winner: { select: { userId: true } },
+            scores: { select: { feedback: true, scoreA: true, scoreB: true } },
+          },
+          orderBy: { round: "asc" },
+        },
+        matchesAsB: {
+          include: {
+            competitorA: { include: { user: { select: { name: true } } } },
+            winner: { select: { userId: true } },
+            scores: { select: { feedback: true, scoreA: true, scoreB: true } },
+          },
+          orderBy: { round: "asc" },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
   ]);
   const registeredCategoryIds = new Set(registrations.map((registration) => registration.categoryId));
 
@@ -46,6 +76,65 @@ export default async function ArtistPage() {
           </article>
         ))}
       </section>
+
+      {battleResults.length > 0 ? (
+        <section className="mt-section">
+          <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-ink-muted">My Results</p>
+          <div className="mt-lg grid gap-md lg:grid-cols-2">
+            {battleResults.map((reg) => {
+              const allMatches = [...reg.matchesAsA, ...reg.matchesAsB].sort((a, b) => a.round - b.round || a.position - b.position);
+              const wins = allMatches.filter((m) => m.winner?.userId === user.id).length;
+              return (
+                <article className="border border-line bg-paper-soft p-lg" key={reg.id}>
+                  <h3 className="font-display text-title-md uppercase">{reg.category.event.title}</h3>
+                  <p className="mt-xs text-body-sm text-ink-muted">{reg.category.name}</p>
+                  <div className="mt-md space-y-sm border-t border-line pt-md">
+                    {allMatches.length === 0 ? (
+                      <p className="text-body-sm text-ink-muted">No matches yet.</p>
+                    ) : (
+                      allMatches.map((match) => {
+                        const isA = reg.matchesAsA.some((m) => m.id === match.id);
+                        const matchAny = match as unknown as {
+                          scoreA: number; scoreB: number;
+                          competitorA: { user: { name: string | null } } | null;
+                          competitorB: { user: { name: string | null } } | null;
+                          winner: { userId: string } | null;
+                          scores: { feedback: string | null; scoreA: number; scoreB: number }[];
+                          round: number;
+                          status: string;
+                        };
+                        const opponent = isA ? matchAny.competitorB : matchAny.competitorA;
+                        const myScore = isA ? matchAny.scoreA : matchAny.scoreB;
+                        const theirScore = isA ? matchAny.scoreB : matchAny.scoreA;
+                        const won = matchAny.winner?.userId === user.id;
+                        const feedbackText = matchAny.scores.flatMap((s) => (s.feedback ? [s.feedback] : [])).join(" | ");
+                        return (
+                          <div className="flex items-start justify-between gap-sm text-body-sm" key={match.id}>
+                            <div>
+                              <p className="font-bold uppercase">
+                                Round {matchAny.round} vs {opponent?.user.name ?? "TBD"}
+                              </p>
+                              <p className="text-ink-muted">
+                                Score: {myScore} — {theirScore} {matchAny.status === "COMPLETE" ? (won ? "W" : "L") : ""}
+                              </p>
+                              {feedbackText ? <p className="mt-xs text-ink-muted">{feedbackText}</p> : null}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                  {wins > 0 && reg.category.prizePool?.distribution ? (
+                    <div className="mt-md border-t border-line pt-md font-mono text-[0.7rem] uppercase text-accent">
+                      {wins} wins — {reg.category.prizePool.isPaid ? "Prize paid" : "Prize pending"}
+                    </div>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
     </main>
   );
 }

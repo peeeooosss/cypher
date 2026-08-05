@@ -6,7 +6,15 @@ import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 
 const updateRegistrationSchema = z.object({
-  status: z.enum(RegistrationStatus),
+  status: z.enum(RegistrationStatus).optional(),
+  seed: z.number().int().min(0).optional(),
+  style: z.string().trim().max(80).optional(),
+  crew: z.string().trim().max(120).optional(),
+  city: z.string().trim().max(120).optional(),
+  country: z.string().trim().max(2).optional(),
+  experience: z.string().trim().max(50).optional(),
+  socialHandle: z.string().trim().max(120).optional(),
+  referral: z.string().trim().max(200).optional(),
 });
 
 type RegistrationRouteContext = { params: Promise<{ registrationId: string }> };
@@ -38,16 +46,26 @@ export async function PATCH(request: Request, { params }: RegistrationRouteConte
   const parsed = updateRegistrationSchema.safeParse(await request.json().catch(() => null));
 
   if (!parsed.success) {
-    return badRequest(parsed.error.issues[0]?.message ?? "Invalid registration status");
+    return badRequest(parsed.error.issues[0]?.message ?? "Invalid data");
   }
 
-  if (isOwner && parsed.data.status !== RegistrationStatus.WITHDRAWN) {
+  if (isOwner && parsed.data.status && parsed.data.status !== RegistrationStatus.WITHDRAWN) {
     return forbidden();
+  }
+
+  const updateData: Record<string, unknown> = {};
+  if (parsed.data.status) updateData.status = parsed.data.status;
+  if (isEventOrganizer) {
+    if (parsed.data.seed !== undefined) updateData.seed = parsed.data.seed;
+  }
+  for (const field of ["style", "crew", "city", "country", "experience", "socialHandle", "referral"] as const) {
+    if (parsed.data[field] !== undefined) updateData[field] = parsed.data[field];
   }
 
   const updated = await prisma.registration.update({
     where: { id: registrationId },
-    data: { status: parsed.data.status },
+    data: updateData,
+    include: { category: { include: { event: { select: { id: true, title: true } } } } },
   });
 
   return NextResponse.json(updated);
