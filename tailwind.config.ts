@@ -19,8 +19,8 @@ const config: Config = {
         mono: ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
       },
       fontSize: {
-        "display-xl": ["clamp(2.5rem, 8vw, 6rem)", { lineHeight: "0.92" }],
-        "display-lg": ["2rem", { lineHeight: "1" }],
+        "display-xl": ["2.25rem", { lineHeight: "1.1", letterSpacing: "-0.04em" }],
+        "display-lg": ["2rem", { lineHeight: "1.1" }],
         "title-md": ["1.125rem", { lineHeight: "1.1" }],
         "body-md": ["1rem", { lineHeight: "1.5" }],
         "body-sm": ["0.875rem", { lineHeight: "1.4" }],

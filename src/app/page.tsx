@@ -34,61 +34,42 @@ export default async function Home() {
     <main className="min-h-screen bg-paper">
       {/* Hero */}
       <section className="border-b border-line">
-        <div className="mx-auto grid max-w-7xl grid-cols-1 md:grid-cols-[1fr_0.42fr]">
-          <div className="flex flex-col justify-between px-md py-section md:border-r md:border-line md:px-xl">
-            <div>
-              <p className="mb-lg font-mono text-body-sm uppercase tracking-[0.18em] text-accent">
-                Underground dance network
-              </p>
-              <h1 className="max-w-5xl font-display text-display-xl uppercase text-ink">
-                The floor is
-                <br />
-                <span className="text-accent">calling.</span>
-              </h1>
-            </div>
-
-            <div className="mt-section max-w-xl">
-              <p className="text-body-md text-ink-muted">
-                Find the next cypher. Enter the battle. Build your name. CallOut connects
-                artists, organizers, judges, and the people who keep the floor alive.
-              </p>
-              <div className="mt-xl flex flex-wrap gap-sm">
-                <Link
-                  href="/events"
-                  className="border border-accent bg-accent px-lg py-sm text-button-md font-bold uppercase text-paper transition-opacity hover:opacity-80"
-                >
-                  Browse events
-                </Link>
-                <Link
-                  href="/login"
-                  className="border border-line px-lg py-sm text-button-md font-bold uppercase text-ink transition-colors hover:border-accent"
-                >
-                  Sign in
-                </Link>
-              </div>
+        <div className="mx-auto max-w-7xl">
+          <div className="px-md py-section md:px-xl">
+            <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-accent">
+              Underground dance network
+            </p>
+            <h1 className="mt-lg max-w-2xl font-display text-display-lg uppercase tracking-[-0.03em] leading-tight text-ink sm:text-display-lg md:text-display-xl">
+              The floor is calling.
+            </h1>
+            <p className="mt-md max-w-xl text-body-md text-ink-muted">
+              Find the next cypher. Enter the battle. Build your name. CYPHR connects
+              artists, organizers, judges, and the people who keep the floor alive.
+            </p>
+            <div className="mt-xl flex flex-wrap gap-sm">
+              <Link
+                href="/events"
+                className="border border-accent bg-accent px-lg py-sm text-button-md font-bold uppercase text-paper transition-opacity hover:opacity-80"
+              >
+                Browse events
+              </Link>
+              <Link
+                href="/login"
+                className="border border-line px-lg py-sm text-button-md font-bold uppercase text-ink transition-colors hover:border-accent"
+              >
+                Sign in
+              </Link>
             </div>
           </div>
-
-          <aside className="flex flex-col justify-end bg-paper-soft px-md py-xl md:px-lg">
-            <div className="border-t border-line pt-md">
-              <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-ink-muted">
-                Built for the circle
-              </p>
-              <ul className="mt-lg space-y-md font-display text-title-md uppercase">
-                <li className="flex items-baseline justify-between border-b border-line pb-sm">
-                  <span className="text-accent">01</span>
-                  <span>Battle</span>
-                </li>
-                <li className="flex items-baseline justify-between border-b border-line pb-sm">
-                  <span className="text-accent">02</span>
-                  <span>Market</span>
-                </li>
-                <li className="flex items-baseline justify-between border-b border-line pb-sm">
-                  <span className="text-accent">03</span>
-                  <span>Live score</span>
-                </li>
-              </ul>
-            </div>
+          <aside className="border-t border-line bg-paper-soft px-md py-xl md:px-xl">
+            <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-ink-muted">
+              What we build
+            </p>
+            <ul className="mt-lg space-y-sm font-display text-title-md uppercase">
+              <li>01 — Battle</li>
+              <li>02 — Market</li>
+              <li>03 — Live score</li>
+            </ul>
           </aside>
         </div>
       </section>
@@ -150,7 +131,7 @@ export default async function Home() {
       <footer className="border-t border-line">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-sm px-md py-lg md:flex-row md:px-xl">
           <p className="font-display text-[0.8rem] uppercase tracking-[-0.05em]">
-            Call<span className="text-accent">/</span>Out
+            CYPHR
           </p>
           <p className="font-mono text-[0.6rem] uppercase tracking-[0.15em] text-ink-muted">
             Underground dance battle platform

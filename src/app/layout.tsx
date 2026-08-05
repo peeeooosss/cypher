@@ -4,7 +4,7 @@ import { Providers } from "@/components/session-provider";
 import { Nav } from "@/components/nav";
 
 export const metadata: Metadata = {
-  title: "CallOut | Underground Dance Battles",
+  title: "CYPHR | Underground Dance Battles",
   description: "The underground dance battle platform and artist marketplace.",
 };
 

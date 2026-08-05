@@ -28,7 +28,7 @@ export function Nav() {
     <header className="sticky top-0 z-50 border-b border-line bg-paper">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-md py-md md:px-xl">
         <Link href="/" className="font-display text-title-md uppercase tracking-[-0.08em]">
-          Call<span className="text-accent">/</span>Out
+          CYPHR
         </Link>
 
         <div className="hidden items-center gap-lg md:flex">

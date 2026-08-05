@@ -33,7 +33,7 @@ export default function LoginPage() {
     <main className="flex min-h-screen items-center justify-center bg-paper px-md py-section">
       <section className="w-full max-w-md border border-line bg-paper-soft p-lg md:p-xl">
         <p className="font-display text-title-md uppercase tracking-[-0.08em]">
-          Call<span className="text-accent">/</span>Out
+          CYPHR
         </p>
         <h1 className="mt-section font-display text-display-lg uppercase">Enter the circle</h1>
         <p className="mt-sm text-body-sm text-ink-muted">
