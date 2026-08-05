@@ -38,9 +38,18 @@ const internalEmitSchema = z.object({
   data: z.unknown().optional(),
 });
 
+const dancerScoreSchema = z.object({
+  eventId: z.string().cuid(),
+  registrationId: z.string().cuid(),
+  roundFormatId: z.string().cuid(),
+  score: z.number().int().min(0).max(10),
+  feedback: z.string().optional(),
+});
+
 type JudgeSocketData = { type: "judge"; slotId: string; eventId: string };
 type OrganizerSocketData = { type: "organizer"; userId: string };
-type SocketUser = JudgeSocketData | OrganizerSocketData;
+type SpectatorSocketData = { type: "spectator" };
+type SocketUser = JudgeSocketData | OrganizerSocketData | SpectatorSocketData;
 
 function parseCookies(header: string | undefined) {
   return Object.fromEntries(
@@ -122,7 +131,8 @@ io.use(async (socket, next) => {
     });
 
     if (!token?.id) {
-      next(new Error("UNAUTHORIZED"));
+      socket.data.user = { type: "spectator" } as SpectatorSocketData;
+      next();
       return;
     }
 
@@ -145,7 +155,7 @@ io.on("connection", (socket) => {
 
     if (user.type === "judge") {
       if (user.eventId !== parsed.data.eventId) { acknowledge?.({ error: "Code is not valid for this event" }); return; }
-    } else {
+    } else if (user.type === "organizer") {
       const event = await prisma.event.findUnique({ where: { id: parsed.data.eventId }, select: { organizerId: true } });
       if (!event || event.organizerId !== user.userId) { acknowledge?.({ error: "Only the organizer can join this event" }); return; }
     }
@@ -178,6 +188,41 @@ io.on("connection", (socket) => {
     });
 
     io.to(`event:${parsed.data.eventId}`).emit("match:updated", { match: updatedMatch, score });
+    acknowledge?.({});
+  });
+
+  socket.on("dancer:score", async (payload: unknown, acknowledge?: (response: { error?: string }) => void) => {
+    if (user.type !== "judge") { acknowledge?.({ error: "Only judges can submit scores" }); return; }
+
+    const parsed = dancerScoreSchema.safeParse(payload);
+    if (!parsed.success) { acknowledge?.({ error: "Invalid score data" }); return; }
+    if (!socket.rooms.has(`event:${parsed.data.eventId}`)) { acknowledge?.({ error: "Join the event before scoring" }); return; }
+
+    const dancerScore = await prisma.dancerScore.upsert({
+      where: {
+        judgeSlotId_registrationId_roundFormatId: {
+          judgeSlotId: user.slotId,
+          registrationId: parsed.data.registrationId,
+          roundFormatId: parsed.data.roundFormatId,
+        },
+      },
+      update: { score: parsed.data.score, feedback: parsed.data.feedback ?? null },
+      create: {
+        judgeSlotId: user.slotId,
+        registrationId: parsed.data.registrationId,
+        roundFormatId: parsed.data.roundFormatId,
+        score: parsed.data.score,
+        feedback: parsed.data.feedback ?? null,
+      },
+    });
+
+    io.to(`event:${parsed.data.eventId}`).emit("dancer:updated", {
+      dancerScore,
+      judgeSlotId: user.slotId,
+      registrationId: parsed.data.registrationId,
+      roundFormatId: parsed.data.roundFormatId,
+      score: parsed.data.score,
+    });
     acknowledge?.({});
   });
 

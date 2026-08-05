@@ -63,10 +63,7 @@ export default async function OrganizerEventPage({ params }: PageProps) {
         <SignOutButton />
       </div>
 
-      <EventDashboard
-        key={event.categories.map(c => c.currentPhaseOrder).join(",") + "-" + event.status}
-        event={event}
-      />
+      <EventDashboard key={event.id} event={event} />
     </main>
   );
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { EventStatus } from "@/generated/prisma/enums";
 import { EventCard } from "@/components/event-card";
 import { ArtistSlider } from "@/components/artist-slider";
+import { LiveLeaderboard } from "@/components/live-leaderboard";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -100,6 +101,11 @@ export default async function Home() {
               <EventCard key={event.id} event={event} />
             ))}
           </div>
+          {liveEvents.map((event) => (
+            <div className="mt-lg" key={`${event.id}-board`}>
+              <LiveLeaderboard eventId={event.id} title={`${event.title} — Standings`} compact />
+            </div>
+          ))}
         </section>
       )}
 

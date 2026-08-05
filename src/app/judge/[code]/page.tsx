@@ -17,11 +17,40 @@ export default async function JudgeCodePage({ params }: PageParams) {
         select: {
           id: true,
           name: true,
+          currentPhaseOrder: true,
           event: { select: { id: true, title: true } },
+          rounds: {
+            orderBy: { order: "asc" },
+            select: {
+              id: true,
+              order: true,
+              type: true,
+              label: true,
+              phaseStatus: true,
+            },
+          },
+          registrations: {
+            where: { status: "CONFIRMED" },
+            include: {
+              user: { select: { name: true, email: true } },
+              dancerScores: {
+                select: { roundFormatId: true, score: true, judgeSlotId: true },
+              },
+            },
+            orderBy: [{ seed: "asc" }, { createdAt: "asc" }],
+          },
           matches: {
             include: {
-              competitorA: { include: { user: { select: { name: true } } } },
-              competitorB: { include: { user: { select: { name: true } } } },
+              competitorA: {
+                include: {
+                  user: { select: { name: true } },
+                },
+              },
+              competitorB: {
+                include: {
+                  user: { select: { name: true } },
+                },
+              },
               scores: { include: { judgeSlot: { select: { name: true } } } },
             },
             orderBy: [{ round: "asc" }, { position: "asc" }],
@@ -51,6 +80,8 @@ export default async function JudgeCodePage({ params }: PageParams) {
     );
   }
 
+  const activeRound = slot.category.rounds.find((r) => r.phaseStatus === "ACTIVE");
+
   return (
     <main className="min-h-screen bg-paper px-md py-section md:px-xl">
       <p className="font-mono text-body-sm uppercase text-accent">Judge portal</p>
@@ -60,7 +91,15 @@ export default async function JudgeCodePage({ params }: PageParams) {
       <p className="mt-sm text-body-sm text-ink-muted">
         {slot.category.event.title}
       </p>
-      <ScoringInterface code={normalizedCode} data={slot} />
+      <p className="mt-sm font-mono text-body-sm uppercase text-ink-muted">
+        {activeRound ? `Phase ${activeRound.order}: ${activeRound.label ?? activeRound.type}` : "No active phase yet"}
+      </p>
+      <ScoringInterface
+        code={normalizedCode}
+        slotId={slot.id}
+        data={slot}
+        activeRound={activeRound ?? null}
+      />
     </main>
   );
 }

@@ -243,10 +243,11 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
                         Advance to next phase
                       </button>
                       {["CYPHER", "QUALIFIER"].includes(category.rounds.find(r => r.order === category.currentPhaseOrder)!.type) && (
-                        <button className="border border-accent px-lg py-sm font-bold uppercase text-accent"
-                          onClick={() => { }}>
-                          Manage advancement
-                        </button>
+                        <span className="text-body-sm text-ink-muted">
+                          {category.rounds.find(r => r.order === category.currentPhaseOrder)!.type === "CYPHER"
+                            ? "Cypher round — no battles. Pick the dancers who advance below."
+                            : "Qualifier round — pick the dancers who advance below."}
+                        </span>
                       )}
                     </>
                   )}
@@ -254,7 +255,10 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
 
                 {category.currentPhaseOrder != null && ["CYPHER","QUALIFIER"].includes(category.rounds.find(r => r.order === category.currentPhaseOrder)!.type) && (
                   <div className="mt-lg border-t border-line pt-md">
-                    <p className="font-mono text-[0.7rem] uppercase text-ink-muted mb-md">Mark who advances</p>
+                    <p className="font-mono text-[0.7rem] uppercase text-ink-muted mb-xs">Select dancers to advance</p>
+                    <p className="mb-md text-body-sm text-ink-muted">
+                      Tick the dancers who move to the next round, then confirm.
+                    </p>
                     {cypherRegs.map(reg => (
                       <label key={reg.id} className="flex items-center gap-sm py-xs text-body-sm">
                         <input type="checkbox" checked={cypherSelected.has(reg.id)} onChange={() => {
@@ -279,7 +283,7 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
                           setNotice("Failed to advance");
                         }
                       }}>
-                      Confirm advancement ({cypherSelected.size})
+                      Advance {cypherSelected.size} dancer(s)
                     </button>
                   </div>
                 )}
@@ -338,7 +342,7 @@ function OverviewTab({
       return;
     }
     const updated = await res.json();
-    setEvent({ ...event, ...updated });
+    setEvent({ ...event, ...updated, startsAt: new Date(updated.startsAt) });
     setSaving(false);
   }
 
@@ -355,7 +359,7 @@ function OverviewTab({
       return;
     }
     const updated = await res.json();
-    setEvent({ ...event, ...updated });
+    setEvent({ ...event, ...updated, startsAt: new Date(updated.startsAt) });
   }
 
   const totalRegistrations = event.categories.reduce(

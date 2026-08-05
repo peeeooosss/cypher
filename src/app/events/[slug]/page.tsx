@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { StatusBadge } from "@/components/status-badge";
 import { RegistrationButton } from "@/components/registration-button";
+import { LiveLeaderboard } from "@/components/live-leaderboard";
 import { formatDate } from "@/lib/format";
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
@@ -148,6 +149,12 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
             )}
           </aside>
         </div>
+
+        {event.status === EventStatus.LIVE && (
+          <div className="mt-section border-t border-line pt-section">
+            <LiveLeaderboard eventId={event.id} title={`${event.title} — Live standings`} />
+          </div>
+        )}
       </div>
     </main>
   );

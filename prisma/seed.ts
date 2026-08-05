@@ -59,7 +59,7 @@ await prisma.user.upsert({
 
 // ---- Event ----
 const now = new Date();
-const startsAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+const startsAt = new Date(now.getTime() - 2 * 60 * 60 * 1000);
 
 const event = await prisma.event.create({
   data: {
@@ -67,7 +67,7 @@ const event = await prisma.event.create({
     slug: "summer-cypher-2026",
     venue: "The Underground",
     city: "Brooklyn",
-    status: "PUBLISHED",
+    status: "LIVE",
     startsAt,
     organizerId: organizer.id,
   },
@@ -109,10 +109,11 @@ for (const [catName, phases] of Object.entries(phaseDefs)) {
         roundCount: phase.roundCount,
         roundDuration: phase.roundDuration,
         advanceCount: phase.advanceCount ?? null,
-        phaseStatus: "PENDING",
+        phaseStatus: phase.order === 1 ? "ACTIVE" : "PENDING",
       },
     });
   }
+  await prisma.category.update({ where: { id: cat.id }, data: { currentPhaseOrder: 1 } });
 }
 
 // ---- Judge slots (9 total: 3 per category) ----
@@ -181,6 +182,32 @@ await prisma.prizePool.create({ data: { categoryId: breaking.id, totalAmount: 25
 await prisma.prizePool.create({ data: { categoryId: popping.id, totalAmount: 150000, currency: "USD", distribution } });
 await prisma.prizePool.create({ data: { categoryId: hiphop.id, totalAmount: 100000, currency: "USD", distribution } });
 
+// ---- Demo dancer scores (first round of each category, 3 judges each) ----
+const demoRegistrations = await prisma.registration.findMany({
+  where: { categoryId: { in: [breaking.id, popping.id, hiphop.id] }, status: "CONFIRMED" },
+  include: { category: { include: { rounds: { orderBy: { order: "asc" } } } } },
+});
+
+for (const reg of demoRegistrations) {
+  const firstRound = reg.category.rounds[0];
+  if (!firstRound) continue;
+  const judges = await prisma.judgeSlot.findMany({
+    where: { categoryId: reg.categoryId },
+    select: { id: true },
+  });
+  const base = 4 + ((reg.seed ?? 0) % 6);
+  for (const [j, judge] of judges.entries()) {
+    await prisma.dancerScore.create({
+      data: {
+        judgeSlotId: judge.id,
+        registrationId: reg.id,
+        roundFormatId: firstRound.id,
+        score: Math.max(0, Math.min(10, base + (j % 3) - ((reg.seed ?? 0) % 3))),
+      },
+    });
+  }
+}
+
 // ---- Feedback templates ----
 const feedbackTemplates = [
   { text: "Excellent musicality and timing", minScore: 8, maxScore: 10, scoreLabel: "High" },
@@ -204,6 +231,6 @@ for (const tpl of feedbackTemplates) {
   }
 }
 
-console.log("Seed complete: 1 organizer, 30 artists, 1 event, 3 categories, 9 judge slots, 30 registrations, 3 prize pools, 10 feedback templates");
+console.log("Seed complete: 1 organizer, 30 artists, 1 event, 3 categories, 9 judge slots, 30 registrations, 3 prize pools, 10 feedback templates, demo dancer scores");
 
 await prisma.$disconnect();
