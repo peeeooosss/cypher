@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { io } from "socket.io-client";
 
 type Competitor = { user: { name: string | null } } | null;
 
@@ -26,10 +27,39 @@ type SlotData = {
 };
 
 export function ScoringInterface({ code, data }: { code: string; data: SlotData }) {
-  const matches = data.category.matches;
+  const [liveMatches, setLiveMatches] = useState(data.category.matches);
+  const [connectionStatus, setConnectionStatus] = useState("offline");
+  const matches = liveMatches;
   const [submittedIds, setSubmittedIds] = useState<Set<string>>(new Set());
   const [scores, setScores] = useState<Record<string, { scoreA: number | null; scoreB: number | null }>>({});
   const [submitting, setSubmitting] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL ?? "http://localhost:3001";
+    const socket = io(socketUrl, {
+      query: { code },
+      withCredentials: true,
+    });
+
+    socket.on("connect", () => {
+      setConnectionStatus("live");
+      socket.emit("event:join", { eventId: data.category.event.id }, (ack: { error?: string }) => {
+        if (ack?.error) setConnectionStatus("error");
+      });
+    });
+
+    socket.on("disconnect", () => setConnectionStatus("offline"));
+
+    socket.on("event:state", (matches) => {
+      setLiveMatches(matches);
+    });
+
+    socket.on("match:updated", ({ match }) => {
+      setLiveMatches((current) => current.map((m) => (m.id === match.id ? { ...m, ...match } : m)));
+    });
+
+    return () => { socket.disconnect(); };
+  }, [code, data.category.event.id]);
 
   function selectScore(matchId: string, key: "scoreA" | "scoreB", value: number) {
     setScores((prev) => ({
@@ -68,6 +98,12 @@ export function ScoringInterface({ code, data }: { code: string; data: SlotData 
 
   return (
     <section className="mt-section">
+      <div className="flex items-center gap-sm mb-lg">
+        <span className="font-mono text-[0.7rem] uppercase text-ink-muted">
+          {connectionStatus === "live" ? "LIVE" : connectionStatus === "offline" ? "CONNECTING..." : "DISCONNECTED"}
+        </span>
+        <span className={`h-2 w-2 rounded-full ${connectionStatus === "live" ? "bg-accent" : "bg-line"}`} />
+      </div>
       {matches.length === 0 ? (
         <p className="border border-line p-lg text-ink-muted">No matches available yet.</p>
       ) : (

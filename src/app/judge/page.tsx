@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 export default function JudgeEntryPage() {
@@ -33,7 +34,7 @@ export default function JudgeEntryPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-paper px-sm py-section">
-      <section className="w-full max-w-md border border-line bg-paper-soft p-lg sm:p-xl">
+      <section className="w-full max-w-2xl border border-line bg-paper-soft p-lg sm:p-xl">
         <p className="font-display text-title-md uppercase">CYPHR</p>
         <h1 className="mt-xl font-display text-display-lg uppercase">
           Judge the floor
@@ -43,7 +44,9 @@ export default function JudgeEntryPage() {
         </p>
 
         <form className="mt-xl flex w-full flex-col gap-6" onSubmit={handleSubmit}>
-          <input
+          <label className="block w-full text-body-sm font-bold uppercase">
+            Access code
+            <input
             required
             autoComplete="off"
             className="mt-sm block w-full border border-line bg-paper px-md py-md text-body-md uppercase outline-none focus:border-accent"
@@ -52,7 +55,8 @@ export default function JudgeEntryPage() {
             name="code"
             placeholder="XXXXXX"
             type="text"
-          />
+            />
+          </label>
 
           {error ? <p className="text-body-sm text-accent">{error}</p> : null}
 
@@ -67,12 +71,12 @@ export default function JudgeEntryPage() {
 
         <p className="mt-xl text-body-sm text-ink-muted">
           Are you an organizer?{" "}
-          <a
+          <Link
             className="font-bold uppercase text-ink underline decoration-accent underline-offset-4 hover:text-accent"
             href="/login"
           >
             Sign in
-          </a>
+          </Link>
         </p>
       </section>
     </main>

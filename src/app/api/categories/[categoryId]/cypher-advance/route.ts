@@ -1,0 +1,54 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { badRequest, forbidden, notFound, unauthorized } from "@/lib/api";
+import { getCurrentUser } from "@/lib/rbac";
+import { prisma } from "@/lib/prisma";
+
+const cypherAdvanceSchema = z.object({ registrationIds: z.array(z.string().cuid()) });
+
+type Context = { params: Promise<{ categoryId: string }> };
+
+export async function POST(request: Request, { params }: Context) {
+  const { categoryId } = await params;
+  const user = await getCurrentUser();
+
+  if (!user) return unauthorized();
+  if (user.role !== "ORGANIZER") return forbidden();
+
+  const category = await prisma.category.findUnique({
+    where: { id: categoryId },
+    include: { event: { select: { organizerId: true } }, rounds: { orderBy: { order: "asc" } } },
+  });
+
+  if (!category) return notFound("Category");
+  if (category.event.organizerId !== user.id) return forbidden();
+
+  const currentPhase = category.rounds.find((r) => r.order === category.currentPhaseOrder && r.phaseStatus === "ACTIVE");
+  if (!currentPhase) return badRequest("No active cypher phase");
+  if (!["CYPHER", "QUALIFIER"].includes(currentPhase.type)) return badRequest("Current phase is not a cypher");
+
+  const parsed = cypherAdvanceSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return badRequest("Provide a list of registrationIds to advance");
+
+  const { registrationIds } = parsed.data;
+
+  const registrations = await prisma.registration.findMany({
+    where: { categoryId, status: "CONFIRMED" },
+    select: { id: true },
+  });
+
+  const confirmedIds = new Set(registrations.map((r) => r.id));
+  const advancedIds = new Set(registrationIds);
+  const toWithdraw = registrations.filter((r) => !advancedIds.has(r.id));
+
+  for (const invalidId of registrationIds) {
+    if (!confirmedIds.has(invalidId)) return badRequest(`Registration ${invalidId} is not confirmed`);
+  }
+
+  await prisma.$transaction([
+    ...toWithdraw.map((r) => prisma.registration.update({ where: { id: r.id }, data: { status: "WITHDRAWN" } })),
+    prisma.roundFormat.update({ where: { id: currentPhase.id }, data: { phaseStatus: "COMPLETE" } }),
+  ]);
+
+  return NextResponse.json({ advanced: registrationIds.length, withdrawn: toWithdraw.length });
+}

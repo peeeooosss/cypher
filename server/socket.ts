@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { createServer } from "http";
 import { getToken } from "next-auth/jwt";
 import type { NextApiRequest } from "next";
 import { prisma } from "../src/lib/prisma";
@@ -15,7 +16,10 @@ if (!connectionString || !secret) {
 
 const port = Number(process.env.SOCKET_PORT ?? 3001);
 const allowedOrigin = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-const io = new Server(port, {
+
+const httpServer = createServer();
+
+const io = new Server(httpServer, {
   cors: { origin: allowedOrigin, credentials: true },
 });
 
@@ -25,6 +29,13 @@ const scoreSchema = z.object({
   scoreA: z.number().int().min(0).max(10),
   scoreB: z.number().int().min(0).max(10),
   feedback: z.string().optional(),
+});
+
+const internalEmitSchema = z.object({
+  secret: z.string(),
+  eventId: z.string().cuid(),
+  event: z.string(),
+  data: z.unknown().optional(),
 });
 
 type JudgeSocketData = { type: "judge"; slotId: string; eventId: string };
@@ -52,6 +63,35 @@ async function getMatchState(eventId: string) {
     orderBy: [{ round: "asc" }, { position: "asc" }],
   });
 }
+
+// Internal HTTP endpoint for API routes to emit socket events
+httpServer.on("request", async (req, res) => {
+  if (req.method !== "POST" || req.url !== "/internal/emit") {
+    res.writeHead(404);
+    res.end();
+    return;
+  }
+
+  let body = "";
+  req.on("data", (chunk) => { body += chunk; });
+  req.on("end", () => {
+    try {
+      const parsed = internalEmitSchema.safeParse(JSON.parse(body));
+      if (!parsed.success || parsed.data.secret !== secret) {
+        res.writeHead(403);
+        res.end("FORBIDDEN");
+        return;
+      }
+
+      io.to(`event:${parsed.data.eventId}`).emit(parsed.data.event, parsed.data.data);
+      res.writeHead(200);
+      res.end("OK");
+    } catch {
+      res.writeHead(400);
+      res.end("BAD_REQUEST");
+    }
+  });
+});
 
 io.use(async (socket, next) => {
   try {
@@ -99,24 +139,15 @@ io.on("connection", (socket) => {
 
   socket.on("event:join", async (payload: unknown, acknowledge?: (response: { error?: string }) => void) => {
     const parsed = z.object({ eventId: z.string().cuid() }).safeParse(payload);
-    if (!parsed.success) {
-      acknowledge?.({ error: "Invalid eventId" });
-      return;
-    }
+    if (!parsed.success) { acknowledge?.({ error: "Invalid eventId" }); return; }
 
     const room = `event:${parsed.data.eventId}`;
 
     if (user.type === "judge") {
-      if (user.eventId !== parsed.data.eventId) {
-        acknowledge?.({ error: "Code is not valid for this event" });
-        return;
-      }
+      if (user.eventId !== parsed.data.eventId) { acknowledge?.({ error: "Code is not valid for this event" }); return; }
     } else {
       const event = await prisma.event.findUnique({ where: { id: parsed.data.eventId }, select: { organizerId: true } });
-      if (!event || event.organizerId !== user.userId) {
-        acknowledge?.({ error: "Only the organizer can join this event" });
-        return;
-      }
+      if (!event || event.organizerId !== user.userId) { acknowledge?.({ error: "Only the organizer can join this event" }); return; }
     }
 
     await socket.join(room);
@@ -125,30 +156,14 @@ io.on("connection", (socket) => {
   });
 
   socket.on("match:score", async (payload: unknown, acknowledge?: (response: { error?: string }) => void) => {
-    if (user.type !== "judge") {
-      acknowledge?.({ error: "Only judges can submit scores" });
-      return;
-    }
+    if (user.type !== "judge") { acknowledge?.({ error: "Only judges can submit scores" }); return; }
 
     const parsed = scoreSchema.safeParse(payload);
-    if (!parsed.success) {
-      acknowledge?.({ error: "Invalid score data" });
-      return;
-    }
+    if (!parsed.success) { acknowledge?.({ error: "Invalid score data" }); return; }
+    if (!socket.rooms.has(`event:${parsed.data.eventId}`)) { acknowledge?.({ error: "Join the event before scoring" }); return; }
 
-    if (!socket.rooms.has(`event:${parsed.data.eventId}`)) {
-      acknowledge?.({ error: "Join the event before scoring" });
-      return;
-    }
-
-    const match = await prisma.battleMatch.findFirst({
-      where: { id: parsed.data.matchId, eventId: parsed.data.eventId },
-    });
-
-    if (!match) {
-      acknowledge?.({ error: "Match not found" });
-      return;
-    }
+    const match = await prisma.battleMatch.findFirst({ where: { id: parsed.data.matchId, eventId: parsed.data.eventId } });
+    if (!match) { acknowledge?.({ error: "Match not found" }); return; }
 
     const score = await prisma.matchScore.upsert({
       where: { matchId_judgeSlotId: { matchId: match.id, judgeSlotId: user.slotId } },
@@ -156,11 +171,7 @@ io.on("connection", (socket) => {
       create: { matchId: match.id, judgeSlotId: user.slotId, scoreA: parsed.data.scoreA, scoreB: parsed.data.scoreB, feedback: parsed.data.feedback ?? null },
     });
 
-    const totals = await prisma.matchScore.aggregate({
-      where: { matchId: match.id },
-      _sum: { scoreA: true, scoreB: true },
-    });
-
+    const totals = await prisma.matchScore.aggregate({ where: { matchId: match.id }, _sum: { scoreA: true, scoreB: true } });
     const updatedMatch = await prisma.battleMatch.update({
       where: { id: match.id },
       data: { status: "LIVE", scoreA: totals._sum.scoreA ?? 0, scoreB: totals._sum.scoreB ?? 0 },
@@ -171,21 +182,11 @@ io.on("connection", (socket) => {
   });
 
   socket.on("match:complete", async (payload: unknown, acknowledge?: (response: { error?: string }) => void) => {
-    if (user.type !== "organizer") {
-      acknowledge?.({ error: "Only organizers can complete matches" });
-      return;
-    }
+    if (user.type !== "organizer") { acknowledge?.({ error: "Only organizers can complete matches" }); return; }
 
     const parsed = z.object({ eventId: z.string().cuid(), matchId: z.string().cuid(), winnerId: z.string().cuid() }).safeParse(payload);
-    if (!parsed.success) {
-      acknowledge?.({ error: "Invalid data" });
-      return;
-    }
-
-    if (!socket.rooms.has(`event:${parsed.data.eventId}`)) {
-      acknowledge?.({ error: "Join the event before completing a match" });
-      return;
-    }
+    if (!parsed.success) { acknowledge?.({ error: "Invalid data" }); return; }
+    if (!socket.rooms.has(`event:${parsed.data.eventId}`)) { acknowledge?.({ error: "Join the event before completing a match" }); return; }
 
     try {
       const match = await completeMatch(parsed.data.matchId, parsed.data.winnerId, user.userId);
@@ -197,7 +198,9 @@ io.on("connection", (socket) => {
   });
 });
 
-console.log(`CYPHR Socket.io server listening on port ${port}`);
+httpServer.listen(port, () => {
+  console.log(`CYPHR Socket.io server listening on port ${port}`);
+});
 
 async function shutdown() {
   await prisma.$disconnect();

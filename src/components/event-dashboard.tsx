@@ -13,6 +13,7 @@ type Round = {
   roundCount: number;
   roundDuration: number | null;
   advanceCount: number | null;
+  phaseStatus: string | null;
 };
 
 type JudgeSlot = {
@@ -44,6 +45,7 @@ type Category = {
   judgeSlots: JudgeSlot[];
   prizePool: PrizePool | null;
   _count: { registrations: number };
+  currentPhaseOrder: number | null;
 };
 
 type EventWithRelations = {
@@ -71,7 +73,7 @@ type RegistrationRow = {
   user: { name: string | null; email: string };
 };
 
-const TABS = ["Overview", "Categories", "Judges", "Registrations", "Prizes"] as const;
+const TABS = ["Overview", "Categories", "Judges", "Registrations", "Prizes", "Control Room"] as const;
 
 const STATUS_OPTIONS: EventStatus[] = ["DRAFT", "PUBLISHED", "LIVE", "COMPLETED"];
 
@@ -93,9 +95,31 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
 
   const refresh = () => router.refresh();
 
+  const [notice, setNotice] = useState("");
+  const [cypherSelected, setCypherSelected] = useState<Set<string>>(new Set());
+  const [cypherRegs, setCypherRegs] = useState<Array<{id:string, user:{name:string|null}, crew:string|null}>>([]);
+
+  useEffect(() => {
+    if (activeTab !== "Control Room") return;
+    const loadCypherRegs = async () => {
+      const results: Array<{id:string, user:{name:string|null}, crew:string|null}> = [];
+      for (const cat of event.categories) {
+        const currentPhase = cat.rounds.find(r => r.order === cat.currentPhaseOrder && r.phaseStatus === "ACTIVE");
+        if (!currentPhase || !["CYPHER","QUALIFIER"].includes(currentPhase.type)) continue;
+        const res = await fetch(`/api/events/${event.id}/registrations?categoryId=${cat.id}&status=CONFIRMED`);
+        if (res.ok) {
+          const data = await res.json();
+          results.push(...(Array.isArray(data) ? data : []));
+        }
+      }
+      setCypherRegs(results);
+    };
+    void loadCypherRegs();
+  }, [activeTab, event.id]);  // eslint-disable-line
+
   return (
     <div className="mt-section">
-      <div className="grid grid-cols-5 gap-sm mb-xl">
+      <div className="grid grid-cols-6 gap-sm mb-xl">
         {TABS.map((tab) => (
           <button
             key={tab}
@@ -126,6 +150,113 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
       )}
       {activeTab === "Prizes" && (
         <PrizesTab event={event} refresh={refresh} />
+      )}
+      {activeTab === "Control Room" && (
+        <div className="space-y-xl">
+          {notice ? <div className="border border-accent bg-paper-soft p-md text-body-sm text-accent">{notice} <button onClick={() => setNotice("")}>&times;</button></div> : null}
+          {event.status !== "LIVE" ? (
+            <div className="border border-line p-xl text-center">
+              <p className="font-display text-title-md uppercase text-ink-muted">Event is not live</p>
+              <p className="mt-sm text-body-sm text-ink-muted">Switch event status to LIVE in the Overview tab to access the Control Room.</p>
+            </div>
+          ) : (
+            event.categories.map((category) => (
+              <div key={category.id} className="border border-line bg-paper-soft p-lg">
+                <div className="flex flex-wrap items-center justify-between gap-md">
+                  <div>
+                    <h3 className="font-display text-title-md uppercase">{category.name}</h3>
+                    <p className="mt-xs text-body-sm text-ink-muted">
+                      {category.currentPhaseOrder != null 
+                        ? `Phase ${category.currentPhaseOrder} of ${category.rounds.length}: ${category.rounds.find(r => r.order === category.currentPhaseOrder)?.label ?? 'Active'}`
+                        : category.rounds.every(r => r.phaseStatus === "COMPLETE") ? 'All phases complete' : 'Not started'}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="mt-lg">
+                  <div className="flex gap-xs">
+                    {category.rounds.map((round) => {
+                      const isComplete = round.phaseStatus === "COMPLETE";
+                      const isActive = round.phaseStatus === "ACTIVE";
+                      const bg = isComplete ? "bg-accent" : isActive ? "bg-accent" : "bg-line";
+                      return (
+                        <div key={round.id} className={`h-2 flex-1 ${bg}`} 
+                          title={`${round.label ?? round.type} — ${round.phaseStatus}`} />
+                      );
+                    })}
+                  </div>
+                  <div className="mt-xs flex text-[0.6rem] font-mono uppercase text-ink-muted">
+                    {category.rounds.map(round => (
+                      <span key={round.id} className="flex-1 truncate px-xs">{round.label ?? round.type.replace('_', ' ')}</span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-lg flex flex-wrap gap-sm">
+                  {category.currentPhaseOrder == null && category.rounds.some(r => r.phaseStatus === "PENDING") && (
+                    <button className="border border-accent bg-accent px-lg py-sm font-bold uppercase text-paper"
+                      onClick={async () => {
+                        const res = await fetch(`/api/categories/${category.id}/start-phase`, { method: "POST" });
+                        if (res.ok) { router.refresh(); } else { setNotice("Failed to start phase"); }
+                      }}>
+                      Start {category.rounds.find(r => r.phaseStatus === "PENDING")?.label ?? "Phase"}
+                    </button>
+                  )}
+                  
+                  {category.currentPhaseOrder != null && category.rounds.find(r => r.order === category.currentPhaseOrder && r.phaseStatus === "ACTIVE") && (
+                    <>
+                      <button className="border border-accent px-lg py-sm font-bold uppercase text-accent hover:bg-accent hover:text-paper"
+                        onClick={async () => {
+                          const res = await fetch(`/api/categories/${category.id}/advance-phase`, { method: "POST" });
+                          if (res.ok) { router.refresh(); } else { setNotice("Failed to advance phase"); }
+                        }}>
+                        Advance to next phase
+                      </button>
+                      {["CYPHER", "QUALIFIER"].includes(category.rounds.find(r => r.order === category.currentPhaseOrder)!.type) && (
+                        <button className="border border-accent px-lg py-sm font-bold uppercase text-accent"
+                          onClick={() => { }}>
+                          Manage advancement
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {category.currentPhaseOrder != null && ["CYPHER","QUALIFIER"].includes(category.rounds.find(r => r.order === category.currentPhaseOrder)!.type) && (
+                  <div className="mt-lg border-t border-line pt-md">
+                    <p className="font-mono text-[0.7rem] uppercase text-ink-muted mb-md">Mark who advances</p>
+                    {cypherRegs.map(reg => (
+                      <label key={reg.id} className="flex items-center gap-sm py-xs text-body-sm">
+                        <input type="checkbox" checked={cypherSelected.has(reg.id)} onChange={() => {
+                          const next = new Set(cypherSelected);
+                          if (next.has(reg.id)) next.delete(reg.id); else next.add(reg.id);
+                          setCypherSelected(next);
+                        }} className="border border-line bg-paper" />
+                        {reg.user.name} {reg.crew ? `(${reg.crew})` : ''}
+                      </label>
+                    ))}
+                    <button className="mt-md border border-accent bg-accent px-lg py-sm font-bold uppercase text-paper"
+                      onClick={async () => {
+                        const res = await fetch(`/api/categories/${category.id}/cypher-advance`, {
+                          method: "POST", headers: {"Content-Type":"application/json"},
+                          body: JSON.stringify({ registrationIds: Array.from(cypherSelected) })
+                        });
+                        if (res.ok) { router.refresh(); setCypherSelected(new Set()); } else { setNotice("Failed to advance"); }
+                      }}>
+                      Confirm advancement ({cypherSelected.size})
+                    </button>
+                  </div>
+                )}
+
+                {category.currentPhaseOrder != null && (() => {
+                  const currentPhase = category.rounds.find(r => r.order === category.currentPhaseOrder && r.phaseStatus === "ACTIVE");
+                  if (!currentPhase || !["BATTLE_1V1","BATTLE_2V2","BATTLE_3V3","BATTLE_4V4","FINAL"].includes(currentPhase.type)) return null;
+                  return <BracketView categoryId={category.id} eventId={event.id} />;
+                })()}
+              </div>
+            ))
+          )}
+        </div>
       )}
     </div>
   );
@@ -1138,6 +1269,47 @@ function PrizePoolSection({
       >
         {submitting ? "Saving..." : category.prizePool ? "Update prize pool" : "Create prize pool"}
       </button>
+    </div>
+  );
+}
+
+type BracketMatch = {
+  id: string;
+  round: number;
+  position: number;
+  competitorA: { user: { name: string | null } } | null;
+  competitorB: { user: { name: string | null } } | null;
+  scoreA: number;
+  scoreB: number;
+};
+
+function BracketView({ categoryId, eventId }: { categoryId: string; eventId: string }) {
+  const [matches, setMatches] = useState<BracketMatch[]>([]);
+
+  useEffect(() => {
+    const load = async () => {
+      const res = await fetch(`/api/events/${eventId}/categories/${categoryId}/bracket`);
+      if (res.ok) {
+        const data = await res.json();
+        setMatches(Array.isArray(data) ? data : []);
+      }
+    };
+    void load();
+  }, [categoryId, eventId]);
+
+  return (
+    <div className="mt-lg border-t border-line pt-md">
+      <p className="font-mono text-[0.7rem] uppercase text-ink-muted mb-md">Bracket matches</p>
+      {matches.map(match => (
+        <div key={match.id} className="mt-sm border border-line p-md">
+          <span className="font-mono text-[0.7rem] text-ink-muted">R{match.round} M{match.position}</span>
+          <div className="mt-sm flex justify-between text-body-sm">
+            <span>{match.competitorA?.user.name ?? "TBD"} {match.scoreA}</span>
+            <span className="text-accent">vs</span>
+            <span>{match.competitorB?.user.name ?? "TBD"} {match.scoreB}</span>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
