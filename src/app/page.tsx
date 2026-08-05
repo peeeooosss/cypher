@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { EventStatus } from "@/generated/prisma/enums";
 import { EventCard } from "@/components/event-card";
+import { ArtistSlider } from "@/components/artist-slider";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -84,47 +85,8 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Artist types */}
-      <section className="mx-auto max-w-7xl px-md py-section md:px-xl">
-        <p className="font-mono text-center text-body-sm uppercase tracking-[0.2em] text-accent">
-          For every creator
-        </p>
-        <ul className="mt-lg flex flex-wrap justify-center gap-sm text-center font-display text-title-md uppercase sm:justify-start">
-          <li>
-            Dancers
-          </li>
-          <li className="text-ink-muted">
-            •
-          </li>
-          <li>
-            Choreographers
-          </li>
-          <li className="text-ink-muted">
-            •
-          </li>
-          <li>
-            DJs
-          </li>
-          <li className="text-ink-muted">
-            •
-          </li>
-          <li>
-            Guitarists
-          </li>
-          <li className="text-ink-muted">
-            •
-          </li>
-          <li>
-            Drummers
-          </li>
-          <li className="text-ink-muted">
-            •
-          </li>
-          <li>
-            Performers
-          </li>
-        </ul>
-      </section>
+      {/* Artist slider */}
+      <ArtistSlider />
 
       {/* Live now */}
       {liveEvents.length > 0 && (
