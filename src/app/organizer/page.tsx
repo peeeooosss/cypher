@@ -3,6 +3,8 @@ import { SignOutButton } from "@/components/sign-out-button";
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 export default async function OrganizerPage() {
   const user = await requireRole("ORGANIZER");
   const events = await prisma.event.findMany({

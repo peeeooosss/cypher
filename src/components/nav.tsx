@@ -1,0 +1,136 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { useState } from "react";
+
+const navLinks = [
+  { href: "/", label: "Home" },
+  { href: "/events", label: "Events" },
+];
+
+const dashboardLinks: Record<string, { href: string; label: string }[]> = {
+  ORGANIZER: [{ href: "/organizer", label: "Dashboard" }],
+  ARTIST: [{ href: "/artist", label: "Dashboard" }],
+  JUDGE: [{ href: "/judge", label: "Portal" }],
+};
+
+export function Nav() {
+  const pathname = usePathname();
+  const { data: session, status } = useSession();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const role = session?.user?.role;
+  const dashboard = role ? dashboardLinks[role] ?? [] : [];
+
+  return (
+    <header className="sticky top-0 z-50 border-b border-line bg-paper">
+      <nav className="mx-auto flex max-w-7xl items-center justify-between px-md py-md md:px-xl">
+        <Link href="/" className="font-display text-title-md uppercase tracking-[-0.08em]">
+          Call<span className="text-accent">/</span>Out
+        </Link>
+
+        <div className="hidden items-center gap-lg md:flex">
+          {navLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`font-mono text-[0.7rem] uppercase tracking-[0.15em] transition-colors hover:text-accent ${
+                pathname === link.href ? "text-accent" : "text-ink-muted"
+              }`}
+            >
+              {link.label}
+            </Link>
+          ))}
+          {dashboard.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`font-mono text-[0.7rem] uppercase tracking-[0.15em] transition-colors hover:text-accent ${
+                pathname === link.href ? "text-accent" : "text-ink-muted"
+              }`}
+            >
+              {link.label}
+            </Link>
+          ))}
+
+          {status === "authenticated" ? (
+            <form action="/api/auth/signout" method="POST" className="inline-block">
+              <button
+                type="submit"
+                className="border border-line px-md py-xs font-mono text-[0.7rem] uppercase tracking-[0.15em] transition-colors hover:border-accent hover:text-accent cursor-pointer"
+              >
+                Sign out
+              </button>
+            </form>
+          ) : (
+            <Link
+              href="/login"
+              className="border border-accent bg-accent px-md py-xs font-mono text-[0.7rem] uppercase tracking-[0.15em] text-paper transition-opacity hover:opacity-80"
+            >
+              Sign in
+            </Link>
+          )}
+        </div>
+
+        <button
+          className="border border-line px-sm py-xs font-mono text-[0.7rem] uppercase md:hidden"
+          onClick={() => setMenuOpen(!menuOpen)}
+          type="button"
+        >
+          {menuOpen ? "Close" : "Menu"}
+        </button>
+      </nav>
+
+      {menuOpen ? (
+        <div className="border-t border-line px-md py-md md:hidden">
+          <div className="flex flex-col gap-md">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={() => setMenuOpen(false)}
+                className={`font-mono text-[0.75rem] uppercase tracking-[0.15em] ${
+                  pathname === link.href ? "text-accent" : "text-ink-muted"
+                }`}
+              >
+                {link.label}
+              </Link>
+            ))}
+            {dashboard.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={() => setMenuOpen(false)}
+                className={`font-mono text-[0.75rem] uppercase tracking-[0.15em] ${
+                  pathname === link.href ? "text-accent" : "text-ink-muted"
+                }`}
+              >
+                {link.label}
+              </Link>
+            ))}
+            {status === "authenticated" ? (
+              <form action="/api/auth/signout" method="POST">
+                <button
+                  type="submit"
+                  className="font-mono text-[0.75rem] uppercase tracking-[0.15em] text-ink-muted cursor-pointer"
+                >
+                  Sign out
+                </button>
+              </form>
+            ) : (
+              <Link
+                href="/login"
+                onClick={() => setMenuOpen(false)}
+                className="border border-accent bg-accent px-md py-xs text-center font-mono text-[0.75rem] uppercase tracking-[0.15em] text-paper"
+              >
+                Sign in
+              </Link>
+            )}
+          </div>
+        </div>
+      ) : null}
+    </header>
+  );
+}
