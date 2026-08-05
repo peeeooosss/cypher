@@ -14,51 +14,55 @@ const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) })
 
 const passwordHash = await hash(password, 12);
 
+// ---- Organizer ----
 const organizer = await prisma.user.upsert({
   where: { email: "organizer@callout.local" },
   update: { name: "Cypher Org", role: UserRole.ORGANIZER, passwordHash },
   create: { email: "organizer@callout.local", name: "Cypher Org", role: UserRole.ORGANIZER, passwordHash },
 });
 
-const artistEmails = [
-  "artist1@callout.local",
-  "artist2@callout.local",
-  "artist3@callout.local",
-  "artist4@callout.local",
-  "artist5@callout.local",
-];
+// ---- Delete old demo event (cascade wipes categories, rounds, matches, judge slots, prize pools, registrations) ----
+try {
+  await prisma.event.delete({ where: { slug: "summer-cypher-2026" } });
+} catch {
+  // event doesn't exist yet — that's fine
+}
 
-const artistNames = [
-  "Mike Chen",
-  "Sarah Kim",
-  "Dave Rodriguez",
-  "Anna Liu",
-  "James Park",
+// ---- 30 mock artists ----
+const artistDefs = [
+  "Mike Chen", "Sarah Kim", "Dave Rodriguez", "Anna Liu", "James Park",
+  "Lisa Tran", "Marcus Johnson", "Nina Patel", "Tyrone Williams", "Yuki Tanaka",
+  "Diego Martinez", "Aaliyah Brown", "Kenji Sato", "Maria Garcia", "Chris Osei",
+  "Maya Singh", "Trevor Hayes", "Luna Cruz", "Andre Dubois", "Priya Sharma",
+  "Jamal Davis", "Sofia Rossi", "Kai Nakamura", "Zara Ahmed", "Felix Wong",
+  "Imani Jones", "Hiro Yamamoto", "Eva Novak", "Malik Carter", "Rosa Lopez",
 ];
 
 const artists = [];
-for (let i = 0; i < artistEmails.length; i++) {
+for (let i = 0; i < artistDefs.length; i++) {
+  const name = artistDefs[i];
+  const email = `artist${i + 1}@callout.local`;
   const user = await prisma.user.upsert({
-    where: { email: artistEmails[i] },
-    update: { name: artistNames[i], role: UserRole.ARTIST, passwordHash },
-    create: { email: artistEmails[i], name: artistNames[i], role: UserRole.ARTIST, passwordHash },
+    where: { email },
+    update: { name, role: UserRole.ARTIST, passwordHash },
+    create: { email, name, role: UserRole.ARTIST, passwordHash },
   });
   artists.push(user);
 }
 
+// Keep the legacy judge login account for back-compat
 await prisma.user.upsert({
   where: { email: "judge@callout.local" },
-  update: { name: "CallOut Judge", role: UserRole.JUDGE, passwordHash },
-  create: { email: "judge@callout.local", name: "CallOut Judge", role: UserRole.JUDGE, passwordHash },
+  update: { name: "Legacy Judge", role: UserRole.JUDGE, passwordHash },
+  create: { email: "judge@callout.local", name: "Legacy Judge", role: UserRole.JUDGE, passwordHash },
 });
 
+// ---- Event ----
 const now = new Date();
 const startsAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-const event = await prisma.event.upsert({
-  where: { slug: "summer-cypher-2026" },
-  update: { title: "Summer Cypher 2026", venue: "The Underground", city: "Brooklyn", status: "PUBLISHED", startsAt },
-  create: {
+const event = await prisma.event.create({
+  data: {
     title: "Summer Cypher 2026",
     slug: "summer-cypher-2026",
     venue: "The Underground",
@@ -69,158 +73,115 @@ const event = await prisma.event.upsert({
   },
 });
 
-const categoryDefs = [
-  { name: "Breaking", maxCompetitors: 32 },
-  { name: "Popping", maxCompetitors: 32 },
-  { name: "Hip-Hop", maxCompetitors: 16 },
-];
+// ---- Categories ----
+const breaking = await prisma.category.create({ data: { eventId: event.id, name: "Breaking", maxCompetitors: 32 } });
+const popping = await prisma.category.create({ data: { eventId: event.id, name: "Popping", maxCompetitors: 32 } });
+const hiphop = await prisma.category.create({ data: { eventId: event.id, name: "Hip-Hop", maxCompetitors: 16 } });
 
-const categories = [];
-for (const def of categoryDefs) {
-  const category = await prisma.category.upsert({
-    where: { eventId_name: { eventId: event.id, name: def.name } },
-    update: { maxCompetitors: def.maxCompetitors },
-    create: { eventId: event.id, name: def.name, maxCompetitors: def.maxCompetitors },
-  });
-  categories.push(category);
+// ---- Round phases ----
+const phaseDefs: Record<string, Array<{ order: number; type: RoundType; label: string; roundCount: number; roundDuration: number; advanceCount?: number }>> = {
+  breaking: [
+    { order: 1, type: RoundType.CYPHER, label: "Cypher Round", roundCount: 1, roundDuration: 60, advanceCount: 8 },
+    { order: 2, type: RoundType.BATTLE_1V1, label: "Top 8", roundCount: 2, roundDuration: 30 },
+    { order: 3, type: RoundType.FINAL, label: "Finals", roundCount: 3, roundDuration: 45 },
+  ],
+  popping: [
+    { order: 1, type: RoundType.CYPHER, label: "Cypher Round", roundCount: 1, roundDuration: 60, advanceCount: 8 },
+    { order: 2, type: RoundType.BATTLE_1V1, label: "Top 8", roundCount: 2, roundDuration: 30 },
+    { order: 3, type: RoundType.FINAL, label: "Finals", roundCount: 3, roundDuration: 45 },
+  ],
+  hiphop: [
+    { order: 1, type: RoundType.QUALIFIER, label: "Qualifiers", roundCount: 1, roundDuration: 45, advanceCount: 8 },
+    { order: 2, type: RoundType.BATTLE_1V1, label: "Top 8", roundCount: 2, roundDuration: 30 },
+    { order: 3, type: RoundType.FINAL, label: "Finals", roundCount: 3, roundDuration: 45 },
+  ],
+};
+
+for (const [catName, phases] of Object.entries(phaseDefs)) {
+  const cat = catName === "breaking" ? breaking : catName === "popping" ? popping : hiphop;
+  for (const phase of phases) {
+    await prisma.roundFormat.create({
+      data: {
+        categoryId: cat.id,
+        order: phase.order,
+        type: phase.type,
+        label: phase.label,
+        roundCount: phase.roundCount,
+        roundDuration: phase.roundDuration,
+        advanceCount: phase.advanceCount ?? null,
+        phaseStatus: "PENDING",
+      },
+    });
+  }
 }
 
-const breaking = categories[0];
-const popping = categories[1];
-const hiphop = categories[2];
-
-const breakingPhases = [
-  { order: 1, type: RoundType.CYPHER, label: "Cypher Round", roundCount: 1, roundDuration: 60, advanceCount: 8 },
-  { order: 2, type: RoundType.BATTLE_1V1, label: "Top 8", roundCount: 2, roundDuration: 30, advanceCount: undefined },
-  { order: 3, type: RoundType.FINAL, label: "Finals", roundCount: 3, roundDuration: 45, advanceCount: undefined },
-];
-
-const poppingPhases = [
-  { order: 1, type: RoundType.CYPHER, label: "Cypher Round", roundCount: 1, roundDuration: 60, advanceCount: 8 },
-  { order: 2, type: RoundType.BATTLE_1V1, label: "Top 8", roundCount: 2, roundDuration: 30, advanceCount: undefined },
-  { order: 3, type: RoundType.FINAL, label: "Finals", roundCount: 3, roundDuration: 45, advanceCount: undefined },
-];
-
-const hiphopPhases = [
-  { order: 1, type: RoundType.QUALIFIER, label: "Qualifiers", roundCount: 1, roundDuration: 45, advanceCount: 8 },
-  { order: 2, type: RoundType.BATTLE_1V1, label: "Top 8", roundCount: 2, roundDuration: 30, advanceCount: undefined },
-  { order: 3, type: RoundType.FINAL, label: "Finals", roundCount: 3, roundDuration: 45, advanceCount: undefined },
-];
-
-for (const phase of breakingPhases) {
-  await prisma.roundFormat.upsert({
-    where: { categoryId_order: { categoryId: breaking.id, order: phase.order } },
-    update: { type: phase.type, label: phase.label, roundCount: phase.roundCount, roundDuration: phase.roundDuration, advanceCount: phase.advanceCount, phaseStatus: "PENDING" },
-    create: { categoryId: breaking.id, order: phase.order, type: phase.type, label: phase.label, roundCount: phase.roundCount, roundDuration: phase.roundDuration, advanceCount: phase.advanceCount, phaseStatus: "PENDING" },
-  });
-}
-
-for (const phase of poppingPhases) {
-  await prisma.roundFormat.upsert({
-    where: { categoryId_order: { categoryId: popping.id, order: phase.order } },
-    update: { type: phase.type, label: phase.label, roundCount: phase.roundCount, roundDuration: phase.roundDuration, advanceCount: phase.advanceCount, phaseStatus: "PENDING" },
-    create: { categoryId: popping.id, order: phase.order, type: phase.type, label: phase.label, roundCount: phase.roundCount, roundDuration: phase.roundDuration, advanceCount: phase.advanceCount, phaseStatus: "PENDING" },
-  });
-}
-
-for (const phase of hiphopPhases) {
-  await prisma.roundFormat.upsert({
-    where: { categoryId_order: { categoryId: hiphop.id, order: phase.order } },
-    update: { type: phase.type, label: phase.label, roundCount: phase.roundCount, roundDuration: phase.roundDuration, advanceCount: phase.advanceCount, phaseStatus: "PENDING" },
-    create: { categoryId: hiphop.id, order: phase.order, type: phase.type, label: phase.label, roundCount: phase.roundCount, roundDuration: phase.roundDuration, advanceCount: phase.advanceCount, phaseStatus: "PENDING" },
-  });
-}
-
+// ---- Judge slots (9 total: 3 per category) ----
 const judgeSlotDefs = [
-  { code: "BRK001", name: "Head Judge", category: breaking },
-  { code: "BRK002", name: "Score Judge", category: breaking },
-  { code: "BRK003", name: "Tech Judge", category: breaking },
-  { code: "POP001", name: "Head Judge", category: popping },
-  { code: "POP002", name: "Score Judge", category: popping },
-  { code: "POP003", name: "Tech Judge", category: popping },
-  { code: "HIP001", name: "Head Judge", category: hiphop },
-  { code: "HIP002", name: "Score Judge", category: hiphop },
-  { code: "HIP003", name: "Tech Judge", category: hiphop },
+  { code: "BRK001", name: "Head Judge", categoryId: breaking.id },
+  { code: "BRK002", name: "Score Judge", categoryId: breaking.id },
+  { code: "BRK003", name: "Tech Judge", categoryId: breaking.id },
+  { code: "POP001", name: "Head Judge", categoryId: popping.id },
+  { code: "POP002", name: "Score Judge", categoryId: popping.id },
+  { code: "POP003", name: "Tech Judge", categoryId: popping.id },
+  { code: "HIP001", name: "Head Judge", categoryId: hiphop.id },
+  { code: "HIP002", name: "Score Judge", categoryId: hiphop.id },
+  { code: "HIP003", name: "Tech Judge", categoryId: hiphop.id },
 ];
 
 for (const slot of judgeSlotDefs) {
-  await prisma.judgeSlot.upsert({
-    where: { code: slot.code },
-    update: { name: slot.name, isActive: true, eventId: event.id, categoryId: slot.category.id },
-    create: { code: slot.code, name: slot.name, isActive: true, eventId: event.id, categoryId: slot.category.id },
+  await prisma.judgeSlot.create({
+    data: { code: slot.code, name: slot.name, eventId: event.id, categoryId: slot.categoryId, isActive: true },
   });
 }
 
-const crews = ["Soul Mechanics", "Floor Assassins", "Rhythm Killers", "Flow State"];
-const cities = ["Brooklyn", "Queens", "Bronx"];
-const experienceLevels = ["PRO", "ADVANCED", "INTERMEDIATE"];
+// ---- Registrations: 12 Breaking, 10 Popping, 8 Hip-Hop = 30 total ----
+const crews = ["Soul Mechanics", "Floor Assassins", "Rhythm Killers", "Flow State", "Concrete Kings", null];
+const cities = ["Brooklyn", "Queens", "Bronx", "Jersey City", "Newark"];
+const experiences = ["PRO", "ADVANCED", "INTERMEDIATE"];
+const referrals = ["Instagram", "TikTok", "Friend", "Crew", "Event Website"];
 
-let seedCounter = 1;
-for (const category of categories) {
-  for (let i = 0; i < artists.length; i++) {
-    const artist = artists[i];
-    const existing = await prisma.registration.findUnique({
-      where: { userId_categoryId: { userId: artist.id, categoryId: category.id } },
+const regPlan: Array<{ category: typeof breaking; count: number; offset: number }> = [
+  { category: breaking, count: 12, offset: 0 },
+  { category: popping, count: 10, offset: 12 },
+  { category: hiphop, count: 8, offset: 22 },
+];
+
+let seedNum = 1;
+for (const plan of regPlan) {
+  for (let i = 0; i < plan.count; i++) {
+    const artist = artists[plan.offset + i];
+    await prisma.registration.create({
+      data: {
+        userId: artist.id,
+        categoryId: plan.category.id,
+        status: "CONFIRMED",
+        seed: seedNum,
+        style: plan.category.name,
+        crew: crews[i % crews.length] ?? null,
+        city: cities[i % cities.length],
+        country: "US",
+        experience: experiences[i % experiences.length],
+        socialHandle: `@${artist.name?.toLowerCase().replace(/\s+/g, "")}`,
+        referral: referrals[i % referrals.length],
+      },
     });
-    if (existing) {
-      await prisma.registration.update({
-        where: { id: existing.id },
-        data: {
-          status: "CONFIRMED",
-          seed: seedCounter,
-          style: category.name,
-          crew: crews[i % crews.length],
-          city: cities[i % cities.length],
-          experience: experienceLevels[i % experienceLevels.length],
-          socialHandle: `@${artist.name?.toLowerCase().replace(/\s+/g, "")}`,
-          referral: "Instagram",
-        },
-      });
-    } else {
-      await prisma.registration.create({
-        data: {
-          userId: artist.id,
-          categoryId: category.id,
-          status: "CONFIRMED",
-          seed: seedCounter,
-          style: category.name,
-          crew: crews[i % crews.length],
-          city: cities[i % cities.length],
-          experience: experienceLevels[i % experienceLevels.length],
-          socialHandle: `@${artist.name?.toLowerCase().replace(/\s+/g, "")}`,
-          referral: "Instagram",
-        },
-      });
-    }
-    seedCounter++;
+    seedNum++;
   }
-  seedCounter = 1;
+  seedNum = 1;
 }
 
-const prizePoolDistribution = [
+// ---- Prize pools ----
+const distribution = [
   { rank: 1, label: "Winner", pct: 60 },
   { rank: 2, label: "Runner-up", pct: 25 },
   { rank: 3, label: "Semi-finalist", pct: 15 },
 ];
 
-await prisma.prizePool.upsert({
-  where: { categoryId: breaking.id },
-  update: { totalAmount: 2500, distribution: prizePoolDistribution },
-  create: { categoryId: breaking.id, totalAmount: 2500, distribution: prizePoolDistribution },
-});
+await prisma.prizePool.create({ data: { categoryId: breaking.id, totalAmount: 250000, currency: "USD", distribution } });
+await prisma.prizePool.create({ data: { categoryId: popping.id, totalAmount: 150000, currency: "USD", distribution } });
+await prisma.prizePool.create({ data: { categoryId: hiphop.id, totalAmount: 100000, currency: "USD", distribution } });
 
-await prisma.prizePool.upsert({
-  where: { categoryId: popping.id },
-  update: { totalAmount: 1500, distribution: prizePoolDistribution },
-  create: { categoryId: popping.id, totalAmount: 1500, distribution: prizePoolDistribution },
-});
-
-await prisma.prizePool.upsert({
-  where: { categoryId: hiphop.id },
-  update: { totalAmount: 1000, distribution: prizePoolDistribution },
-  create: { categoryId: hiphop.id, totalAmount: 1000, distribution: prizePoolDistribution },
-});
-
+// ---- Feedback templates ----
 const feedbackTemplates = [
   { text: "Excellent musicality and timing", minScore: 8, maxScore: 10, scoreLabel: "High" },
   { text: "Clean, precise footwork", minScore: 8, maxScore: 10, scoreLabel: "High" },
@@ -235,20 +196,14 @@ const feedbackTemplates = [
 ];
 
 for (const tpl of feedbackTemplates) {
-  const existing = await prisma.feedbackTemplate.findFirst({
-    where: { text: tpl.text, organizerId: organizer.id },
-  });
+  const existing = await prisma.feedbackTemplate.findFirst({ where: { text: tpl.text, organizerId: organizer.id } });
   if (!existing) {
     await prisma.feedbackTemplate.create({
-      data: {
-        organizerId: organizer.id,
-        text: tpl.text,
-        minScore: tpl.minScore,
-        maxScore: tpl.maxScore,
-        scoreLabel: tpl.scoreLabel,
-      },
+      data: { organizerId: organizer.id, text: tpl.text, minScore: tpl.minScore, maxScore: tpl.maxScore, scoreLabel: tpl.scoreLabel },
     });
   }
 }
+
+console.log("Seed complete: 1 organizer, 30 artists, 1 event, 3 categories, 9 judge slots, 30 registrations, 3 prize pools, 10 feedback templates");
 
 await prisma.$disconnect();

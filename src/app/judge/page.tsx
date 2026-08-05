@@ -15,7 +15,13 @@ export default function JudgeEntryPage() {
     setIsSubmitting(true);
 
     const formData = new FormData(event.currentTarget);
-    const code = formData.get("code") as string;
+    const code = String(formData.get("code") ?? "").trim().toUpperCase();
+
+    if (code.length !== 6) {
+      setError("Code must be 6 characters");
+      setIsSubmitting(false);
+      return;
+    }
 
     const res = await fetch(`/api/judge-slots/${code}`);
 

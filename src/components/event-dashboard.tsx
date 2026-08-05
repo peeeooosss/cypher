@@ -197,7 +197,17 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
                     <button className="border border-accent bg-accent px-lg py-sm font-bold uppercase text-paper"
                       onClick={async () => {
                         const res = await fetch(`/api/categories/${category.id}/start-phase`, { method: "POST" });
-                        if (res.ok) { router.refresh(); } else { setNotice("Failed to start phase"); }
+                        if (res.ok) {
+                          setEvent({
+                            ...event,
+                            categories: event.categories.map(c =>
+                              c.id === category.id ? { ...c, currentPhaseOrder: 1, rounds: c.rounds.map((r, i) => i === 0 ? { ...r, phaseStatus: "ACTIVE" } : r) } : c
+                            ),
+                          });
+                          router.refresh();
+                        } else {
+                          setNotice("Failed to start phase");
+                        }
                       }}>
                       Start {category.rounds.find(r => r.phaseStatus === "PENDING")?.label ?? "Phase"}
                     </button>
@@ -208,7 +218,27 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
                       <button className="border border-accent px-lg py-sm font-bold uppercase text-accent hover:bg-accent hover:text-paper"
                         onClick={async () => {
                           const res = await fetch(`/api/categories/${category.id}/advance-phase`, { method: "POST" });
-                          if (res.ok) { router.refresh(); } else { setNotice("Failed to advance phase"); }
+                          if (res.ok) {
+                            const nextOrder = (category.currentPhaseOrder ?? 0) + 1;
+                            const allComplete = nextOrder > category.rounds.length;
+                            setEvent({
+                              ...event,
+                              categories: event.categories.map(c =>
+                                c.id === category.id ? {
+                                  ...c,
+                                  currentPhaseOrder: allComplete ? null : nextOrder,
+                                  rounds: c.rounds.map(r => {
+                                    if (r.order === c.currentPhaseOrder) return { ...r, phaseStatus: "COMPLETE" };
+                                    if (!allComplete && r.order === nextOrder) return { ...r, phaseStatus: "ACTIVE" };
+                                    return r;
+                                  }),
+                                } : c
+                              ),
+                            });
+                            router.refresh();
+                          } else {
+                            setNotice("Failed to advance phase");
+                          }
                         }}>
                         Advance to next phase
                       </button>
@@ -241,7 +271,13 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
                           method: "POST", headers: {"Content-Type":"application/json"},
                           body: JSON.stringify({ registrationIds: Array.from(cypherSelected) })
                         });
-                        if (res.ok) { router.refresh(); setCypherSelected(new Set()); } else { setNotice("Failed to advance"); }
+                        if (res.ok) {
+                          setCypherSelected(new Set());
+                          setNotice("Advancement confirmed");
+                          router.refresh();
+                        } else {
+                          setNotice("Failed to advance");
+                        }
                       }}>
                       Confirm advancement ({cypherSelected.size})
                     </button>

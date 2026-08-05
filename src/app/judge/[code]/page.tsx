@@ -8,9 +8,10 @@ type PageParams = { params: Promise<{ code: string }> };
 
 export default async function JudgeCodePage({ params }: PageParams) {
   const { code } = await params;
+  const normalizedCode = code.toUpperCase();
 
   const slot = await prisma.judgeSlot.findUnique({
-    where: { code },
+    where: { code: normalizedCode },
     include: {
       category: {
         select: {
@@ -59,7 +60,7 @@ export default async function JudgeCodePage({ params }: PageParams) {
       <p className="mt-sm text-body-sm text-ink-muted">
         {slot.category.event.title}
       </p>
-      <ScoringInterface code={code} data={slot} />
+      <ScoringInterface code={normalizedCode} data={slot} />
     </main>
   );
 }
