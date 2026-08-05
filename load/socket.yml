@@ -1,0 +1,34 @@
+config:
+  target: "{{ $processEnvironment.SOCKET_URL }}"
+  phases:
+    - duration: 30
+      arrivalRate: 2
+      name: warmup
+    - duration: 60
+      arrivalRate: 10
+      name: live-event-load
+  engines:
+    socketio: {}
+  socketio:
+    transports:
+      - websocket
+    extraHeaders:
+      Cookie: "{{ $processEnvironment.AUTH_COOKIE }}"
+
+scenarios:
+  - name: join live event
+    engine: socketio
+    flow:
+      - emit:
+          channel: event:join
+          data:
+            eventId: "{{ $processEnvironment.EVENT_ID }}"
+      - think: 5
+      - emit:
+          channel: match:score
+          data:
+            eventId: "{{ $processEnvironment.EVENT_ID }}"
+            matchId: "{{ $processEnvironment.MATCH_ID }}"
+            scoreA: 1
+            scoreB: 0
+      - think: 5

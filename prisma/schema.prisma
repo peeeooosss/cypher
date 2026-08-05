@@ -1,0 +1,148 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  ORGANIZER
+  ARTIST
+  JUDGE
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  LIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum RegistrationStatus {
+  PENDING
+  CONFIRMED
+  WITHDRAWN
+}
+
+enum MatchStatus {
+  PENDING
+  LIVE
+  COMPLETE
+}
+
+model User {
+  id              String         @id @default(cuid())
+  email           String         @unique
+  name            String?
+  passwordHash    String?
+  role            UserRole       @default(ARTIST)
+  organizedEvents Event[]        @relation("EventOrganizer")
+  judgedEvents    Event[]        @relation("EventJudges")
+  registrations   Registration[]
+  matchScores     MatchScore[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+model Event {
+  id          String        @id @default(cuid())
+  organizerId String
+  title       String
+  slug        String        @unique
+  description String?
+  venue       String?
+  city        String?
+  startsAt    DateTime
+  status      EventStatus   @default(DRAFT)
+  organizer   User          @relation("EventOrganizer", fields: [organizerId], references: [id])
+  judges      User[]        @relation("EventJudges")
+  categories  Category[]
+  matches     BattleMatch[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([organizerId])
+  @@index([startsAt])
+}
+
+model Category {
+  id             String         @id @default(cuid())
+  eventId        String
+  name           String
+  maxCompetitors Int?
+  event          Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  registrations  Registration[]
+  matches        BattleMatch[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([eventId, name])
+  @@index([eventId])
+}
+
+model Registration {
+  id         String             @id @default(cuid())
+  userId     String
+  categoryId String
+  status     RegistrationStatus @default(PENDING)
+  seed       Int?
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category   Category           @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  matchesAsA BattleMatch[]      @relation("CompetitorA")
+  matchesAsB BattleMatch[]      @relation("CompetitorB")
+  matchesWon BattleMatch[]      @relation("MatchWinner")
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  @@unique([userId, categoryId])
+  @@index([categoryId, status])
+}
+
+model BattleMatch {
+  id              String        @id @default(cuid())
+  eventId         String
+  categoryId      String
+  round           Int
+  position        Int
+  status          MatchStatus   @default(PENDING)
+  competitorAId   String?
+  competitorBId   String?
+  scoreA          Int           @default(0)
+  scoreB          Int           @default(0)
+  winnerId        String?
+  nextMatchId     String?
+  event           Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  category        Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  competitorA     Registration? @relation("CompetitorA", fields: [competitorAId], references: [id])
+  competitorB     Registration? @relation("CompetitorB", fields: [competitorBId], references: [id])
+  winner          Registration? @relation("MatchWinner", fields: [winnerId], references: [id])
+  nextMatch       BattleMatch?  @relation("BracketProgression", fields: [nextMatchId], references: [id])
+  previousMatches BattleMatch[] @relation("BracketProgression")
+  scores          MatchScore[]
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([categoryId, round, position])
+  @@index([eventId, categoryId])
+  @@index([nextMatchId])
+}
+
+model MatchScore {
+  id          String      @id @default(cuid())
+  matchId     String
+  judgeId     String
+  scoreA      Int
+  scoreB      Int
+  match       BattleMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  judge       User        @relation(fields: [judgeId], references: [id], onDelete: Cascade)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@unique([matchId, judgeId])
+  @@index([judgeId])
+}
