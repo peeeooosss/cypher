@@ -40,10 +40,10 @@ export default async function Home() {
             <p className="font-mono text-center text-body-sm uppercase tracking-[0.18em] text-accent sm:text-left">
               Underground artist network
             </p>
-            <h1 className="mt-lg max-w-2xl font-display text-center text-display-xl uppercase tracking-[-0.03em] leading-tight text-ink sm:text-left">
+            <h1 className="mt-lg font-display text-center text-display-xl uppercase tracking-[-0.03em] leading-tight text-ink sm:text-left md:max-w-2xl">
               The floor is calling.
             </h1>
-            <p className="mt-md max-w-xl text-center text-body-md text-ink-muted sm:max-w-2xl sm:text-left">
+            <p className="mt-md text-center text-body-md text-ink-muted sm:text-left sm:max-w-2xl">
               Find the next cypher. Enter the battle. Build your name. CYPHR connects
               dancers, choreographers, DJs, guitarists, drummers, and performers to
               the underground community.
