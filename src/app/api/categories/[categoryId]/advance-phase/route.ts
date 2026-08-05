@@ -3,6 +3,7 @@ import { badRequest, forbidden, notFound, unauthorized } from "@/lib/api";
 import { generateBracket, BracketError } from "@/lib/bracket";
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
+import { emitToSocket } from "@/lib/socket-emit";
 
 type Context = { params: Promise<{ categoryId: string }> };
 
@@ -21,8 +22,10 @@ export async function POST(_request: Request, { params }: Context) {
   if (!category) return notFound("Category");
   if (category.event.organizerId !== user.id) return forbidden();
 
-  const currentPhase = category.rounds.find((r) => r.order === category.currentPhaseOrder && r.phaseStatus === "ACTIVE");
-  if (!currentPhase) return badRequest("No active phase to advance");
+  const currentPhase = category.rounds.find(
+    (r) => r.order === category.currentPhaseOrder && (r.phaseStatus === "ACTIVE" || r.phaseStatus === "COMPLETE"),
+  );
+  if (!currentPhase) return badRequest("No active or completed phase to advance");
 
   await prisma.roundFormat.update({ where: { id: currentPhase.id }, data: { phaseStatus: "COMPLETE" } });
 
@@ -42,9 +45,34 @@ export async function POST(_request: Request, { params }: Context) {
       }
     }
 
+    // Emit socket events for real-time updates
+    await emitToSocket(category.eventId, "phase:completed", {
+      phaseId: currentPhase.id,
+      phaseOrder: currentPhase.order,
+      categoryId,
+    });
+    await emitToSocket(category.eventId, "phase:activated", {
+      phaseId: nextPhase.id,
+      phaseOrder: nextPhase.order,
+      type: nextPhase.type,
+      label: nextPhase.label,
+      categoryId,
+    });
+    if (matches.length > 0) {
+      await emitToSocket(category.eventId, "bracket:generated", {
+        matches,
+        categoryId,
+      });
+    }
+
     return NextResponse.json({ previousPhase: currentPhase, nextPhase, matches });
   }
 
   await prisma.category.update({ where: { id: categoryId }, data: { currentPhaseOrder: null } });
+  await emitToSocket(category.eventId, "phase:completed", {
+    phaseId: currentPhase.id,
+    phaseOrder: currentPhase.order,
+    categoryId,
+  });
   return NextResponse.json({ previousPhase: currentPhase, nextPhase: null, done: true });
 }

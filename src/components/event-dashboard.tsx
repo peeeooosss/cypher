@@ -2,6 +2,7 @@
 
 import { useState, useEffect, FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { LiveLeaderboard } from "@/components/live-leaderboard";
 import type { EventStatus, RoundType, RegistrationStatus } from "@/generated/prisma/enums";
 
 type Round = {
@@ -190,6 +191,10 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
                       <span key={round.id} className="flex-1 truncate px-xs">{round.label ?? round.type.replace('_', ' ')}</span>
                     ))}
                   </div>
+                </div>
+
+                <div className="mt-lg border-t border-line pt-lg">
+                  <LiveLeaderboard eventId={event.id} title={category.name} compact />
                 </div>
 
                 <div className="mt-lg flex flex-wrap gap-sm">

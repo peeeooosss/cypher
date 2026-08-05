@@ -3,6 +3,7 @@ import { badRequest, forbidden, notFound, unauthorized } from "@/lib/api";
 import { generateBracket, BracketError } from "@/lib/bracket";
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
+import { emitToSocket } from "@/lib/socket-emit";
 
 type Context = { params: Promise<{ categoryId: string }> };
 
@@ -36,6 +37,14 @@ export async function POST(_request: Request, { params }: Context) {
       throw error;
     }
   }
+
+  await emitToSocket(category.eventId, "phase:activated", {
+    phaseId: nextPhase.id,
+    phaseOrder: nextPhase.order,
+    type: nextPhase.type,
+    label: nextPhase.label,
+    categoryId,
+  });
 
   return NextResponse.json({ phase: nextPhase, matches });
 }

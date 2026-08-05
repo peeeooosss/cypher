@@ -3,6 +3,7 @@ import { z } from "zod";
 import { badRequest, forbidden, notFound, unauthorized } from "@/lib/api";
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
+import { emitToSocket } from "@/lib/socket-emit";
 
 const cypherAdvanceSchema = z.object({ registrationIds: z.array(z.string().cuid()) });
 
@@ -45,10 +46,16 @@ export async function POST(request: Request, { params }: Context) {
     if (!confirmedIds.has(invalidId)) return badRequest(`Registration ${invalidId} is not confirmed`);
   }
 
-  await prisma.$transaction([
-    ...toWithdraw.map((r) => prisma.registration.update({ where: { id: r.id }, data: { status: "WITHDRAWN" } })),
-    prisma.roundFormat.update({ where: { id: currentPhase.id }, data: { phaseStatus: "COMPLETE" } }),
-  ]);
+  await prisma.$transaction(
+    toWithdraw.map((r) => prisma.registration.update({ where: { id: r.id }, data: { status: "WITHDRAWN" } }))
+  );
+
+  // Emit socket events for real-time updates
+  await emitToSocket(category.eventId, "registration:withdrawn", {
+    registrationIds: toWithdraw.map((r) => r.id),
+    categoryId,
+  });
+  await emitToSocket(category.eventId, "leaderboard:update", { categoryId });
 
   return NextResponse.json({ advanced: registrationIds.length, withdrawn: toWithdraw.length });
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { io } from "socket.io-client";
 
 type Competitor = { user: { name: string | null } } | null;
@@ -22,6 +22,7 @@ type RegistrationDisplay = {
   seed: number | null;
   crew: string | null;
   city: string | null;
+  status: string;
   user: { name: string | null; email: string };
   dancerScores: { roundFormatId: string; score: number; judgeSlotId: string }[];
 };
@@ -64,7 +65,7 @@ export function ScoringInterface({
   code,
   slotId,
   data,
-  activeRound,
+  activeRound: initialActiveRound,
 }: {
   code: string;
   slotId: string;
@@ -72,6 +73,9 @@ export function ScoringInterface({
   activeRound: RoundDisplay | null;
 }) {
   const [liveMatches, setLiveMatches] = useState(data.category.matches);
+  const [registrations, setRegistrations] = useState(data.category.registrations);
+  const [rounds, setRounds] = useState(data.category.rounds);
+  const [currentPhaseOrder, setCurrentPhaseOrder] = useState(data.category.currentPhaseOrder);
   const [myDancerScores, setMyDancerScores] = useState<
     Record<string, DancerScoreInput>
   >(() => initialMyScores(data.category.registrations, slotId));
@@ -87,11 +91,25 @@ export function ScoringInterface({
   const [dancerFeedback, setDancerFeedback] = useState<Record<string, string>>({});
 
   const eventId = data.category.event.id;
+
+  const activeRound = rounds.find((r) => r.order === currentPhaseOrder && r.phaseStatus === "ACTIVE") ?? initialActiveRound ?? null;
+
   const isRosterMode =
     activeRound != null &&
     ["CYPHER", "QUALIFIER"].includes(activeRound.type) &&
-    data.category.registrations.length > 0;
+    registrations.length > 0;
 
+  const fetchFullData = useCallback(async () => {
+    const res = await fetch(`/api/judge-slots/${code}`);
+    if (!res.ok) return;
+    const slot = await res.json();
+    if (Array.isArray(slot.matches)) setLiveMatches(slot.matches);
+    if (slot.category?.rounds) setRounds(slot.category.rounds);
+    if (slot.category?.currentPhaseOrder != null) setCurrentPhaseOrder(slot.category.currentPhaseOrder);
+    if (slot.category?.registrations) setRegistrations(slot.category.registrations);
+  }, [code]);
+
+  // Socket connection
   useEffect(() => {
     const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL ?? "http://localhost:3001";
     const socket = io(socketUrl, {
@@ -124,33 +142,49 @@ export function ScoringInterface({
       setDraftScores((prev) => ({ ...prev, [registrationId]: null }));
     });
 
+    socket.on("registration:withdrawn", ({ registrationIds }) => {
+      setRegistrations((prev) =>
+        prev.map((reg) =>
+          registrationIds.includes(reg.id) ? { ...reg, status: "WITHDRAWN" } : reg,
+        ),
+      );
+    });
+
+    socket.on("phase:activated", ({ phaseId, phaseOrder, type, label }) => {
+      setRounds((prev) =>
+        prev.map((r) =>
+          r.id === phaseId ? { ...r, phaseStatus: "ACTIVE", order: phaseOrder, type, label } : r,
+        ),
+      );
+      setCurrentPhaseOrder(phaseOrder);
+    });
+
+    socket.on("phase:completed", ({ phaseId }) => {
+      setRounds((prev) => prev.map((r) => (r.id === phaseId ? { ...r, phaseStatus: "COMPLETE" } : r)));
+    });
+
+    socket.on("bracket:generated", ({ matches }) => {
+      if (Array.isArray(matches)) setLiveMatches(matches);
+    });
+
+    socket.on("leaderboard:update", () => {
+      fetchFullData();
+    });
+
     return () => {
       socket.disconnect();
     };
-  }, [code, eventId, slotId]);
+  }, [code, eventId, slotId, fetchFullData]);
 
   // Polling fallback when the socket server is unreachable
   useEffect(() => {
     const poll = async () => {
       if (connectionStatus === "live") return;
-      const res = await fetch(`/api/judge-slots/${code}`);
-      if (res.ok) {
-        const slot = await res.json();
-        if (Array.isArray(slot.matches)) setLiveMatches(slot.matches);
-      }
-      const res2 = await fetch(`/api/judge-slots/${code}/dancer-score`);
-      if (res2.ok) {
-        const myScores = await res2.json();
-        const mapped: Record<string, DancerScoreInput> = {};
-        for (const s of myScores as { registrationId: string; score: number }[]) {
-          mapped[s.registrationId] = { score: s.score };
-        }
-        setMyDancerScores(mapped);
-      }
+      await fetchFullData();
     };
     const timer = setInterval(poll, 10000);
     return () => clearInterval(timer);
-  }, [code, connectionStatus]);
+  }, [code, connectionStatus, fetchFullData]);
 
   function selectScore(matchId: string, key: "scoreA" | "scoreB", value: number) {
     setScores((prev) => ({
@@ -238,87 +272,94 @@ export function ScoringInterface({
             </p>
           </div>
           <div className="grid gap-md lg:grid-cols-2">
-            {data.category.registrations.map((reg, index) => {
-              const mine = myDancerScores[reg.id];
-              const draft = draftScores[reg.id];
-              const isSubmitting = submitting[reg.id] ?? false;
+            {registrations
+              .filter((r) => r.status !== "WITHDRAWN")
+              .map((reg, index) => {
+                const mine = myDancerScores[reg.id];
+                const draft = draftScores[reg.id];
+                const isSubmitting = submitting[reg.id] ?? false;
 
-              return (
-                <article className="border border-line bg-paper-soft p-lg" key={reg.id}>
-                  <div className="flex items-start justify-between gap-sm">
-                    <div>
-                      <p className="font-mono text-[0.7rem] uppercase text-ink-muted">
-                        {String(index + 1).padStart(2, "0")}
-                      </p>
-                      <h3 className="mt-xs font-display text-title-md uppercase">
-                        {reg.user.name ?? "Unnamed"}
-                      </h3>
-                      <p className="mt-xs text-body-sm text-ink-muted">
-                        Seed #{reg.seed ?? "—"}
-                        {reg.crew ? ` / ${reg.crew}` : ""}
-                        {reg.city ? ` / ${reg.city}` : ""}
-                      </p>
+                return (
+                  <article className="border border-line bg-paper-soft p-lg" key={reg.id}>
+                    <div className="flex items-start justify-between gap-sm">
+                      <div>
+                        <p className="font-mono text-[0.7rem] uppercase text-ink-muted">
+                          {String(index + 1).padStart(2, "0")}
+                        </p>
+                        <h3 className="mt-xs font-display text-title-md uppercase">
+                          {reg.user.name ?? "Unnamed"}
+                        </h3>
+                        <p className="mt-xs text-body-sm text-ink-muted">
+                          Seed #{reg.seed ?? "—"}
+                          {reg.crew ? ` / ${reg.crew}` : ""}
+                          {reg.city ? ` / ${reg.city}` : ""}
+                        </p>
+                      </div>
+                      {mine && (
+                        <span className="border border-accent bg-accent px-sm py-xs font-mono text-title-md font-bold text-paper">
+                          {mine.score}
+                        </span>
+                      )}
                     </div>
-                    {mine && (
-                      <span className="border border-accent bg-accent px-sm py-xs font-mono text-title-md font-bold text-paper">
-                        {mine.score}
-                      </span>
-                    )}
-                  </div>
 
-                  <div className="mt-lg">
-                    <p className="text-body-sm font-bold uppercase text-ink-muted">
-                      {mine ? "Update score" : "Select score"}
-                    </p>
-                    <div className="mt-sm flex flex-wrap gap-xs">
-                      {SCORE_OPTIONS.map((n) => (
-                        <button
-                          className={`border px-sm py-xs text-body-sm font-bold uppercase ${
-                            draft === n
-                              ? "border-accent bg-accent text-paper"
-                              : "border-line text-ink-muted hover:border-ink-muted"
-                          }`}
-                          disabled={isSubmitting}
-                          key={`${reg.id}-${n}`}
-                          onClick={() =>
-                            setDraftScores((prev) => ({ ...prev, [reg.id]: n }))
-                          }
-                          type="button"
-                        >
-                          {n}
-                        </button>
-                      ))}
+                    <div className="mt-lg">
+                      <p className="text-body-sm font-bold uppercase text-ink-muted">
+                        {mine ? "Update score" : "Select score"}
+                      </p>
+                      <div className="mt-sm flex flex-wrap gap-xs">
+                        {SCORE_OPTIONS.map((n) => (
+                          <button
+                            className={`border px-sm py-xs text-body-sm font-bold uppercase ${
+                              draft === n
+                                ? "border-accent bg-accent text-paper"
+                                : "border-line text-ink-muted hover:border-ink-muted"
+                            }`}
+                            disabled={isSubmitting}
+                            key={`${reg.id}-${n}`}
+                            onClick={() =>
+                              setDraftScores((prev) => ({ ...prev, [reg.id]: n }))
+                            }
+                            type="button"
+                          >
+                            {n}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
 
-                  <input
-                    className="mt-md w-full border border-line bg-paper px-md py-sm text-body-sm"
-                    placeholder="Optional feedback"
-                    value={dancerFeedback[reg.id] ?? ""}
-                    onChange={(e) =>
-                      setDancerFeedback((prev) => ({
-                        ...prev,
-                        [reg.id]: e.target.value,
-                      }))
-                    }
-                  />
+                    <input
+                      className="mt-md w-full border border-line bg-paper px-md py-sm text-body-sm"
+                      placeholder="Optional feedback"
+                      value={dancerFeedback[reg.id] ?? ""}
+                      onChange={(e) =>
+                        setDancerFeedback((prev) => ({
+                          ...prev,
+                          [reg.id]: e.target.value,
+                        }))
+                      }
+                    />
 
-                  <button
-                    className="mt-lg w-full border border-accent bg-accent px-lg py-md text-button-md font-bold uppercase text-paper disabled:cursor-not-allowed disabled:opacity-60"
-                    disabled={draft == null || isSubmitting}
-                    onClick={() => submitDancerScore(reg.id)}
-                    type="button"
-                  >
-                    {isSubmitting
-                      ? "Submitting..."
-                      : mine
-                        ? "Update score"
-                        : "Submit score"}
-                  </button>
-                </article>
-              );
-            })}
+                    <button
+                      className="mt-lg w-full border border-accent bg-accent px-lg py-md text-button-md font-bold uppercase text-paper disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={draft == null || isSubmitting}
+                      onClick={() => submitDancerScore(reg.id)}
+                      type="button"
+                    >
+                      {isSubmitting
+                        ? "Submitting..."
+                        : mine
+                          ? "Update score"
+                          : "Submit score"}
+                    </button>
+                  </article>
+                );
+              })}
           </div>
+          {registrations.some((r) => r.status === "WITHDRAWN") && (
+            <p className="mt-md text-body-sm text-ink-muted">
+              {registrations.filter((r) => r.status === "WITHDRAWN").length} dancer(s) eliminated.
+            </p>
+          )}
         </div>
       ) : matches.length === 0 ? (
         <p className="border border-line p-lg text-ink-muted">
