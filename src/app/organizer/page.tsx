@@ -3,6 +3,7 @@ import { SignOutButton } from "@/components/sign-out-button";
 import { UpiForm } from "@/components/upi-form";
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,33 @@ export default async function OrganizerPage() {
           <p className="mt-sm text-body-sm text-ink-muted">Signed in as {user.email}</p>
         </div>
         <SignOutButton />
+      </div>
+
+      <div className="mt-section grid gap-md sm:grid-cols-2">
+        <Link
+          href="/organizer/gigs"
+          className="group border border-line bg-paper-soft p-lg transition-colors hover:border-accent"
+        >
+          <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent">Hire talent</p>
+          <h2 className="mt-sm font-display text-title-md uppercase group-hover:text-accent">
+            Freelance work
+          </h2>
+          <p className="mt-sm text-body-sm text-ink-muted">
+            Post gigs for dancers, DJs, MCs, guitarists and more. Review applications and accept.
+          </p>
+        </Link>
+        <Link
+          href="/organizer/artists"
+          className="group border border-line bg-paper-soft p-lg transition-colors hover:border-accent"
+        >
+          <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent">Scout talent</p>
+          <h2 className="mt-sm font-display text-title-md uppercase group-hover:text-accent">
+            Artist directory
+          </h2>
+          <p className="mt-sm text-body-sm text-ink-muted">
+            Browse artist profiles, battle records, skills and achievements.
+          </p>
+        </Link>
       </div>
 
       <div className="mt-section">

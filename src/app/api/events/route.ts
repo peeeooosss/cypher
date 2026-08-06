@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { EventStatus } from "@/generated/prisma/enums";
+import { EventStatus, EventType } from "@/generated/prisma/enums";
 import { badRequest, isUniqueConstraintError, serverError, unauthorized, conflict } from "@/lib/api";
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
@@ -9,6 +9,8 @@ const eventSchema = z.object({
   title: z.string().trim().min(2).max(120),
   slug: z.string().trim().min(2).max(80).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
   description: z.string().trim().max(5000).optional(),
+  eventType: z.enum(EventType).optional(),
+  posterUrl: z.string().trim().max(3_000_000).nullable().optional(),
   venue: z.string().trim().max(200).optional(),
   city: z.string().trim().max(120).optional(),
   startsAt: z.coerce.date(),

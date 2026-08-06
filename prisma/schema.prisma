@@ -21,6 +21,42 @@ enum EventStatus {
   CANCELLED
 }
 
+enum EventType {
+  UNDERGROUND_BATTLE
+  DANCE_COMPETITION
+  MUSIC_COMPETITION
+}
+
+enum Skill {
+  DANCER
+  CHOREOGRAPHER
+  PERFORMER
+  DJ
+  MC
+  GUITARIST
+  DRUMMER
+  RAPPER
+  VOCALIST
+  PRODUCER
+  BEATBOXER
+  PHOTOGRAPHER
+  VISUAL_ARTIST
+}
+
+enum GigStatus {
+  OPEN
+  IN_PROGRESS
+  FILLED
+  CLOSED
+}
+
+enum GigApplicationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
 enum RegistrationStatus {
   PENDING
   CONFIRMED
@@ -60,9 +96,13 @@ model User {
   experience      String?
   socialHandle    String?
   referral        String?
+  skills          Skill[]           @default([])
   organizedEvents Event[]           @relation("EventOrganizer")
   registrations   Registration[]
   feedbackTemplates FeedbackTemplate[]
+  gigs            Gig[]             @relation("OrganizerGigs")
+  gigApplications GigApplication[]  @relation("ArtistGigApplications")
+  achievements    ArtistAchievement[]
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 }
@@ -73,6 +113,8 @@ model Event {
   title          String
   slug           String       @unique
   description    String?
+  eventType      EventType?
+  posterUrl      String?
   venue          String?
   city           String?
   startsAt       DateTime
@@ -137,6 +179,7 @@ model Registration {
   entryCurrency String?
   paid         Boolean            @default(false)
   paidAt       DateTime?
+  paidClaimedAt DateTime?
   seed         Int?
   style        String?
   crew         String?
@@ -310,4 +353,56 @@ model ScoreAuditLog {
   reason       String?
   createdAt    DateTime @default(now())
   @@index([matchId])
+}
+
+model Gig {
+  id             String             @id @default(cuid())
+  organizerId    String
+  title          String
+  description    String
+  skillsRequired Skill[]            @default([])
+  location       String?
+  budget         Int?
+  currency       String             @default("INR")
+  startsAt       DateTime?
+  status         GigStatus          @default(OPEN)
+  organizer      User               @relation("OrganizerGigs", fields: [organizerId], references: [id], onDelete: Cascade)
+  applications   GigApplication[]
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@index([organizerId])
+  @@index([status])
+}
+
+model GigApplication {
+  id           String               @id @default(cuid())
+  gigId        String
+  artistId     String
+  message      String?
+  status       GigApplicationStatus @default(PENDING)
+  gig          Gig                  @relation(fields: [gigId], references: [id], onDelete: Cascade)
+  artist       User                 @relation("ArtistGigApplications", fields: [artistId], references: [id], onDelete: Cascade)
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  @@unique([gigId, artistId])
+  @@index([artistId])
+}
+
+model ArtistAchievement {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  competition String?
+  placement   String?
+  year        Int?
+  prize       Int?
+  currency    String   @default("INR")
+  note        String?
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
 }

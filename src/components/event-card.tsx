@@ -1,7 +1,13 @@
 import Link from "next/link";
-import { EventStatus } from "@/generated/prisma/enums";
+import { EventStatus, EventType } from "@/generated/prisma/enums";
 import { StatusBadge } from "@/components/status-badge";
 import { formatDateShort } from "@/lib/format";
+
+const EVENT_TYPE_LABELS: Record<EventType, string> = {
+  UNDERGROUND_BATTLE: "Underground battle",
+  DANCE_COMPETITION: "Dance competition",
+  MUSIC_COMPETITION: "Music competition",
+};
 
 type EventCardData = {
   id: string;
@@ -11,6 +17,8 @@ type EventCardData = {
   city: string | null;
   startsAt: Date;
   status: EventStatus;
+  eventType?: string | null;
+  posterUrl?: string | null;
   _count?: { categories: number };
   categories?: { id: string; name: string }[];
 };
@@ -19,8 +27,19 @@ export function EventCard({ event }: { event: EventCardData }) {
   return (
     <div className="group border border-line bg-paper-soft transition-colors hover:border-accent">
       <Link href={`/events/${event.slug}`} className="block">
+        {event.posterUrl ? (
+          <div className="relative aspect-[4/3] overflow-hidden border-b border-line">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={event.posterUrl} alt={`${event.title} poster`} className="h-full w-full object-cover" />
+          </div>
+        ) : null}
         <div className="flex items-center gap-sm border-b border-line px-md py-xs">
           <StatusBadge status={event.status} />
+          {event.eventType && (
+            <span className="font-mono text-[0.6rem] uppercase tracking-[0.15em] text-accent">
+              {EVENT_TYPE_LABELS[event.eventType as EventType] ?? event.eventType}
+            </span>
+          )}
           <span className="font-mono text-[0.65rem] uppercase tracking-[0.15em] text-ink-muted">
             {formatDateShort(event.startsAt)}
           </span>

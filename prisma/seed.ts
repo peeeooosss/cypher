@@ -1,7 +1,7 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { hash } from "bcryptjs";
 import { PrismaClient } from "../src/generated/prisma/client";
-import { UserRole, RoundType } from "../src/generated/prisma/enums";
+import { UserRole, RoundType, Skill } from "../src/generated/prisma/enums";
 
 const password = process.env.SEED_PASSWORD ?? "password";
 const connectionString = process.env.DATABASE_URL;
@@ -28,6 +28,11 @@ try {
   // event doesn't exist yet — that's fine
 }
 
+// ---- Clear marketplace + achievements so the seed is repeatable ----
+await prisma.gigApplication.deleteMany({});
+await prisma.gig.deleteMany({});
+await prisma.artistAchievement.deleteMany({});
+
 // ---- 30 mock artists ----
 const artistDefs = [
   "Mike Chen", "Sarah Kim", "Dave Rodriguez", "Anna Liu", "James Park",
@@ -44,6 +49,39 @@ const cities = ["Guwahati", "Shillong", "Imphal", "Dibrugarh", "Silchar"];
 const experiences = ["PRO", "ADVANCED", "INTERMEDIATE"];
 const socialHandles = ["@mikekicks", "@sarahpops", "@davetops", "@annafreeze", "@jamesbreaks", "@lisamoves", "@marcusthunder", "@ninaspins", "@tyronefresh", "@yukirocks"];
 const referrals = ["Instagram", "TikTok", "Friend", "Crew", "Event Website"];
+
+const skillSets: Skill[][] = [
+  ["DANCER", "CHOREOGRAPHER"],
+  ["DANCER", "DJ"],
+  ["DANCER", "MC"],
+  ["DANCER", "GUITARIST"],
+  ["DANCER", "DRUMMER"],
+  ["DANCER", "VOCALIST"],
+  ["DANCER", "RAPPER"],
+  ["DANCER", "PRODUCER"],
+  ["DANCER", "BEATBOXER"],
+  ["DANCER", "PHOTOGRAPHER"],
+  ["DANCER"],
+  ["DANCER", "CHOREOGRAPHER", "PERFORMER"],
+  ["DANCER", "DJ", "PERFORMER"],
+  ["DANCER", "MC"],
+  ["DANCER", "GUITARIST", "VOCALIST"],
+  ["DANCER", "DRUMMER"],
+  ["DANCER", "VOCALIST"],
+  ["DANCER", "RAPPER"],
+  ["DANCER", "PRODUCER", "DJ"],
+  ["DANCER", "BEATBOXER"],
+  ["DANCER", "CHOREOGRAPHER"],
+  ["DANCER", "DJ"],
+  ["DANCER", "MC", "PERFORMER"],
+  ["DANCER", "GUITARIST"],
+  ["DANCER", "DRUMMER", "PERFORMER"],
+  ["DANCER", "VOCALIST"],
+  ["DANCER", "RAPPER"],
+  ["DANCER", "PRODUCER"],
+  ["DANCER", "BEATBOXER"],
+  ["DANCER", "PHOTOGRAPHER", "PERFORMER"],
+];
 
 const artists = [];
 for (let i = 0; i < artistDefs.length; i++) {
@@ -62,6 +100,7 @@ for (let i = 0; i < artistDefs.length; i++) {
       experience: experiences[i % experiences.length],
       socialHandle: socialHandles[i % socialHandles.length],
       referral: referrals[i % referrals.length],
+      skills: skillSets[i % skillSets.length],
     },
     create: {
       email,
@@ -75,6 +114,7 @@ for (let i = 0; i < artistDefs.length; i++) {
       experience: experiences[i % experiences.length],
       socialHandle: socialHandles[i % socialHandles.length],
       referral: referrals[i % referrals.length],
+      skills: skillSets[i % skillSets.length],
     },
   });
   artists.push(user);
@@ -95,6 +135,9 @@ const event = await prisma.event.create({
   data: {
     title: "Summer Cypher 2026",
     slug: "summer-cypher-2026",
+    description:
+      "The biggest underground breaking showcase of the season. Three floors, one stage, no rules but respect. Cash prizes for Breaking, Popping and Hip-Hop, live judges, and an all-night cypher after the battles.",
+    eventType: "UNDERGROUND_BATTLE",
     venue: "The Underground",
     city: "Brooklyn",
     status: "LIVE",
@@ -234,6 +277,158 @@ for (const tpl of feedbackTemplates) {
   }
 }
 
-console.log("Seed complete: 1 organizer, 30 artists, 1 event, 3 categories, 9 judge slots, 30 registrations, 3 prize pools, 10 feedback templates");
+// ---- Gigs (freelance marketplace work posted by the organizer) ----
+const future = (days: number) => new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+
+const gigDefs: Array<{
+  title: string;
+  description: string;
+  skillsRequired: Skill[];
+  location: string;
+  budget: number;
+  startsAt: Date;
+  status: "OPEN" | "FILLED";
+}> = [
+  {
+    title: "DJ for Saturday cypher night",
+    description:
+      "Need a DJ comfortable with open-format battles — quick cuts, scratch-friendly, can read a crowd in a 2x2 floor setup. 4-hour set at The Underground.",
+    skillsRequired: ["DJ", "DANCER"],
+    location: "The Underground, Brooklyn",
+    budget: 8000,
+    startsAt: future(7),
+    status: "OPEN",
+  },
+  {
+    title: "Choreographer for music video",
+    description:
+      "Looking for a choreographer to build and rehearse a 90-second routine for an upcoming single. 3 shoot days, travel covered.",
+    skillsRequired: ["CHOREOGRAPHER", "DANCER"],
+    location: "Guwahati",
+    budget: 25000,
+    startsAt: future(14),
+    status: "OPEN",
+  },
+  {
+    title: "MC / host for open-mic cypher",
+    description:
+      "Host our monthly open-mic cypher — warm up the room, hype the battles, keep energy between rounds. Two-hour show.",
+    skillsRequired: ["MC"],
+    location: "Shillong",
+    budget: 6000,
+    startsAt: future(21),
+    status: "OPEN",
+  },
+  {
+    title: "Guitarist for live set",
+    description:
+      "One-off live set with a hip-hop producer — need a guitarist who can improvise over beats and keep up with tempo changes.",
+    skillsRequired: ["GUITARIST", "VOCALIST"],
+    location: "Imphal",
+    budget: 12000,
+    startsAt: future(10),
+    status: "OPEN",
+  },
+  {
+    title: "Dancer for festival performance",
+    description:
+      "Festival stage performance in front of ~2000 people. Need 4 dancers for a 6-minute routine. Rehearsals paid.",
+    skillsRequired: ["DANCER", "PERFORMER"],
+    location: "Dibrugarh",
+    budget: 15000,
+    startsAt: future(30),
+    status: "OPEN",
+  },
+  {
+    title: "B-boy workshop instructor",
+    description:
+      "Run a 2-day breaking fundamentals workshop for 40 kids. Session plan provided, bring your own style. Pay per day.",
+    skillsRequired: ["DANCER", "CHOREOGRAPHER"],
+    location: "Silchar",
+    budget: 10000,
+    startsAt: future(45),
+    status: "FILLED",
+  },
+];
+
+const gigs = [];
+for (const def of gigDefs) {
+  const gig = await prisma.gig.create({
+    data: {
+      organizerId: organizer.id,
+      title: def.title,
+      description: def.description,
+      skillsRequired: def.skillsRequired,
+      location: def.location,
+      budget: def.budget,
+      currency: "INR",
+      startsAt: def.startsAt,
+      status: def.status,
+    },
+  });
+  gigs.push(gig);
+}
+
+// ---- Artist achievements (battle resume) ----
+const achievementDefs: Array<{ artistIndex: number; title: string; competition: string; placement: string; year: number; prize: number; note?: string }> = [
+  { artistIndex: 0, title: "Champion", competition: "North East Breaking Championship", placement: "1st", year: 2025, prize: 50000 },
+  { artistIndex: 3, title: "Runner-up", competition: "Guwahati Cypher League", placement: "2nd", year: 2024, prize: 15000 },
+  { artistIndex: 6, title: "Semi-finalist", competition: "National B-Boy Showcase", placement: "Semi-final", year: 2024, prize: 5000 },
+  { artistIndex: 9, title: "Winner", competition: "Silchar Pop Off", placement: "1st", year: 2023, prize: 20000 },
+  { artistIndex: 12, title: "Champion", competition: "House Groove Circuit", placement: "1st", year: 2025, prize: 30000 },
+  { artistIndex: 15, title: "Runner-up", competition: "Imphal Street Clash", placement: "2nd", year: 2022, prize: 10000 },
+  { artistIndex: 18, title: "Champion", competition: "Dibrugarh Break Finals", placement: "1st", year: 2024, prize: 40000 },
+  { artistIndex: 21, title: "Top 4", competition: "Shillong Cypher Slam", placement: "Semi-final", year: 2025, prize: 8000 },
+];
+
+for (const def of achievementDefs) {
+  await prisma.artistAchievement.create({
+    data: {
+      userId: artists[def.artistIndex].id,
+      title: def.title,
+      competition: def.competition,
+      placement: def.placement,
+      year: def.year,
+      prize: def.prize,
+      currency: "INR",
+      note: def.note,
+    },
+  });
+}
+
+// ---- Gig applications ----
+const applicationDefs: Array<{ artistIndex: number; gigIndex: number; message: string; status: "PENDING" | "ACCEPTED" }> = [
+  {
+    artistIndex: 1,
+    gigIndex: 0,
+    message: "I spin open-format battles weekly and can scratch between rounds. 4-hour set is no problem.",
+    status: "ACCEPTED",
+  },
+  {
+    artistIndex: 12,
+    gigIndex: 1,
+    message: "I've choreographed 3 music videos this year and work well under tight shoot schedules.",
+    status: "PENDING",
+  },
+  {
+    artistIndex: 21,
+    gigIndex: 5,
+    message: "Been teaching breaking fundamentals to kids for 2 years. Happy to follow your session plan.",
+    status: "PENDING",
+  },
+];
+
+for (const def of applicationDefs) {
+  await prisma.gigApplication.create({
+    data: {
+      gigId: gigs[def.gigIndex].id,
+      artistId: artists[def.artistIndex].id,
+      message: def.message,
+      status: def.status,
+    },
+  });
+}
+
+console.log("Seed complete: 1 organizer, 30 artists, 1 event, 3 categories, 9 judge slots, 30 registrations, 3 prize pools, 10 feedback templates, 6 gigs, 8 achievements, 3 gig applications");
 
 await prisma.$disconnect();

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { formatFee } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/rbac";
+import { CartCategoryList } from "@/components/cart-claim";
 
 export const dynamic = "force-dynamic";
 
@@ -112,26 +113,17 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
           <section className="border border-line">
             <div className="border-b border-line bg-paper-soft px-lg py-md">
               <p className="font-display text-title-md uppercase">{event.title}</p>
-            </div><ul className="divide-y divide-line">
-              {registrations.map((registration) => (
-                <li
-                  key={registration.id}
-                  className="flex items-center justify-between gap-md px-lg py-md"
-                >
-                  <div>
-                    <p className="font-display text-title-md uppercase">
-                      {registration.category.name}
-                    </p>
-                    <p className="mt-xs font-mono text-[0.65rem] uppercase text-ink-muted">
-                      Pending payment
-                    </p>
-                  </div>
-                  <span className="font-mono text-body-sm uppercase text-accent">
-                    {formatFee(registration.category.entryFee, registration.category.entryCurrency)}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            </div>
+            <CartCategoryList
+              registrations={registrations.map((registration) => ({
+                id: registration.id,
+                name: registration.category.name,
+                entryFee: registration.category.entryFee,
+                entryCurrency: registration.category.entryCurrency,
+                paid: registration.paid,
+                paidClaimedAt: registration.paidClaimedAt?.toISOString() ?? null,
+              }))}
+            />
             <div className="flex items-center justify-between gap-sm border-t border-line bg-paper-soft px-lg py-md">
               <span className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">
                 Total
@@ -171,7 +163,11 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
                   Open UPI app
                 </a>
                 <p className="mt-lg text-body-sm leading-relaxed text-ink-muted">
-                  Pay the exact amount above, then the organizer confirms your entry.
+                  Pay the exact amount above, tap{" "}
+                  <span className="font-bold uppercase text-ink">I have paid</span> for each
+                  category, then send your payment screenshot to{" "}
+                  <span className="font-bold uppercase text-ink">{organizer.name ?? "the organizer"}</span>.
+                  The organizer approves your entry.
                 </p>
               </>
             ) : (

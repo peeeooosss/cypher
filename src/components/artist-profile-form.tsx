@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { SKILLS, SKILL_LABELS } from "@/lib/skills";
 
 export type ArtistProfile = {
   name: string | null;
@@ -12,10 +13,11 @@ export type ArtistProfile = {
   experience: string | null;
   socialHandle: string | null;
   referral: string | null;
+  skills: string[];
 };
 
 const PROFILE_FIELDS: Array<{
-  name: keyof Omit<ArtistProfile, "name">;
+  name: keyof Omit<ArtistProfile, "name" | "skills">;
   label: string;
   placeholder: string;
 }> = [
@@ -32,6 +34,13 @@ export function ArtistProfileForm({ profile }: { profile: ArtistProfile }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [skills, setSkills] = useState<string[]>(profile.skills ?? []);
+
+  function toggleSkill(skill: string) {
+    setSkills((prev) =>
+      prev.includes(skill) ? prev.filter((s) => s !== skill) : [...prev, skill],
+    );
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -45,6 +54,7 @@ export function ArtistProfileForm({ profile }: { profile: ArtistProfile }) {
     for (const field of PROFILE_FIELDS) {
       body[field.name] = String(form.get(field.name) ?? "").trim();
     }
+    body.skills = skills;
 
     const res = await fetch("/api/users/me", {
       method: "PATCH",
@@ -89,6 +99,30 @@ export function ArtistProfileForm({ profile }: { profile: ArtistProfile }) {
             placeholder="Stage name"
           />
         </label>
+        <div className="sm:col-span-2">
+          <span className="font-mono text-[0.7rem] uppercase text-ink-muted">
+            Skills — what do you do? (used for gig matching)
+          </span>
+          <div className="mt-xs flex flex-wrap gap-xs">
+            {SKILLS.map((skill) => {
+              const active = skills.includes(skill);
+              return (
+                <button
+                  key={skill}
+                  type="button"
+                  onClick={() => toggleSkill(skill)}
+                  className={`border px-sm py-xs font-mono text-[0.65rem] uppercase tracking-[0.1em] transition-colors ${
+                    active
+                      ? "border-accent bg-accent/10 text-accent"
+                      : "border-line text-ink-muted hover:border-accent"
+                  }`}
+                >
+                  {SKILL_LABELS[skill]}
+                </button>
+              );
+            })}
+          </div>
+        </div>
         {PROFILE_FIELDS.map((field) => (
           <label key={field.name} className="block">
             <span className="font-mono text-[0.7rem] uppercase text-ink-muted">

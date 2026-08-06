@@ -15,18 +15,51 @@ export default async function Home() {
   const [liveEvents, upcomingEvents, closedEvents] = await Promise.all([
     prisma.event.findMany({
       where: { ...where, status: EventStatus.LIVE },
-      include: { categories: { select: { id: true, name: true }, orderBy: { name: "asc" }, take: 4 } },
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        venue: true,
+        city: true,
+        startsAt: true,
+        status: true,
+        eventType: true,
+        posterUrl: true,
+        categories: { select: { id: true, name: true }, orderBy: { name: "asc" }, take: 4 },
+      },
       orderBy: { startsAt: "asc" },
     }),
     prisma.event.findMany({
       where: { ...where, status: EventStatus.PUBLISHED },
-      include: { categories: { select: { id: true, name: true }, orderBy: { name: "asc" }, take: 4 } },
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        venue: true,
+        city: true,
+        startsAt: true,
+        status: true,
+        eventType: true,
+        posterUrl: true,
+        categories: { select: { id: true, name: true }, orderBy: { name: "asc" }, take: 4 },
+      },
       orderBy: { startsAt: "asc" },
       take: 6,
     }),
     prisma.event.findMany({
       where: { ...where, status: EventStatus.COMPLETED },
-      include: { _count: { select: { categories: true } } },
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        venue: true,
+        city: true,
+        startsAt: true,
+        status: true,
+        eventType: true,
+        posterUrl: true,
+        _count: { select: { categories: true } },
+      },
       orderBy: { startsAt: "desc" },
       take: 4,
     }),
@@ -83,6 +116,57 @@ export default async function Home() {
               </ul>
             </div>
           </aside>
+        </div>
+      </section>
+
+      {/* For organizers / For artists */}
+      <section className="border-b border-line">
+        <div className="mx-auto max-w-7xl px-md py-section md:px-xl">
+          <p className="font-mono text-center text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted md:text-left">
+            Built for the whole scene
+          </p>
+          <div className="mt-lg grid gap-md md:grid-cols-2">
+            <Link
+              href="/for-organizers"
+              className="group flex flex-col justify-between border border-line bg-paper-soft p-xl transition-colors hover:border-accent"
+            >
+              <div>
+                <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-accent">
+                  For organizers
+                </p>
+                <h2 className="mt-md font-display text-display-lg uppercase">
+                  Run your event. Hire the best.
+                </h2>
+                <p className="mt-md max-w-prose text-body-sm leading-relaxed text-ink-muted">
+                  Create and market your competition to thousands of artists, take
+                  online payments, and hire the exact talent your stage needs.
+                </p>
+              </div>
+              <span className="mt-lg font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted transition-colors group-hover:text-accent">
+                What organizers get —
+              </span>
+            </Link>
+            <Link
+              href="/for-artists"
+              className="group flex flex-col justify-between border border-line bg-paper-soft p-xl transition-colors hover:border-accent"
+            >
+              <div>
+                <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-accent">
+                  For artists
+                </p>
+                <h2 className="mt-md font-display text-display-lg uppercase">
+                  Compete. Rank. Get hired.
+                </h2>
+                <p className="mt-md max-w-prose text-body-sm leading-relaxed text-ink-muted">
+                  Never miss a competition, register in minutes, climb the live
+                  leaderboard, and land paid gigs and freelance work.
+                </p>
+              </div>
+              <span className="mt-lg font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted transition-colors group-hover:text-accent">
+                What artists get —
+              </span>
+            </Link>
+          </div>
         </div>
       </section>
 

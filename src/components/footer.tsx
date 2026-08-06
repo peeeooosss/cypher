@@ -6,6 +6,8 @@ import { usePathname } from "next/navigation";
 const footerLinks = [
   { href: "/", label: "Home" },
   { href: "/events", label: "Events" },
+  { href: "/for-organizers", label: "For Organizers" },
+  { href: "/for-artists", label: "For Artists" },
   { href: "/about", label: "About Us" },
 ];
 

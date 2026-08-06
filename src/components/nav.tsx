@@ -8,12 +8,21 @@ import { useState } from "react";
 const navLinks = [
   { href: "/", label: "Home" },
   { href: "/events", label: "Events" },
+  { href: "/for-organizers", label: "For Organizers" },
+  { href: "/for-artists", label: "For Artists" },
   { href: "/about", label: "About Us" },
 ];
 
 const dashboardLinks: Record<string, { href: string; label: string }[]> = {
-  ORGANIZER: [{ href: "/organizer", label: "Dashboard" }],
-  ARTIST: [{ href: "/artist", label: "Dashboard" }],
+  ORGANIZER: [
+    { href: "/organizer", label: "Dashboard" },
+    { href: "/organizer/gigs", label: "Gigs" },
+    { href: "/organizer/artists", label: "Artists" },
+  ],
+  ARTIST: [
+    { href: "/artist", label: "Dashboard" },
+    { href: "/artist/gigs", label: "Marketplace" },
+  ],
   JUDGE: [{ href: "/judge", label: "Portal" }],
 };
 

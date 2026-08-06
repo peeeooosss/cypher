@@ -5,9 +5,15 @@ import { LiveLeaderboard } from "@/components/live-leaderboard";
 import { formatDate } from "@/lib/format";
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
-import { EventStatus } from "@/generated/prisma/enums";
+import { EventStatus, EventType } from "@/generated/prisma/enums";
 
 export const dynamic = "force-dynamic";
+
+const EVENT_TYPE_LABELS: Record<EventType, string> = {
+  UNDERGROUND_BATTLE: "Underground battle",
+  DANCE_COMPETITION: "Dance competition",
+  MUSIC_COMPETITION: "Music competition",
+};
 
 type EventDetailContext = { params: Promise<{ slug: string }> };
 
@@ -55,6 +61,11 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
         <div className="mx-auto max-w-7xl px-md py-section md:px-xl">
           <div className="flex flex-wrap items-center gap-md">
             <StatusBadge status={event.status} />
+            {event.eventType && (
+              <span className="font-mono text-[0.65rem] uppercase tracking-[0.15em] text-accent">
+                {EVENT_TYPE_LABELS[event.eventType as EventType] ?? event.eventType}
+              </span>
+            )}
             {event.city && (
               <span className="font-mono text-[0.65rem] uppercase tracking-[0.15em] text-ink-muted">
                 {event.city}
@@ -62,6 +73,12 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
             )}
           </div>
           <h1 className="mt-lg max-w-4xl font-display text-display-xl uppercase">{event.title}</h1>
+          {event.posterUrl ? (
+            <div className="mt-lg max-w-3xl">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={event.posterUrl} alt={`${event.title} poster`} className="w-full border border-line" />
+            </div>
+          ) : null}
           <div className="mt-lg flex flex-wrap gap-lg text-body-sm text-ink-muted">
             <div>
               <p className="font-mono text-[0.6rem] uppercase tracking-[0.2em] text-ink-muted">Date</p>

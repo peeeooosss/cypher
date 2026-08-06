@@ -3,7 +3,14 @@
 import { useState, useEffect, useCallback, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { LiveLeaderboard } from "@/components/live-leaderboard";
-import type { EventStatus, RoundType, RegistrationStatus } from "@/generated/prisma/enums";
+import { PosterUpload } from "@/components/poster-upload";
+import type { EventStatus, RoundType, RegistrationStatus, EventType } from "@/generated/prisma/enums";
+
+const EVENT_TYPE_LABELS: Record<EventType, string> = {
+  UNDERGROUND_BATTLE: "Underground battle",
+  DANCE_COMPETITION: "Dance competition",
+  MUSIC_COMPETITION: "Music competition",
+};
 
 type Round = {
   id: string;
@@ -58,6 +65,9 @@ type EventWithRelations = {
   slug: string;
   startsAt: Date;
   status: EventStatus;
+  description: string | null;
+  eventType: string | null;
+  posterUrl: string | null;
   venue: string | null;
   city: string | null;
   categories: Category[];
@@ -77,6 +87,7 @@ type RegistrationRow = {
   entryCurrency: string | null;
   paid: boolean;
   paidAt: Date | null;
+  paidClaimedAt: Date | null;
   user: { name: string | null; email: string };
 };
 
@@ -313,11 +324,15 @@ function OverviewTab({
     const venue = form.get("venue") as string;
     const city = form.get("city") as string;
     const startsAt = form.get("startsAt") as string;
+    const description = form.get("description") as string;
+    const eventType = form.get("eventType") as string;
 
     if (title && title !== event.title) body.title = title;
     if (slug && slug !== event.slug) body.slug = slug;
     body.venue = venue || null;
     body.city = city || null;
+    body.description = description || null;
+    body.eventType = eventType || null;
     if (startsAt) body.startsAt = new Date(startsAt).toISOString();
 
     const res = await fetch(`/api/events/${event.id}`, {
@@ -393,6 +408,46 @@ function OverviewTab({
             type="datetime-local"
             defaultValue={event.startsAt.toISOString().slice(0, 16)}
           />
+          <label className="block md:col-span-2">
+            <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Event type</span>
+            <select
+              className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm"
+              name="eventType"
+              defaultValue={event.eventType ?? ""}
+            >
+              <option value="">Select a type</option>
+              {(Object.keys(EVENT_TYPE_LABELS) as EventType[]).map((t) => (
+                <option key={t} value={t}>{EVENT_TYPE_LABELS[t]}</option>
+              ))}
+            </select>
+          </label>
+          <textarea
+            className="border border-line bg-paper px-md py-sm text-body-sm md:col-span-2"
+            name="description"
+            rows={4}
+            defaultValue={event.description ?? ""}
+            placeholder="Event description — shown on the public event page"
+          />
+        </div>
+
+        <div className="mt-lg">
+          <p className="font-mono text-[0.7rem] uppercase text-ink-muted">Poster</p>
+          <div className="mt-xs max-w-64">
+            <PosterUpload
+              initial={event.posterUrl}
+              onChange={async (value) => {
+                const res = await fetch(`/api/events/${event.id}`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ posterUrl: value }),
+                });
+                if (res.ok) {
+                  const updated = await res.json();
+                  setEvent({ ...event, ...updated, startsAt: new Date(updated.startsAt) });
+                }
+              }}
+            />
+          </div>
         </div>
 
         <div className="mt-lg">
@@ -1269,6 +1324,10 @@ function RegistrationRow({
         {registration.paid ? (
           <span className="font-mono text-[0.7rem] uppercase text-accent">
             Paid
+          </span>
+        ) : registration.paidClaimedAt ? (
+          <span className="border border-accent px-sm py-xs font-mono text-[0.7rem] uppercase text-accent">
+            Claims paid
           </span>
         ) : (
           <span className="font-mono text-[0.7rem] uppercase text-ink-muted">

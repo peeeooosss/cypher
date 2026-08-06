@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { Skill } from "@/generated/prisma/enums";
 import { badRequest, unauthorized } from "@/lib/api";
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
@@ -23,6 +24,7 @@ const updateMeSchema = z.object({
   experience: nullableString(50),
   socialHandle: nullableString(120),
   referral: nullableString(200),
+  skills: z.array(z.enum(Skill)).max(20).optional(),
 });
 
 export async function PATCH(request: Request) {
@@ -53,6 +55,7 @@ export async function PATCH(request: Request) {
       experience: true,
       socialHandle: true,
       referral: true,
+      skills: true,
     },
   });
 

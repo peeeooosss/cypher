@@ -17,7 +17,18 @@ export default async function EventsPage({ searchParams }: { searchParams: Searc
 
   const events = await prisma.event.findMany({
     where,
-    include: { categories: { select: { id: true, name: true }, orderBy: { name: "asc" }, take: 4 } },
+    select: {
+      id: true,
+      title: true,
+      slug: true,
+      venue: true,
+      city: true,
+      startsAt: true,
+      status: true,
+      eventType: true,
+      posterUrl: true,
+      categories: { select: { id: true, name: true }, orderBy: { name: "asc" }, take: 4 },
+    },
     orderBy: [{ status: "asc" }, { startsAt: "asc" }],
   });
 

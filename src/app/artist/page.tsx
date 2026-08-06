@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SignOutButton } from "@/components/sign-out-button";
 import { ArtistProfileForm, type ArtistProfile } from "@/components/artist-profile-form";
+import { ArtistAchievements, type Achievement } from "@/components/artist-achievements";
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { formatFee } from "@/lib/format";
@@ -9,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ArtistPage() {
   const user = await requireRole("ARTIST");
-  const [events, registrations, battleResults, profile] = await Promise.all([
+  const [events, registrations, battleResults, profile, achievements] = await Promise.all([
     prisma.event.findMany({
       where: { status: { in: ["PUBLISHED", "LIVE"] } },
       include: { categories: { include: { _count: { select: { registrations: true } } } } },
@@ -43,6 +44,7 @@ export default async function ArtistPage() {
           },
           orderBy: { round: "asc" },
         },
+        matchesWon: { select: { id: true, categoryId: true } },
       },
       orderBy: { createdAt: "desc" },
     }),
@@ -57,11 +59,27 @@ export default async function ArtistPage() {
         experience: true,
         socialHandle: true,
         referral: true,
+        skills: true,
       },
+    }),
+    prisma.artistAchievement.findMany({
+      where: { userId: user.id },
+      orderBy: [{ year: "desc" }, { createdAt: "desc" }],
     }),
   ]);
   const registeredCategoryIds = new Set(registrations.map((registration) => registration.categoryId));
   const paidCategoryIds = new Set(registrations.filter((registration) => registration.paid).map((registration) => registration.categoryId));
+
+  const totalMatches = battleResults.reduce((sum, r) => sum + r.matchesAsA.length + r.matchesAsB.length, 0);
+  const totalWins = battleResults.reduce(
+    (sum, r) =>
+      sum +
+      r.matchesAsA.filter((m) => m.winner?.userId === user.id).length +
+      r.matchesAsB.filter((m) => m.winner?.userId === user.id).length,
+    0,
+  );
+  const prizesPending = battleResults.filter((r) => r.matchesWon.length > 0 && r.category.prizePool && !r.category.prizePool.isPaid).length;
+  const prizesPaid = battleResults.filter((r) => r.matchesWon.length > 0 && r.category.prizePool?.isPaid).length;
 
   return (
     <main className="min-h-screen bg-paper px-md py-section md:px-xl">
@@ -71,11 +89,48 @@ export default async function ArtistPage() {
           <h1 className="font-display text-display-lg uppercase">Find your next battle.</h1>
           <p className="mt-sm text-body-sm text-ink-muted">Signed in as {user.email}</p>
         </div>
-        <SignOutButton />
+        <div className="flex flex-wrap gap-sm">
+          <Link
+            href="/artist/gigs"
+            className="border border-accent bg-accent px-md py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper transition-opacity hover:opacity-80"
+          >
+            Marketplace / Gigs
+          </Link>
+          <SignOutButton />
+        </div>
       </div>
 
       <section className="mt-section">
         <ArtistProfileForm profile={profile as ArtistProfile} />
+      </section>
+
+      <section className="mt-section border border-line bg-paper-soft p-lg">
+        <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-ink-muted">Battle stats</p>
+        <div className="mt-lg grid grid-cols-2 gap-md sm:grid-cols-4">
+          <div>
+            <p className="font-display text-title-md text-accent">{battleResults.length}</p>
+            <p className="mt-xs font-mono text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">Events entered</p>
+          </div>
+          <div>
+            <p className="font-display text-title-md text-accent">{totalWins}</p>
+            <p className="mt-xs font-mono text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">Battles won</p>
+          </div>
+          <div>
+            <p className="font-display text-title-md">{totalMatches}</p>
+            <p className="mt-xs font-mono text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">Total battles</p>
+          </div>
+          <div>
+            <p className="font-display text-title-md">{prizesPaid} <span className="text-ink-muted">/ {prizesPaid + prizesPending}</span></p>
+            <p className="mt-xs font-mono text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">Prizes paid</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="mt-section">
+        <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-ink-muted">My achievements</p>
+        <div className="mt-lg">
+          <ArtistAchievements achievements={achievements as Achievement[]} />
+        </div>
       </section>
 
       <section className="mt-section grid gap-md lg:grid-cols-2">

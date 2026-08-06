@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 const updateRegistrationSchema = z.object({
   status: z.enum(RegistrationStatus).optional(),
   paid: z.boolean().optional(),
+  paidClaimed: z.literal(true).optional(),
   seed: z.number().int().min(0).optional(),
   style: z.string().trim().max(80).optional(),
   crew: z.string().trim().max(120).optional(),
@@ -58,6 +59,12 @@ export async function PATCH(request: Request, { params }: RegistrationRouteConte
     return forbidden();
   }
 
+  if (isOwner && parsed.data.paidClaimed !== undefined) {
+    if (registration.paid || registration.paidClaimedAt) {
+      return badRequest("Payment already reported for this registration");
+    }
+  }
+
   const updateData: Record<string, unknown> = {};
   if (parsed.data.status) updateData.status = parsed.data.status;
   if (isEventOrganizer) {
@@ -70,6 +77,9 @@ export async function PATCH(request: Request, { params }: RegistrationRouteConte
   }
   for (const field of ["style", "crew", "city", "country", "experience", "socialHandle", "referral"] as const) {
     if (parsed.data[field] !== undefined) updateData[field] = parsed.data[field];
+  }
+  if (isOwner && parsed.data.paidClaimed !== undefined) {
+    updateData.paidClaimedAt = new Date();
   }
 
   const updated = await prisma.registration.update({
