@@ -52,6 +52,7 @@ model User {
   passwordHash    String?
   role            UserRole          @default(ARTIST)
   avatarUrl       String?
+  upiId           String?
   organizedEvents Event[]           @relation("EventOrganizer")
   registrations   Registration[]
   feedbackTemplates FeedbackTemplate[]

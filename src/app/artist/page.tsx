@@ -1,7 +1,8 @@
-import { RegistrationButton } from "@/components/registration-button";
+import Link from "next/link";
 import { SignOutButton } from "@/components/sign-out-button";
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
+import { formatFee } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -67,19 +68,31 @@ export default async function ArtistPage() {
             <h2 className="mt-sm font-display text-title-md uppercase">{event.title}</h2>
             <p className="mt-xs text-body-sm text-ink-muted">{event.startsAt.toLocaleString()} / {event.city ?? "Location TBA"}</p>
             <ul className="mt-lg space-y-sm border-t border-line pt-md">
-              {event.categories.map((category) => (
-                <li className="flex items-center justify-between gap-md" key={category.id}>
-                  <span className="text-body-sm">{category.name} <span className="text-ink-muted">({category._count.registrations})</span></span>
-                  <RegistrationButton
-                    categoryId={category.id}
-                    registered={registeredCategoryIds.has(category.id)}
-                    paid={paidCategoryIds.has(category.id)}
-                    entryFee={category.entryFee}
-                    entryCurrency={category.entryCurrency}
-                  />
-                </li>
-              ))}
+              {event.categories.map((category) => {
+                const isReg = registeredCategoryIds.has(category.id);
+                const isPaid = paidCategoryIds.has(category.id);
+                return (
+                  <li className="flex items-center justify-between gap-md" key={category.id}>
+                    <span className="text-body-sm">
+                      {category.name}{" "}
+                      <span className="text-ink-muted">({category._count.registrations})</span>
+                    </span>
+                    <span className="font-mono text-[0.65rem] uppercase text-accent">
+                      {formatFee(category.entryFee, category.entryCurrency)}
+                    </span>
+                    <span className="w-28 text-right font-mono text-[0.65rem] uppercase text-ink-muted">
+                      {isReg ? (isPaid ? "Confirmed" : "Registered") : ""}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
+            <Link
+              href={`/events/${event.slug}/register`}
+              className="mt-lg block border border-accent bg-accent px-md py-sm text-center font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper transition-opacity hover:opacity-80"
+            >
+              Register for this event
+            </Link>
           </article>
         ))}
       </section>

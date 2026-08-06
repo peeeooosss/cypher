@@ -15,3 +15,9 @@ export function formatDateShort(date: Date) {
     day: "numeric",
   }).format(date);
 }
+
+export function formatFee(entryFee: number | null | undefined, entryCurrency: string | null | undefined) {
+  if (!entryFee || entryFee <= 0) return "Free";
+  const currency = entryCurrency ?? "INR";
+  return currency === "INR" ? `₹${entryFee}` : `${currency} ${entryFee}`;
+}

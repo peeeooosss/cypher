@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { StatusBadge } from "@/components/status-badge";
-import { RegistrationButton } from "@/components/registration-button";
 import { LiveLeaderboard } from "@/components/live-leaderboard";
 import { formatDate } from "@/lib/format";
 import { getCurrentUser } from "@/lib/rbac";
@@ -122,17 +121,6 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
                           <span>{category._count.matches} matches</span>
                         )}
                       </div>
-                      {isOpen && isArtist && (
-                        <div className="mt-md">
-                          <RegistrationButton
-                            categoryId={category.id}
-                            registered={registeredCategoryIds.has(category.id)}
-                            paid={paidCategoryIds.has(category.id)}
-                            entryFee={category.entryFee}
-                            entryCurrency={category.entryCurrency}
-                          />
-                        </div>
-                      )}
                     </div>
                   ))}
                 </div>
@@ -153,6 +141,21 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
               <p className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Total categories</p>
               <p className="mt-xs text-body-md text-ink">{event.categories.length}</p>
             </div>
+            {isArtist && isOpen && (
+              <Link
+                href={`/events/${event.slug}/register`}
+                className="mt-lg block border border-accent bg-accent px-md py-sm text-center font-mono text-[0.7rem] uppercase tracking-[0.15em] text-paper transition-opacity hover:opacity-80"
+              >
+                Register for this event
+              </Link>
+            )}
+            {isArtist && registeredCategoryIds.size > 0 && (
+              <p className="mt-sm text-body-sm text-ink-muted">
+                You are registered in {registeredCategoryIds.size}{" "}
+                {registeredCategoryIds.size === 1 ? "category" : "categories"}
+                {[...paidCategoryIds].length > 0 ? " (paid)" : ""}.
+              </p>
+            )}
             {!isArtist && isOpen && (
               <Link
                 href="/login"

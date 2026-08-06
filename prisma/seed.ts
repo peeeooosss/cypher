@@ -17,8 +17,8 @@ const passwordHash = await hash(password, 12);
 // ---- Organizer ----
 const organizer = await prisma.user.upsert({
   where: { email: "organizer@callout.local" },
-  update: { name: "Cypher Org", role: UserRole.ORGANIZER, passwordHash },
-  create: { email: "organizer@callout.local", name: "Cypher Org", role: UserRole.ORGANIZER, passwordHash },
+  update: { name: "Cypher Org", role: UserRole.ORGANIZER, passwordHash, upiId: "cypherorg@upi" },
+  create: { email: "organizer@callout.local", name: "Cypher Org", role: UserRole.ORGANIZER, passwordHash, upiId: "cypherorg@upi" },
 });
 
 // ---- Delete old demo event (cascade wipes categories, rounds, matches, judge slots, prize pools, registrations) ----

@@ -10,6 +10,7 @@ const categorySchema = z.object({
   maxCompetitors: z.number().int().positive().max(256).nullable().optional(),
   entryFee: z.number().int().min(0).max(10000000).nullable().optional(),
   entryCurrency: z.string().trim().min(1).max(8).default("INR"),
+  prizeAmount: z.number().int().min(0).max(100000000).nullable().optional(),
 });
 
 type CategoryRouteContext = { params: Promise<{ eventId: string }> };
@@ -48,9 +49,26 @@ export async function POST(request: Request, { params }: CategoryRouteContext) {
   }
 
   try {
+    const { prizeAmount, ...categoryData } = parsed.data;
+
     const category = await prisma.category.create({
-      data: { ...parsed.data, event: { connect: { id: eventId } } },
+      data: { ...categoryData, event: { connect: { id: eventId } } },
     });
+
+    if (prizeAmount && prizeAmount > 0) {
+      await prisma.prizePool.create({
+        data: {
+          categoryId: category.id,
+          totalAmount: prizeAmount,
+          currency: parsed.data.entryCurrency ?? "INR",
+          distribution: [
+            { rank: 1, label: "1st place", percentage: 60 },
+            { rank: 2, label: "2nd place", percentage: 30 },
+            { rank: 3, label: "3rd place", percentage: 10 },
+          ],
+        },
+      });
+    }
 
     return NextResponse.json(category, { status: 201 });
   } catch (error) {

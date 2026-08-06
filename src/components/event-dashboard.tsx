@@ -792,6 +792,9 @@ function AddCategoryForm({
           ? Number(form.get("maxCompetitors"))
           : null,
         entryFee: form.get("entryFee") ? Number(form.get("entryFee")) : null,
+        prizeAmount: form.get("prizeAmount")
+          ? Number(form.get("prizeAmount"))
+          : null,
       }),
     });
     if (!res.ok) {
@@ -840,6 +843,13 @@ function AddCategoryForm({
           type="number"
           min={0}
           placeholder="Entry fee (₹)"
+        />
+        <input
+          className="w-32 border border-line bg-paper px-md py-sm text-body-sm"
+          name="prizeAmount"
+          type="number"
+          min={0}
+          placeholder="Prize pool (₹)"
         />
       </div>
       {error && <p className="mt-sm text-body-sm text-accent">{error}</p>}

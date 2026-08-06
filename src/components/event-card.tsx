@@ -57,6 +57,14 @@ export function EventCard({ event }: { event: EventCardData }) {
           )}
         </div>
       </Link>
+      {(event.status === EventStatus.PUBLISHED || event.status === EventStatus.LIVE) && (
+        <Link
+          href={`/events/${event.slug}/register`}
+          className="block border-t border-line px-md py-sm text-center font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-accent transition-colors hover:bg-accent hover:text-paper"
+        >
+          Register for this event
+        </Link>
+      )}
       {event.status === EventStatus.LIVE && (
         <Link
           href={`/events/${event.slug}/live`}

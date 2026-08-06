@@ -1,20 +1,25 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { EventStatus } from "@/generated/prisma/enums";
+import { EventStatus, RegistrationStatus } from "@/generated/prisma/enums";
 import { badRequest, conflict, forbidden, isUniqueConstraintError, notFound, serverError, unauthorized } from "@/lib/api";
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 
-const registrationSchema = z.object({
-  categoryId: z.string().cuid(),
-  style: z.string().trim().max(80).optional(),
-  crew: z.string().trim().max(120).optional(),
-  city: z.string().trim().max(120).optional(),
-  country: z.string().trim().max(2).optional(),
-  experience: z.string().trim().max(50).optional(),
-  socialHandle: z.string().trim().max(120).optional(),
-  referral: z.string().trim().max(200).optional(),
-});
+const registrationSchema = z
+  .object({
+    categoryId: z.string().cuid().optional(),
+    categoryIds: z.array(z.string().cuid()).min(1).optional(),
+    style: z.string().trim().max(80).optional(),
+    crew: z.string().trim().max(120).optional(),
+    city: z.string().trim().max(120).optional(),
+    country: z.string().trim().max(2).optional(),
+    experience: z.string().trim().max(50).optional(),
+    socialHandle: z.string().trim().max(120).optional(),
+    referral: z.string().trim().max(200).optional(),
+  })
+  .refine((data) => data.categoryId !== undefined || data.categoryIds !== undefined, {
+    message: "Category is required",
+  });
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -51,37 +56,54 @@ export async function POST(request: Request) {
     return badRequest(parsed.error.issues[0]?.message ?? "Invalid registration data");
   }
 
-  const category = await prisma.category.findUnique({
-    where: { id: parsed.data.categoryId },
+  const categoryIds = parsed.data.categoryIds ?? (parsed.data.categoryId ? [parsed.data.categoryId] : []);
+
+  const categories = await prisma.category.findMany({
+    where: { id: { in: categoryIds } },
     include: { event: { select: { id: true, status: true } } },
   });
 
-  if (!category) {
+  if (categories.length !== categoryIds.length) {
     return notFound("Category");
   }
 
-  if (category.event.status === EventStatus.COMPLETED || category.event.status === EventStatus.CANCELLED) {
+  if (categories.some((category) => category.event.status === EventStatus.COMPLETED || category.event.status === EventStatus.CANCELLED)) {
     return conflict("Registration is closed for this event");
   }
 
   try {
-    const { categoryId, ...profileFields } = parsed.data;
+    const { categoryId, categoryIds: _categoryIds, ...profileFields } = parsed.data;
     void categoryId;
-    const registration = await prisma.registration.create({
-      data: {
-        user: { connect: { id: user.id } },
-        category: { connect: { id: category.id } },
-        entryFee: category.entryFee,
-        entryCurrency: category.entryCurrency,
-        ...profileFields,
-      },
-      include: { category: true },
+    void _categoryIds;
+
+    const existing = await prisma.registration.findMany({
+      where: { userId: user.id, categoryId: { in: categoryIds }, status: { not: RegistrationStatus.WITHDRAWN } },
+      select: { categoryId: true },
     });
 
-    return NextResponse.json(registration, { status: 201 });
+    if (existing.length > 0) {
+      return conflict("You are already registered for one of these categories");
+    }
+
+    const registrations = await prisma.$transaction(
+      categories.map((category) =>
+        prisma.registration.create({
+          data: {
+            user: { connect: { id: user.id } },
+            category: { connect: { id: category.id } },
+            entryFee: category.entryFee,
+            entryCurrency: category.entryCurrency,
+            ...profileFields,
+          },
+          include: { category: true },
+        }),
+      ),
+    );
+
+    return NextResponse.json(registrations, { status: 201 });
   } catch (error) {
     if (isUniqueConstraintError(error)) {
-      return conflict("You are already registered for this category");
+      return conflict("You are already registered for one of these categories");
     }
 
     console.error(error);

@@ -1,5 +1,6 @@
 import { CategoryForm, EventForm } from "@/components/event-form";
 import { SignOutButton } from "@/components/sign-out-button";
+import { UpiForm } from "@/components/upi-form";
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 
@@ -7,6 +8,10 @@ export const dynamic = "force-dynamic";
 
 export default async function OrganizerPage() {
   const user = await requireRole("ORGANIZER");
+  const currentUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { upiId: true },
+  });
   const events = await prisma.event.findMany({
     where: { organizerId: user.id },
     include: {
@@ -24,6 +29,13 @@ export default async function OrganizerPage() {
           <p className="mt-sm text-body-sm text-ink-muted">Signed in as {user.email}</p>
         </div>
         <SignOutButton />
+      </div>
+
+      <div className="mt-section">
+        <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-ink-muted">Payments</p>
+        <div className="mt-lg">
+          <UpiForm currentUpiId={currentUser?.upiId ?? null} />
+        </div>
       </div>
 
       <div className="mt-section">
