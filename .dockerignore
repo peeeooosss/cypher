@@ -1,0 +1,13 @@
+node_modules
+.next
+.git
+.gitignore
+src/generated
+.vercel
+.env
+.env.*
+!*.tsbuildinfo
+playwright-report
+test-results
+load
+tests

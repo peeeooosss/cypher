@@ -34,7 +34,7 @@ if (!connectionString || !secret) {
   throw new Error("DATABASE_URL and NEXTAUTH_SECRET are required for the Socket.io server");
 }
 
-const port = Number(process.env.SOCKET_PORT ?? 3001);
+const port = Number(process.env.SOCKET_PORT ?? process.env.PORT ?? 3001);
 const allowedOrigin = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
 const httpServer = createServer();
