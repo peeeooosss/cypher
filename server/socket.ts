@@ -2,13 +2,33 @@ import "dotenv/config";
 import { createServer } from "http";
 import { getToken } from "next-auth/jwt";
 import type { NextApiRequest } from "next";
+import { Redis } from "ioredis";
+import { createAdapter } from "@socket.io/redis-adapter";
 import { prisma } from "../src/lib/prisma";
 import { Server } from "socket.io";
 import { z } from "zod";
 import { completeMatch } from "../src/lib/bracket";
+import {
+  getDefaultTimeLimit,
+  getLiveMatchPayload,
+  getMatchAggregate,
+  getMatchDecisionAggregate,
+  getMatchState,
+} from "../src/lib/live-match";
+import {
+  JoinRoomSchema,
+  SubmitScoreSchema,
+  PushMatchLiveSchema,
+  AdvanceWinnerSchema,
+  LockVotingSchema,
+  type ScoreSubmittedData,
+  type MatchCompleteData,
+  type ScoreLockedData,
+} from "../src/lib/socket/types";
 
 const connectionString = process.env.DATABASE_URL;
 const secret = process.env.NEXTAUTH_SECRET;
+const redisUrl = process.env.REDIS_URL;
 
 if (!connectionString || !secret) {
   throw new Error("DATABASE_URL and NEXTAUTH_SECRET are required for the Socket.io server");
@@ -21,7 +41,27 @@ const httpServer = createServer();
 
 const io = new Server(httpServer, {
   cors: { origin: allowedOrigin, credentials: true },
+  connectionStateRecovery: {
+    maxDisconnectionDuration: 2 * 60 * 1000,
+    skipMiddlewares: true,
+  },
 });
+
+// Redis pub/sub adapter for horizontal scaling
+let pubClient: Redis | null = null;
+let subClient: Redis | null = null;
+if (redisUrl) {
+  pubClient = new Redis(redisUrl, { lazyConnect: true });
+  subClient = pubClient.duplicate();
+  Promise.all([pubClient.connect(), subClient.connect()])
+    .then(() => {
+      io.adapter(createAdapter(pubClient!, subClient!));
+      console.log("Socket.io connected to Redis adapter");
+    })
+    .catch((err) => console.error("Redis adapter failed to connect:", err));
+} else {
+  console.warn("REDIS_URL not set — running in single-process mode (no horizontal scaling)");
+}
 
 const scoreSchema = z.object({
   eventId: z.string().cuid(),
@@ -60,24 +100,13 @@ function parseCookies(header: string | undefined) {
   );
 }
 
-async function getMatchState(eventId: string) {
-  return prisma.battleMatch.findMany({
-    where: { eventId },
-    include: {
-      competitorA: { include: { user: { select: { id: true, name: true } } } },
-      competitorB: { include: { user: { select: { id: true, name: true } } } },
-      winner: { include: { user: { select: { id: true, name: true } } } },
-      scores: { include: { judgeSlot: { select: { name: true, code: true } } } },
-    },
-    orderBy: [{ round: "asc" }, { position: "asc" }],
-  });
-}
+// ---- Battle Timer Manager ----
 
-// Internal HTTP endpoint for API routes to emit socket events
-httpServer.on("request", async (req, res) => {
+// ---- Internal HTTP endpoint for API routes to emit socket events.
+// Only intercept the internal emit path; all other requests must fall
+// through to engine.io/Socket.IO handlers on the same server.
+httpServer.on("request", (req, res) => {
   if (req.method !== "POST" || req.url !== "/internal/emit") {
-    res.writeHead(404);
-    res.end();
     return;
   }
 
@@ -146,6 +175,191 @@ io.use(async (socket, next) => {
 
 io.on("connection", (socket) => {
   const user = socket.data.user as SocketUser;
+
+  // ---- New battle-flow events ----
+
+  socket.on("join_event_room", async (payload: unknown, acknowledge?: (response: { ok: boolean; error?: string }) => void) => {
+    const parsed = JoinRoomSchema.safeParse(payload);
+    if (!parsed.success) { acknowledge?.({ ok: false, error: "Invalid join payload" }); return; }
+    const { eventId } = parsed.data;
+
+    if (user.type === "judge") {
+      if (user.eventId !== eventId) { acknowledge?.({ ok: false, error: "Code is not valid for this event" }); return; }
+    } else if (user.type === "organizer") {
+      const event = await prisma.event.findUnique({ where: { id: eventId }, select: { organizerId: true } });
+      if (!event || event.organizerId !== user.userId) { acknowledge?.({ ok: false, error: "Only the organizer can join this event" }); return; }
+    }
+
+    await socket.join(`event:${eventId}`);
+    socket.emit("event_state", await getMatchState(eventId));
+    acknowledge?.({ ok: true });
+  });
+
+  socket.on("push_match_live", async (payload: unknown, acknowledge?: (response: { ok: boolean; error?: string }) => void) => {
+    if (user.type !== "organizer") { acknowledge?.({ ok: false, error: "Only organizers can push matches live" }); return; }
+
+    const parsed = PushMatchLiveSchema.safeParse(payload);
+    if (!parsed.success) { acknowledge?.({ ok: false, error: "Invalid match payload" }); return; }
+
+    const match = await prisma.battleMatch.findUnique({
+      where: { id: parsed.data.matchId },
+      include: { category: { include: { event: { select: { organizerId: true } } } } },
+    });
+    if (!match) { acknowledge?.({ ok: false, error: "Match not found" }); return; }
+    if (match.category.event.organizerId !== user.userId) { acknowledge?.({ ok: false, error: "Not your event" }); return; }
+
+    const timeLimitMs = parsed.data.timeLimitMs ?? (await getDefaultTimeLimit(match.categoryId, match.round));
+
+    await prisma.$transaction([
+      prisma.battleMatch.update({ where: { id: match.id }, data: { status: "LIVE", startedAt: new Date() } }),
+      prisma.battleTimer.upsert({
+        where: { matchId: match.id },
+        update: { timeLimitMs, startedAt: new Date(), lockedAt: null },
+        create: { matchId: match.id, timeLimitMs, startedAt: new Date() },
+      }),
+    ]);
+
+    const livePayload = await getLiveMatchPayload(match.id);
+    if (livePayload) {
+      io.to(`event:${match.eventId}`).emit("match_live", livePayload);
+    }
+
+    acknowledge?.({ ok: true });
+  });
+
+  socket.on("submit_score", async (payload: unknown, acknowledge?: (response: { ok: boolean; error?: string; aggregate?: { scoreRed: number; scoreBlue: number; judgeCount: number } }) => void) => {
+    if (user.type !== "judge") { acknowledge?.({ ok: false, error: "Only judges can submit scores" }); return; }
+
+    const parsed = SubmitScoreSchema.safeParse(payload);
+    if (!parsed.success) { acknowledge?.({ ok: false, error: "Invalid score data" }); return; }
+    if (!socket.rooms.has(`event:${user.eventId}`)) { acknowledge?.({ ok: false, error: "Join the event before scoring" }); return; }
+
+    const match = await prisma.battleMatch.findUnique({ where: { id: parsed.data.matchId } });
+    if (!match) { acknowledge?.({ ok: false, error: "Match not found" }); return; }
+    if (match.status === "LOCKED") { acknowledge?.({ ok: false, error: "Voting is locked for this match" }); return; }
+    if (match.status === "COMPLETE") { acknowledge?.({ ok: false, error: "Match already complete" }); return; }
+
+    // Verify judge is assigned to this match's panel (if assignments exist)
+    const assignment = await prisma.judgeAssignment.findUnique({
+      where: { matchId_judgeSlotId: { matchId: match.id, judgeSlotId: user.slotId } },
+    });
+    if (!assignment) {
+      const panelCount = await prisma.judgeAssignment.count({ where: { matchId: match.id } });
+      if (panelCount > 0) {
+        acknowledge?.({ ok: false, error: "You are not assigned to this match's judging panel" });
+        return;
+      }
+    }
+
+    const isDecision = parsed.data.winnerCorner != null;
+    const winnerCorner = parsed.data.winnerCorner?.toUpperCase() === "RED" ? "RED" : "BLUE";
+
+    await prisma.matchScore.upsert({
+      where: { matchId_judgeSlotId: { matchId: match.id, judgeSlotId: user.slotId } },
+      update: isDecision
+        ? { winnerCorner, scoreA: 0, scoreB: 0, feedback: parsed.data.feedback ?? null }
+        : { scoreA: parsed.data.scoreRed ?? 0, scoreB: parsed.data.scoreBlue ?? 0, feedback: parsed.data.feedback ?? null },
+      create: isDecision
+        ? { matchId: match.id, judgeSlotId: user.slotId, winnerCorner, scoreA: 0, scoreB: 0, feedback: parsed.data.feedback ?? null }
+        : { matchId: match.id, judgeSlotId: user.slotId, scoreA: parsed.data.scoreRed ?? 0, scoreB: parsed.data.scoreBlue ?? 0, feedback: parsed.data.feedback ?? null },
+    });
+
+    const aggregate = isDecision
+      ? await getMatchDecisionAggregate(match.id)
+      : await getMatchAggregate(match.id);
+
+    await prisma.battleMatch.update({
+      where: { id: match.id },
+      data: { status: "LIVE", scoreA: aggregate.scoreRed, scoreB: aggregate.scoreBlue },
+    });
+
+    const payloadData: ScoreSubmittedData = {
+      matchId: match.id,
+      judgeSlotId: user.slotId,
+      scoreRed: parsed.data.winnerCorner != null
+        ? (parsed.data.winnerCorner === "red" ? 1 : 0)
+        : (parsed.data.scoreRed ?? 0),
+      scoreBlue: parsed.data.winnerCorner != null
+        ? (parsed.data.winnerCorner === "blue" ? 1 : 0)
+        : (parsed.data.scoreBlue ?? 0),
+      aggregateRed: aggregate.scoreRed,
+      aggregateBlue: aggregate.scoreBlue,
+      judgeCount: aggregate.judgeCount,
+    };
+    io.to(`event:${user.eventId}`).emit("score_submitted", payloadData);
+
+    acknowledge?.({ ok: true, aggregate });
+  });
+
+  socket.on("advance_winner", async (payload: unknown, acknowledge?: (response: { ok: boolean; error?: string; bracket?: unknown[] }) => void) => {
+    if (user.type !== "organizer") { acknowledge?.({ ok: false, error: "Only organizers can advance winners" }); return; }
+
+    const parsed = AdvanceWinnerSchema.safeParse(payload);
+    if (!parsed.success) { acknowledge?.({ ok: false, error: "Invalid advance payload" }); return; }
+
+    const match = await prisma.battleMatch.findUnique({
+      where: { id: parsed.data.matchId },
+      include: { category: { include: { event: { select: { organizerId: true } } } } },
+    });
+    if (!match) { acknowledge?.({ ok: false, error: "Match not found" }); return; }
+    if (match.category.event.organizerId !== user.userId) { acknowledge?.({ ok: false, error: "Not your event" }); return; }
+
+    const winnerRegistrationId = parsed.data.winnerCorner === "red" ? match.competitorAId : match.competitorBId;
+    if (!winnerRegistrationId) { acknowledge?.({ ok: false, error: "Winner competitor is not set" }); return; }
+
+    await prisma.battleMatch.update({
+      where: { id: match.id },
+      data: { status: "COMPLETE", winnerId: winnerRegistrationId, completedAt: new Date() },
+    });
+
+    let nextMatchId: string | null = null;
+    try {
+      const completed = await completeMatch(match.id, winnerRegistrationId, user.userId);
+      nextMatchId = completed.nextMatchId;
+    } catch {
+      // bracket progression may fail for finals — ignore
+    }
+
+    const bracket = await getMatchState(match.eventId);
+    const payloadData: MatchCompleteData = {
+      matchId: match.id,
+      winnerCorner: parsed.data.winnerCorner,
+      nextMatchId,
+      bracketUpdated: bracket,
+    };
+    io.to(`event:${match.eventId}`).emit("match_complete", payloadData);
+
+    acknowledge?.({ ok: true, bracket });
+  });
+
+  socket.on("lock_voting", async (payload: unknown, acknowledge?: (response: { ok: boolean; error?: string }) => void) => {
+    if (user.type !== "organizer") { acknowledge?.({ ok: false, error: "Only organizers can lock voting" }); return; }
+
+    const parsed = LockVotingSchema.safeParse(payload);
+    if (!parsed.success) { acknowledge?.({ ok: false, error: "Invalid lock payload" }); return; }
+
+    const match = await prisma.battleMatch.findUnique({
+      where: { id: parsed.data.matchId },
+      include: { category: { include: { event: { select: { organizerId: true } } } } },
+    });
+    if (!match) { acknowledge?.({ ok: false, error: "Match not found" }); return; }
+    if (match.category.event.organizerId !== user.userId) { acknowledge?.({ ok: false, error: "Not your event" }); return; }
+
+    if (parsed.data.locked) {
+      await prisma.$transaction([
+        prisma.battleMatch.update({ where: { id: match.id }, data: { status: "LOCKED" } }),
+        prisma.battleTimer.update({ where: { matchId: match.id }, data: { lockedAt: new Date() } }),
+      ]);
+    } else {
+      await prisma.battleMatch.update({ where: { id: match.id }, data: { status: "LIVE" } });
+    }
+
+    const payloadData: ScoreLockedData = { matchId: match.id, locked: parsed.data.locked };
+    io.to(`event:${match.eventId}`).emit("score_locked", payloadData);
+    acknowledge?.({ ok: true });
+  });
+
+  // ---- Legacy events (kept for compatibility with existing clients) ----
 
   socket.on("event:join", async (payload: unknown, acknowledge?: (response: { error?: string }) => void) => {
     const parsed = z.object({ eventId: z.string().cuid() }).safeParse(payload);
@@ -249,6 +463,7 @@ httpServer.listen(port, () => {
 
 async function shutdown() {
   await prisma.$disconnect();
+  if (pubClient) { await pubClient.quit(); }
   io.close();
 }
 

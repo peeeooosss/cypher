@@ -3,6 +3,9 @@ export const dynamic = "force-dynamic";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { ScoringInterface } from "@/components/scoring-interface";
+import { SocketProvider } from "@/components/socket-provider";
+import { JudgeDashboard } from "@/components/judge-dashboard";
+import type { MatchLiveData } from "@/lib/socket/types";
 
 type PageParams = { params: Promise<{ code: string }> };
 
@@ -32,7 +35,7 @@ export default async function JudgeCodePage({ params }: PageParams) {
           registrations: {
             where: { status: "CONFIRMED" },
             include: {
-              user: { select: { name: true, email: true } },
+              user: { select: { name: true, email: true, avatarUrl: true } },
               dancerScores: {
                 select: { roundFormatId: true, score: true, judgeSlotId: true },
               },
@@ -42,14 +45,10 @@ export default async function JudgeCodePage({ params }: PageParams) {
           matches: {
             include: {
               competitorA: {
-                include: {
-                  user: { select: { name: true } },
-                },
+                include: { user: { select: { name: true, avatarUrl: true } } },
               },
               competitorB: {
-                include: {
-                  user: { select: { name: true } },
-                },
+                include: { user: { select: { name: true, avatarUrl: true } } },
               },
               scores: { include: { judgeSlot: { select: { name: true } } } },
             },
@@ -81,25 +80,66 @@ export default async function JudgeCodePage({ params }: PageParams) {
   }
 
   const activeRound = slot.category.rounds.find((r) => r.phaseStatus === "ACTIVE");
+  const isRosterRound =
+    activeRound != null && ["CYPHER", "QUALIFIER"].includes(activeRound.type);
+
+  const liveMatch = slot.category.matches.find((m) => m.status === "LIVE") ?? null;
+  const initialLiveMatch: MatchLiveData | null = liveMatch
+    ? {
+        matchId: liveMatch.id,
+        round: liveMatch.round,
+        position: liveMatch.position,
+        red: {
+          id: liveMatch.competitorAId ?? "",
+          name: liveMatch.competitorA?.user.name ?? "TBD",
+          crew: liveMatch.competitorA?.crew ?? null,
+          seed: liveMatch.competitorA?.seed ?? null,
+          avatar: liveMatch.competitorA?.user.avatarUrl ?? null,
+        },
+        blue: {
+          id: liveMatch.competitorBId ?? "",
+          name: liveMatch.competitorB?.user.name ?? "TBD",
+          crew: liveMatch.competitorB?.crew ?? null,
+          seed: liveMatch.competitorB?.seed ?? null,
+          avatar: liveMatch.competitorB?.user.avatarUrl ?? null,
+        },
+        timeLimitMs: 60000,
+        status: "LIVE",
+      }
+    : null;
 
   return (
-    <main className="min-h-screen bg-paper px-md py-section md:px-xl">
-      <p className="font-mono text-body-sm uppercase text-accent">Judge portal</p>
-      <h1 className="mt-lg font-display text-display-lg uppercase">
-        Judging: {slot.category.name}
-      </h1>
-      <p className="mt-sm text-body-sm text-ink-muted">
-        {slot.category.event.title}
-      </p>
-      <p className="mt-sm font-mono text-body-sm uppercase text-ink-muted">
-        {activeRound ? `Phase ${activeRound.order}: ${activeRound.label ?? activeRound.type}` : "No active phase yet"}
-      </p>
-      <ScoringInterface
-        code={normalizedCode}
-        slotId={slot.id}
-        data={slot}
-        activeRound={activeRound ?? null}
-      />
+    <main className="min-h-screen bg-paper">
+      {isRosterRound ? (
+        <div className="px-md py-section md:px-xl">
+          <p className="font-mono text-body-sm uppercase text-accent">Judge portal</p>
+          <h1 className="mt-lg font-display text-display-lg uppercase">
+            Judging: {slot.category.name}
+          </h1>
+          <p className="mt-sm text-body-sm text-ink-muted">{slot.category.event.title}</p>
+          <p className="mt-sm font-mono text-body-sm uppercase text-ink-muted">
+            {activeRound ? `Phase ${activeRound.order}: ${activeRound.label ?? activeRound.type}` : "No active phase yet"}
+          </p>
+          <ScoringInterface
+            code={normalizedCode}
+            slotId={slot.id}
+            data={slot}
+            activeRound={activeRound ?? null}
+          />
+        </div>
+      ) : (
+        <SocketProvider code={normalizedCode}>
+          <JudgeDashboard
+            code={normalizedCode}
+            slotId={slot.id}
+            eventId={slot.category.event.id}
+            categoryName={slot.category.name}
+            eventTitle={slot.category.event.title}
+            roundLabel={activeRound?.label ?? activeRound?.type ?? null}
+            initialLiveMatch={initialLiveMatch}
+          />
+        </SocketProvider>
+      )}
     </main>
   );
 }

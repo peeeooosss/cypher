@@ -30,6 +30,7 @@ enum RegistrationStatus {
 enum MatchStatus {
   PENDING
   LIVE
+  LOCKED
   COMPLETE
 }
 
@@ -50,6 +51,7 @@ model User {
   name            String?
   passwordHash    String?
   role            UserRole          @default(ARTIST)
+  avatarUrl       String?
   organizedEvents Event[]           @relation("EventOrganizer")
   registrations   Registration[]
   feedbackTemplates FeedbackTemplate[]
@@ -107,6 +109,7 @@ model RoundFormat {
   roundDuration Int?
   advanceCount  Int?
   phaseStatus    String?   @default("PENDING")
+  timeLimitMs    Int       @default(60000)
   dancerScores   DancerScore[]
   category      Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   createdAt     DateTime  @default(now())
@@ -164,6 +167,8 @@ model BattleMatch {
   nextMatch       BattleMatch?  @relation("BracketProgression", fields: [nextMatchId], references: [id])
   previousMatches BattleMatch[] @relation("BracketProgression")
   scores          MatchScore[]
+  judgeAssignments JudgeAssignment[]
+  battleTimer     BattleTimer?
   startedAt       DateTime?
   completedAt     DateTime?
   createdAt       DateTime      @default(now())
@@ -185,6 +190,7 @@ model JudgeSlot {
   category   Category     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   scores     MatchScore[]
   dancerScores DancerScore[]
+  judgeAssignments JudgeAssignment[]
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
 
@@ -210,11 +216,12 @@ model DancerScore {
 }
 
 model MatchScore {
-  id          String      @id @default(cuid())
+  id           String      @id @default(cuid())
   matchId     String
   judgeSlotId String
   scoreA      Int
   scoreB      Int
+  winnerCorner String?
   feedback    String?
   match       BattleMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
   judgeSlot   JudgeSlot   @relation(fields: [judgeSlotId], references: [id], onDelete: Cascade)
@@ -249,4 +256,44 @@ model PrizePool {
   category     Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+model JudgeAssignment {
+  id          String      @id @default(cuid())
+  matchId     String
+  judgeSlotId String
+  panelOrder  Int
+  match       BattleMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  judgeSlot   JudgeSlot   @relation(fields: [judgeSlotId], references: [id], onDelete: Cascade)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@unique([matchId, judgeSlotId])
+  @@index([matchId])
+}
+
+model BattleTimer {
+  id            String      @id @default(cuid())
+  matchId       String      @unique
+  timeLimitMs   Int
+  startedAt     DateTime?
+  lockedAt      DateTime?
+  warningsSent  String[]    @default([])
+  match         BattleMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model ScoreAuditLog {
+  id           String   @id @default(cuid())
+  matchId      String
+  judgeSlotId  String
+  oldScoreRed  Int?
+  oldScoreBlue Int?
+  newScoreRed  Int
+  newScoreBlue Int
+  changedBy    String
+  reason       String?
+  createdAt    DateTime @default(now())
+  @@index([matchId])
 }

@@ -17,8 +17,8 @@ type EventCardData = {
 
 export function EventCard({ event }: { event: EventCardData }) {
   return (
-    <Link href={`/events/${event.slug}`} className="group block">
-      <div className="border border-line bg-paper-soft transition-colors group-hover:border-accent">
+    <div className="group border border-line bg-paper-soft transition-colors hover:border-accent">
+      <Link href={`/events/${event.slug}`} className="block">
         <div className="flex items-center gap-sm border-b border-line px-md py-xs">
           <StatusBadge status={event.status} />
           <span className="font-mono text-[0.65rem] uppercase tracking-[0.15em] text-ink-muted">
@@ -56,7 +56,15 @@ export function EventCard({ event }: { event: EventCardData }) {
             </p>
           )}
         </div>
-      </div>
-    </Link>
+      </Link>
+      {event.status === EventStatus.LIVE && (
+        <Link
+          href={`/events/${event.slug}/live`}
+          className="block border-t border-line bg-accent px-md py-sm text-center font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper transition-opacity hover:opacity-80"
+        >
+          View live scores
+        </Link>
+      )}
+    </div>
   );
 }

@@ -3,33 +3,48 @@
 import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
 
-type LeaderboardDancer = {
-  rank: number;
-  registrationId: string;
-  name: string;
+type LeaderboardScore = { score: number; roundFormatId: string };
+type LeaderboardRegistration = {
+  id: string;
   seed: number | null;
   crew: string | null;
-  dancerTotal: number;
-  matchScore: number;
-  total: number;
-  judgeVotes: number;
-  matches: number;
+  name: string;
+  dancerScores: LeaderboardScore[];
 };
-
+type LeaderboardRound = {
+  id: string;
+  order: number;
+  type: string;
+  label: string | null;
+  phaseStatus: string | null;
+};
+type LeaderboardMatch = {
+  id: string;
+  round: number;
+  position: number;
+  status: string;
+  redName: string;
+  blueName: string;
+  winnerId: string | null;
+  winnerName: string | null;
+  scores: { judgeName: string; winnerCorner: string | null; feedback: string | null }[];
+};
 type LeaderboardCategory = {
   categoryId: string;
   name: string;
   currentPhaseOrder: number | null;
-  activeRound: { id: string; type: string; label: string | null } | null;
-  dancers: LeaderboardDancer[];
+  rounds: LeaderboardRound[];
+  registrations: LeaderboardRegistration[];
+  matches: LeaderboardMatch[];
 };
-
 type LeaderboardData = {
   eventId: string;
   title: string;
   status: string;
   categories: LeaderboardCategory[];
 };
+
+const NUMERIC_PHASES = ["CYPHER", "QUALIFIER"];
 
 export function LiveLeaderboard({
   eventId,
@@ -41,6 +56,8 @@ export function LiveLeaderboard({
   compact?: boolean;
 }) {
   const [data, setData] = useState<LeaderboardData | null>(null);
+  const [categoryId, setCategoryId] = useState("");
+  const [phaseId, setPhaseId] = useState("");
   const [connectionStatus, setConnectionStatus] = useState("offline");
   const [error, setError] = useState("");
 
@@ -49,8 +66,15 @@ export function LiveLeaderboard({
       try {
         const res = await fetch(`/api/events/${eventId}/leaderboard`);
         if (res.ok) {
-          setData(await res.json());
+          const json = (await res.json()) as LeaderboardData;
+          setData(json);
           setError("");
+          if (json.categories.length > 0) {
+            const first = json.categories[0];
+            setCategoryId(first.categoryId);
+            const active = first.rounds.find((r) => r.phaseStatus === "ACTIVE") ?? first.rounds[0];
+            setPhaseId(active?.id ?? "");
+          }
         } else {
           setError("Unable to load leaderboard");
         }
@@ -82,6 +106,11 @@ export function LiveLeaderboard({
     socket.on("dancer:updated", () => void refresh());
     socket.on("match:updated", () => void refresh());
     socket.on("event:state", () => void refresh());
+    socket.on("leaderboard:update", () => void refresh());
+    socket.on("score_submitted", () => void refresh());
+    socket.on("score_locked", () => void refresh());
+    socket.on("match_live", () => void refresh());
+    socket.on("match_complete", () => void refresh());
 
     return () => {
       socket.disconnect();
@@ -104,9 +133,26 @@ export function LiveLeaderboard({
     );
   }
 
-  const hasScores = data.categories.some((c) =>
-    c.dancers.some((d) => d.judgeVotes > 0 || d.matches > 0),
-  );
+  const selectedCategory = data.categories.find((c) => c.categoryId === categoryId);
+  const selectedPhase = selectedCategory?.rounds.find((r) => r.id === phaseId);
+  const isNumeric = selectedPhase != null && NUMERIC_PHASES.includes(selectedPhase.type);
+
+  const ranked = (selectedCategory?.registrations ?? [])
+    .map((reg) => {
+      const phaseScores = reg.dancerScores.filter((s) => s.roundFormatId === phaseId);
+      return {
+        reg,
+        total: phaseScores.reduce((sum, s) => sum + s.score, 0),
+        judges: phaseScores.length,
+      };
+    })
+    .filter((r) => r.judges > 0)
+    .sort((a, b) => b.total - a.total || (a.reg.seed ?? 999) - (b.reg.seed ?? 999))
+    .map((r, i) => ({ ...r, rank: i + 1 }));
+
+  const matchRounds = selectedCategory
+    ? [...new Set(selectedCategory.matches.map((m) => m.round))].sort((a, b) => a - b)
+    : [];
 
   return (
     <section className="mt-section">
@@ -123,70 +169,176 @@ export function LiveLeaderboard({
         </span>
       </div>
 
-      {!hasScores ? (
+      <div className="mt-md flex flex-wrap gap-md">
+        <label className="flex flex-col gap-xs">
+          <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Category</span>
+          <select
+            className="border border-line bg-paper px-md py-sm text-body-sm"
+            value={categoryId}
+            onChange={(e) => {
+              const id = e.target.value;
+              const cat = data.categories.find((c) => c.categoryId === id);
+              setCategoryId(id);
+              const active = cat?.rounds.find((r) => r.phaseStatus === "ACTIVE") ?? cat?.rounds[0];
+              setPhaseId(active?.id ?? "");
+            }}
+          >
+            {data.categories.map((c) => (
+              <option key={c.categoryId} value={c.categoryId}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-xs">
+          <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Phase</span>
+          <select
+            className="border border-line bg-paper px-md py-sm text-body-sm"
+            value={phaseId}
+            onChange={(e) => setPhaseId(e.target.value)}
+          >
+            {(selectedCategory?.rounds ?? []).map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.label ?? r.type.replace("_", " ")}
+                {r.phaseStatus === "ACTIVE" ? " (active)" : ""}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      {!selectedCategory ? (
         <p className="mt-lg border border-line p-lg text-body-sm text-ink-muted">
-          No scores yet. Judges are warming up &mdash; standings will appear live as rounds start.
+          No categories yet.
         </p>
-      ) : (
-        <div className={`mt-lg ${compact ? "" : "space-y-xl"}`}>
-          {data.categories.map((category) => {
-            const scored = category.dancers.filter((d) => d.judgeVotes > 0 || d.matches > 0);
-            const podium = scored.slice(0, 3);
-            const rest = scored.slice(3);
+      ) : isNumeric ? (
+        <div className="mt-lg border border-line">
+          <div className="flex flex-wrap items-center justify-between gap-sm border-b border-line bg-paper-soft px-md py-sm">
+            <p className="font-display text-title-md uppercase">{selectedPhase?.label ?? "Scoring round"}</p>
+            <p className="font-mono text-[0.7rem] uppercase text-ink-muted">
+              Numeric judge scores
+            </p>
+          </div>
 
-            return (
-              <div key={category.categoryId} className="border border-line">
-                <div className="flex flex-wrap items-center justify-between gap-sm border-b border-line bg-paper-soft px-md py-sm">
-                  <p className="font-display text-title-md uppercase">{category.name}</p>
-                  <p className="font-mono text-[0.7rem] uppercase text-ink-muted">
-                    {category.activeRound?.label ?? "Round not started"}
-                  </p>
-                </div>
-
-                {scored.length === 0 ? (
-                  <p className="p-lg text-body-sm text-ink-muted">No scores yet for this category.</p>
-                ) : (
-                  <div>
-                    {podium.map((d) => (
-                      <div
-                        key={d.registrationId}
-                        className="flex items-center gap-md border-b border-line px-md py-sm"
-                      >
-                        <span
-                          className={`w-10 shrink-0 text-center font-mono text-display-lg font-bold ${
-                            d.rank === 1 ? "text-accent" : d.rank === 2 ? "text-ink" : "text-ink-muted"
-                          }`}
-                        >
-                          {d.rank}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-body-md font-bold uppercase">{d.name}</p>
-                          <p className="text-[0.7rem] uppercase text-ink-muted">
-                            {d.crew ?? "Solo"}
-                            {d.seed != null ? ` / Seed #${d.seed}` : ""}
-                          </p>
-                        </div>
-                        <span className="font-mono text-title-md font-bold text-accent">{d.total}</span>
-                      </div>
-                    ))}
-
-                    {rest.map((d) => (
-                      <div
-                        key={d.registrationId}
-                        className="flex items-center gap-md border-b border-line px-md py-xs"
-                      >
-                        <span className="w-10 shrink-0 text-center font-mono text-body-sm text-ink-muted">
-                          {d.rank}
-                        </span>
-                        <p className="min-w-0 flex-1 truncate text-body-sm uppercase">{d.name}</p>
-                        <span className="font-mono text-body-sm text-accent">{d.total}</span>
-                      </div>
-                    ))}
+          {ranked.length === 0 ? (
+            <p className="p-lg text-body-sm text-ink-muted">
+              No scores yet for this phase. Judges are scoring live.
+            </p>
+          ) : (
+            <div className={compact ? "" : ""}>
+              {ranked.map((row) => (
+                <div
+                  key={row.reg.id}
+                  className="flex items-center gap-md border-b border-line px-md py-sm"
+                >
+                  <span
+                    className={`w-10 shrink-0 text-center font-mono text-display-lg font-bold ${
+                      row.rank === 1 ? "text-accent" : row.rank === 2 ? "text-ink" : "text-ink-muted"
+                    }`}
+                  >
+                    {row.rank}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-body-md font-bold uppercase">{row.reg.name}</p>
+                    <p className="text-[0.7rem] uppercase text-ink-muted">
+                      {row.reg.crew ?? "Solo"}
+                      {row.reg.seed != null ? ` / Seed #${row.reg.seed}` : ""}
+                    </p>
                   </div>
-                )}
-              </div>
-            );
-          })}
+                  <span className="font-mono text-title-md font-bold text-accent">{row.total}</span>
+                  <span className="w-20 text-right text-xs uppercase text-ink-muted">
+                    {row.judges} judge{row.judges === 1 ? "" : "s"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="mt-lg space-y-lg">
+          <div className="flex flex-wrap items-center justify-between gap-sm border border-line bg-paper-soft px-md py-sm">
+            <p className="font-display text-title-md uppercase">
+              {selectedPhase?.label ?? "Battles"}
+            </p>
+            <p className="font-mono text-[0.7rem] uppercase text-ink-muted">
+              Direct decisions — no numeric scores
+            </p>
+          </div>
+
+          {matchRounds.length === 0 ? (
+            <p className="border border-line p-lg text-body-sm text-ink-muted">
+              No battle matches yet for this phase.
+            </p>
+          ) : (
+            matchRounds.map((round) => {
+              const matches = selectedCategory.matches
+                .filter((m) => m.round === round)
+                .sort((a, b) => a.position - b.position);
+              return (
+                <div key={round} className="border border-line">
+                  <div className="border-b border-line bg-paper-soft px-md py-sm">
+                    <p className="font-mono text-[0.7rem] uppercase text-ink-muted">
+                      Bracket round {round}
+                    </p>
+                  </div>
+                  {matches.map((m) => {
+                    const redVotes = m.scores.filter((s) => s.winnerCorner === "RED").length;
+                    const blueVotes = m.scores.filter((s) => s.winnerCorner === "BLUE").length;
+                    const feedback = m.scores.filter((s) => s.feedback && s.winnerCorner);
+                    const decided = m.status === "COMPLETE" && m.winnerName;
+                    return (
+                      <div key={m.id} className="border-b border-line px-md py-md">
+                        <div className="flex flex-wrap items-center gap-md">
+                          <span className="w-10 font-mono text-xs uppercase text-ink-muted">
+                            M{m.position}
+                          </span>
+                          <span className="flex-1">
+                            <span className="font-display text-title-sm uppercase text-accent">
+                              {m.redName}
+                            </span>
+                            <span className="mx-sm text-ink-muted">vs</span>
+                            <span className="font-display text-title-sm uppercase text-[#2980FF]">
+                              {m.blueName}
+                            </span>
+                          </span>
+                          <span className="font-mono text-[0.7rem] uppercase text-ink-muted">
+                            Red {redVotes} · Blue {blueVotes}
+                          </span>
+                          <span
+                            className={`border px-md py-xs font-mono text-[0.7rem] uppercase ${
+                              decided
+                                ? "border-accent text-accent"
+                                : m.status === "LIVE" || m.status === "LOCKED"
+                                  ? "border-line text-ink"
+                                  : "border-line text-ink-muted"
+                            }`}
+                          >
+                            {decided ? `Winner: ${m.winnerName}` : m.status.toLowerCase()}
+                          </span>
+                        </div>
+                        {feedback.length > 0 && (
+                          <ul className="mt-md space-y-xs pl-10">
+                            {feedback.map((s, i) => {
+                              const defeated =
+                                s.winnerCorner === "RED" ? m.blueName : m.redName;
+                              return (
+                                <li key={i} className="text-body-sm text-ink-muted">
+                                  <span className="font-mono uppercase">{s.judgeName}</span>
+                                  {" for "}
+                                  <span className="font-bold uppercase">{defeated}</span>:
+                                  <span className="ml-xs italic">&ldquo;{s.feedback}&rdquo;</span>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })
+          )}
         </div>
       )}
     </section>

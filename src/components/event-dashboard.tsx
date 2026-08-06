@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, FormEvent } from "react";
+import { useState, useEffect, useCallback, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { LiveLeaderboard } from "@/components/live-leaderboard";
 import type { EventStatus, RoundType, RegistrationStatus } from "@/generated/prisma/enums";
@@ -74,7 +74,7 @@ type RegistrationRow = {
   user: { name: string | null; email: string };
 };
 
-const TABS = ["Overview", "Categories", "Judges", "Registrations", "Prizes", "Control Room"] as const;
+const TABS = ["Overview", "Categories", "Judges", "Registrations", "Prizes", "Leaderboard", "Control Room"] as const;
 
 const STATUS_OPTIONS: EventStatus[] = ["DRAFT", "PUBLISHED", "LIVE", "COMPLETED"];
 
@@ -93,30 +93,29 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<string>("Overview");
   const [event, setEvent] = useState(initialEvent);
+  const [controlRoomKey, setControlRoomKey] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [notice, setNotice] = useState("");
 
   const refresh = () => router.refresh();
 
-  const [notice, setNotice] = useState("");
-  const [cypherSelected, setCypherSelected] = useState<Set<string>>(new Set());
-  const [cypherRegs, setCypherRegs] = useState<Array<{id:string, user:{name:string|null}, crew:string|null}>>([]);
-
-  useEffect(() => {
-    if (activeTab !== "Control Room") return;
-    const loadCypherRegs = async () => {
-      const results: Array<{id:string, user:{name:string|null}, crew:string|null}> = [];
-      for (const cat of event.categories) {
-        const currentPhase = cat.rounds.find(r => r.order === cat.currentPhaseOrder && r.phaseStatus === "ACTIVE");
-        if (!currentPhase || !["CYPHER","QUALIFIER"].includes(currentPhase.type)) continue;
-        const res = await fetch(`/api/events/${event.id}/registrations?categoryId=${cat.id}&status=CONFIRMED`);
-        if (res.ok) {
-          const data = await res.json();
-          results.push(...(Array.isArray(data) ? data : []));
-        }
+  const refreshControlRoom = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const res = await fetch(`/api/events/${event.id}/dashboard`);
+      if (res.ok) {
+        const data = await res.json();
+        setEvent({ ...data, startsAt: new Date(data.startsAt) });
+        setControlRoomKey((k) => k + 1);
+      } else {
+        setNotice("Failed to refresh control room");
       }
-      setCypherRegs(results);
-    };
-    void loadCypherRegs();
-  }, [activeTab, event.id]);  // eslint-disable-line
+    } catch {
+      setNotice("Failed to refresh control room");
+    } finally {
+      setRefreshing(false);
+    }
+  }, [event.id]);
 
   return (
     <div className="mt-section">
@@ -152,9 +151,24 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
       {activeTab === "Prizes" && (
         <PrizesTab event={event} refresh={refresh} />
       )}
+      {activeTab === "Leaderboard" && (
+        <LiveLeaderboard eventId={event.id} title="Leaderboard" />
+      )}
       {activeTab === "Control Room" && (
         <div className="space-y-xl">
-          {notice ? <div className="border border-accent bg-paper-soft p-md text-body-sm text-accent">{notice} <button onClick={() => setNotice("")}>&times;</button></div> : null}
+          <div className="flex flex-wrap items-center justify-between gap-md">
+            <div className="flex items-center gap-sm">
+              {notice ? <div className="border border-accent bg-paper-soft p-md text-body-sm text-accent">{notice} <button onClick={() => setNotice("")}>&times;</button></div> : null}
+            </div>
+            <button
+              className="border border-line px-lg py-sm font-bold uppercase text-ink hover:border-accent disabled:opacity-60"
+              onClick={() => void refreshControlRoom()}
+              disabled={refreshing}
+              type="button"
+            >
+              {refreshing ? "Refreshing..." : "Refresh"}
+            </button>
+          </div>
           {event.status !== "LIVE" ? (
             <div className="border border-line p-xl text-center">
               <p className="font-display text-title-md uppercase text-ink-muted">Event is not live</p>
@@ -191,10 +205,6 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
                       <span key={round.id} className="flex-1 truncate px-xs">{round.label ?? round.type.replace('_', ' ')}</span>
                     ))}
                   </div>
-                </div>
-
-                <div className="mt-lg border-t border-line pt-lg">
-                  <LiveLeaderboard eventId={event.id} title={category.name} compact />
                 </div>
 
                 <div className="mt-lg flex flex-wrap gap-sm">
@@ -259,44 +269,13 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
                 </div>
 
                 {category.currentPhaseOrder != null && ["CYPHER","QUALIFIER"].includes(category.rounds.find(r => r.order === category.currentPhaseOrder)!.type) && (
-                  <div className="mt-lg border-t border-line pt-md">
-                    <p className="font-mono text-[0.7rem] uppercase text-ink-muted mb-xs">Select dancers to advance</p>
-                    <p className="mb-md text-body-sm text-ink-muted">
-                      Tick the dancers who move to the next round, then confirm.
-                    </p>
-                    {cypherRegs.map(reg => (
-                      <label key={reg.id} className="flex items-center gap-sm py-xs text-body-sm">
-                        <input type="checkbox" checked={cypherSelected.has(reg.id)} onChange={() => {
-                          const next = new Set(cypherSelected);
-                          if (next.has(reg.id)) next.delete(reg.id); else next.add(reg.id);
-                          setCypherSelected(next);
-                        }} className="border border-line bg-paper" />
-                        {reg.user.name} {reg.crew ? `(${reg.crew})` : ''}
-                      </label>
-                    ))}
-                    <button className="mt-md border border-accent bg-accent px-lg py-sm font-bold uppercase text-paper"
-                      onClick={async () => {
-                        const res = await fetch(`/api/categories/${category.id}/cypher-advance`, {
-                          method: "POST", headers: {"Content-Type":"application/json"},
-                          body: JSON.stringify({ registrationIds: Array.from(cypherSelected) })
-                        });
-                        if (res.ok) {
-                          setCypherSelected(new Set());
-                          setNotice("Advancement confirmed");
-                          router.refresh();
-                        } else {
-                          setNotice("Failed to advance");
-                        }
-                      }}>
-                      Advance {cypherSelected.size} dancer(s)
-                    </button>
-                  </div>
+                  <CypherDancerPicker key={`${category.id}-${controlRoomKey}`} eventId={event.id} categoryId={category.id} onResult={(ok) => setNotice(ok ? "Advancement confirmed" : "Failed to advance")} />
                 )}
 
                 {category.currentPhaseOrder != null && (() => {
                   const currentPhase = category.rounds.find(r => r.order === category.currentPhaseOrder && r.phaseStatus === "ACTIVE");
                   if (!currentPhase || !["BATTLE_1V1","BATTLE_2V2","BATTLE_3V3","BATTLE_4V4","FINAL"].includes(currentPhase.type)) return null;
-                  return <BracketView categoryId={category.id} eventId={event.id} />;
+                  return <BracketView key={`${category.id}-${controlRoomKey}`} categoryId={category.id} eventId={event.id} />;
                 })()}
               </div>
             ))
@@ -912,6 +891,86 @@ function JudgeSlotRow({
   );
 }
 
+function CypherDancerPicker({ eventId, categoryId, onResult }: { eventId: string; categoryId: string; onResult: (ok: boolean) => void }) {
+  const router = useRouter();
+  const [regs, setRegs] = useState<Array<{ id: string; user: { name: string | null }; crew: string | null; seed: number | null; dancerScores: Array<{ score: number }> }>>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const res = await fetch(`/api/events/${eventId}/registrations?categoryId=${categoryId}&status=CONFIRMED`);
+      if (res.ok && !cancelled) {
+        const data = await res.json();
+        setRegs(Array.isArray(data) ? data : []);
+      }
+    };
+    void load();
+    const interval = window.setInterval(() => void load(), 5000);
+    return () => { cancelled = true; window.clearInterval(interval); };
+  }, [eventId, categoryId]);
+
+  const toggle = (id: string) => {
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    setSelected(next);
+  };
+
+  const advance = async () => {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/categories/${categoryId}/cypher-advance`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ registrationIds: Array.from(selected) }),
+      });
+      if (res.ok) {
+        setSelected(new Set());
+        router.refresh();
+      }
+      onResult(res.ok);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mt-lg border-t border-line pt-md">
+      <p className="font-mono text-[0.7rem] uppercase text-ink-muted mb-xs">Select dancers to advance</p>
+      <p className="mb-md text-body-sm text-ink-muted">
+        Tick the dancers who move to the next round, then confirm.
+      </p>
+      {[...regs]
+        .sort((a, b) => {
+          const ta = a.dancerScores.reduce((s, d) => s + d.score, 0);
+          const tb = b.dancerScores.reduce((s, d) => s + d.score, 0);
+          return tb - ta;
+        })
+        .map(reg => {
+        const total = reg.dancerScores.reduce((s, d) => s + d.score, 0);
+        const judgeCount = reg.dancerScores.length;
+        return (
+          <label key={reg.id} className="flex items-center gap-sm py-xs text-body-sm">
+            <input type="checkbox" checked={selected.has(reg.id)} onChange={() => toggle(reg.id)} className="border border-line bg-paper" />
+            <span className="w-10 font-mono text-xs text-ink-muted">#{reg.seed ?? "-"}</span>
+            <span className="flex-1">{reg.user.name} {reg.crew ? `(${reg.crew})` : ''}</span>
+            <span className="font-mono text-sm text-accent">{judgeCount > 0 ? total : "—"}</span>
+            <span className="w-20 text-right text-xs text-ink-muted">{judgeCount > 0 ? `${judgeCount} judge${judgeCount > 1 ? "s" : ""}` : "no score"}</span>
+          </label>
+        );
+      })}
+      <button
+        className="mt-md border border-accent bg-accent px-lg py-sm font-bold uppercase text-paper disabled:cursor-not-allowed disabled:opacity-50"
+        onClick={() => void advance()}
+        disabled={busy || selected.size === 0}
+      >
+        Advance {selected.size} dancer(s)
+      </button>
+    </div>
+  );
+}
+
 function RegistrationsTab({ event }: { event: EventWithRelations }) {
   const [categoryId, setCategoryId] = useState(event.categories[0]?.id ?? "");
   const [registrations, setRegistrations] = useState<RegistrationRow[]>([]);
@@ -1322,39 +1381,134 @@ type BracketMatch = {
   id: string;
   round: number;
   position: number;
+  status: string;
   competitorA: { user: { name: string | null } } | null;
   competitorB: { user: { name: string | null } } | null;
+  competitorAId: string | null;
+  competitorBId: string | null;
+  winnerId: string | null;
   scoreA: number;
   scoreB: number;
 };
 
 function BracketView({ categoryId, eventId }: { categoryId: string; eventId: string }) {
   const [matches, setMatches] = useState<BracketMatch[]>([]);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    const res = await fetch(`/api/events/${eventId}/categories/${categoryId}/bracket`);
+    if (res.ok) {
+      const data = await res.json();
+      setMatches(Array.isArray(data) ? data : []);
+    }
+  }, [categoryId, eventId]);
 
   useEffect(() => {
-    const load = async () => {
+    const initial = async () => {
       const res = await fetch(`/api/events/${eventId}/categories/${categoryId}/bracket`);
       if (res.ok) {
         const data = await res.json();
         setMatches(Array.isArray(data) ? data : []);
       }
     };
-    void load();
+    void initial();
   }, [categoryId, eventId]);
+
+  async function run(matchId: string, url: string, body?: unknown) {
+    setBusy(matchId);
+    setError("");
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError((data as { error?: string }).error ?? "Action failed");
+      }
+      await load();
+    } catch {
+      setError("Action failed");
+    } finally {
+      setBusy(null);
+    }
+  }
 
   return (
     <div className="mt-lg border-t border-line pt-md">
-      <p className="font-mono text-[0.7rem] uppercase text-ink-muted mb-md">Bracket matches</p>
-      {matches.map(match => (
-        <div key={match.id} className="mt-sm border border-line p-md">
-          <span className="font-mono text-[0.7rem] text-ink-muted">R{match.round} M{match.position}</span>
-          <div className="mt-sm flex justify-between text-body-sm">
-            <span>{match.competitorA?.user.name ?? "TBD"} {match.scoreA}</span>
-            <span className="text-accent">vs</span>
-            <span>{match.competitorB?.user.name ?? "TBD"} {match.scoreB}</span>
+      <div className="flex items-center justify-between">
+        <p className="font-mono text-[0.7rem] uppercase text-ink-muted mb-md">Bracket matches</p>
+        {error && <p className="mb-md text-body-sm text-accent">{error}</p>}
+      </div>
+      {matches.map(match => {
+        const ready = match.competitorAId && match.competitorBId;
+        const locked = match.status === "LOCKED";
+        const live = match.status === "LIVE";
+        const complete = match.status === "COMPLETE";
+        return (
+          <div key={match.id} className="mt-sm border border-line p-md">
+            <div className="flex flex-wrap items-center justify-between gap-sm">
+              <span className="font-mono text-[0.7rem] text-ink-muted">R{match.round} M{match.position} / {match.status}</span>
+              <div className="flex flex-wrap gap-sm">
+                {!complete && ready && !live && (
+                  <button
+                    type="button"
+                    className="border border-accent px-md py-xs text-body-sm font-bold uppercase text-accent disabled:opacity-60"
+                    disabled={busy === match.id}
+                    onClick={() => void run(match.id, `/api/matches/${match.id}/push-live`)}
+                  >
+                    {busy === match.id ? "Pushing..." : "Push live"}
+                  </button>
+                )}
+                {(live || locked) && (
+                  <button
+                    type="button"
+                    className="border border-line px-md py-xs text-body-sm font-bold uppercase text-ink disabled:opacity-60"
+                    disabled={busy === match.id}
+                    onClick={() => void run(match.id, `/api/matches/${match.id}/lock`, { locked: !locked })}
+                  >
+                    {locked ? "Unlock voting" : "Lock voting"}
+                  </button>
+                )}
+                {complete && match.winnerId && (
+                  <span className="border border-accent px-md py-xs text-body-sm font-bold uppercase text-accent">
+                    Winner locked
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="mt-sm grid grid-cols-[1fr_auto_auto_auto_1fr] items-center gap-sm text-body-sm">
+              <span className="text-right">{match.competitorA?.user.name ?? "TBD"}</span>
+              <span className="font-mono text-[0.7rem] text-ink-muted">{match.scoreA}</span>
+              <span className="border border-line px-sm py-xs font-mono text-[0.6rem] uppercase text-ink-muted">vs</span>
+              <span className="font-mono text-[0.7rem] text-ink-muted">{match.scoreB}</span>
+              <span>{match.competitorB?.user.name ?? "TBD"}</span>
+            </div>
+            {!complete && ready && (
+              <div className="mt-sm flex flex-wrap items-center justify-center gap-sm">
+                <button
+                  type="button"
+                  className="border border-accent px-md py-xs text-body-sm font-bold uppercase text-accent disabled:opacity-60"
+                  disabled={busy === match.id}
+                  onClick={() => void run(match.id, `/api/matches/${match.id}/complete`, { winnerId: match.competitorAId })}
+                >
+                  Winner: {match.competitorA?.user.name ?? "A"}
+                </button>
+                <button
+                  type="button"
+                  className="border border-[#2980FF] px-md py-xs text-body-sm font-bold uppercase text-[#2980FF] disabled:opacity-60"
+                  disabled={busy === match.id}
+                  onClick={() => void run(match.id, `/api/matches/${match.id}/complete`, { winnerId: match.competitorBId })}
+                >
+                  Winner: {match.competitorB?.user.name ?? "B"}
+                </button>
+              </div>
+            )}
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

@@ -35,10 +35,28 @@ export async function GET(_: Request, { params }: Context) {
               seed: true,
               crew: true,
               user: { select: { name: true } },
-              dancerScores: { select: { score: true } },
-              matchesAsA: { select: { scoreA: true, status: true } },
-              matchesAsB: { select: { scoreB: true, status: true } },
+              dancerScores: { select: { score: true, roundFormatId: true } },
             },
+          },
+          matches: {
+            select: {
+              id: true,
+              round: true,
+              position: true,
+              status: true,
+              winnerId: true,
+              competitorA: { select: { id: true, user: { select: { name: true } } } },
+              competitorB: { select: { id: true, user: { select: { name: true } } } },
+              winner: { select: { id: true, user: { select: { name: true } } } },
+              scores: {
+                select: {
+                  winnerCorner: true,
+                  feedback: true,
+                  judgeSlot: { select: { name: true, code: true } },
+                },
+              },
+            },
+            orderBy: [{ round: "asc" }, { position: "asc" }],
           },
         },
       },
@@ -51,44 +69,43 @@ export async function GET(_: Request, { params }: Context) {
     eventId: event.id,
     title: event.title,
     status: event.status,
-    categories: event.categories.map((category) => {
-      const activeRound = category.rounds.find((r) => r.phaseStatus === "ACTIVE");
-
-      const dancers = category.registrations.map((reg) => {
-        const dancerTotal = reg.dancerScores.reduce((s, d) => s + d.score, 0);
-        const dancerCount = reg.dancerScores.length;
-        const matchScore =
-          reg.matchesAsA.filter((m) => m.status === "COMPLETE").reduce((s, m) => s + m.scoreA, 0) +
-          reg.matchesAsB.filter((m) => m.status === "COMPLETE").reduce((s, m) => s + m.scoreB, 0);
-        const matchCount =
-          reg.matchesAsA.filter((m) => m.status === "COMPLETE").length +
-          reg.matchesAsB.filter((m) => m.status === "COMPLETE").length;
-        const total = dancerTotal + matchScore;
-        return {
-          registrationId: reg.id,
-          name: reg.user.name ?? "Unnamed",
-          seed: reg.seed,
-          crew: reg.crew,
-          dancerTotal,
-          matchScore,
-          total,
-          judgeVotes: dancerCount,
-          matches: matchCount,
-        };
-      });
-
-      dancers.sort((a, b) => b.total - a.total || (a.seed ?? 999) - (b.seed ?? 999));
-
-      return {
-        categoryId: category.id,
-        name: category.name,
-        currentPhaseOrder: category.currentPhaseOrder,
-        activeRound: activeRound
-          ? { id: activeRound.id, type: activeRound.type, label: activeRound.label }
-          : null,
-        dancers: dancers.map((d, i) => ({ rank: i + 1, ...d })),
-      };
-    }),
+    categories: event.categories.map((category) => ({
+      categoryId: category.id,
+      name: category.name,
+      currentPhaseOrder: category.currentPhaseOrder,
+      rounds: category.rounds.map((r) => ({
+        id: r.id,
+        order: r.order,
+        type: r.type,
+        label: r.label,
+        phaseStatus: r.phaseStatus,
+      })),
+      registrations: category.registrations.map((reg) => ({
+        id: reg.id,
+        seed: reg.seed,
+        crew: reg.crew,
+        name: reg.user.name ?? "Unnamed",
+        dancerScores: reg.dancerScores.map((d) => ({
+          score: d.score,
+          roundFormatId: d.roundFormatId,
+        })),
+      })),
+      matches: category.matches.map((m) => ({
+        id: m.id,
+        round: m.round,
+        position: m.position,
+        status: m.status,
+        redName: m.competitorA?.user.name ?? "TBD",
+        blueName: m.competitorB?.user.name ?? "TBD",
+        winnerId: m.winnerId,
+        winnerName: m.winner?.user.name ?? null,
+        scores: m.scores.map((s) => ({
+          judgeName: s.judgeSlot.name ?? s.judgeSlot.code,
+          winnerCorner: s.winnerCorner,
+          feedback: s.feedback,
+        })),
+      })),
+    })),
   };
 
   return NextResponse.json(data);

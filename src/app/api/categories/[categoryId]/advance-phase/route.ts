@@ -37,11 +37,14 @@ export async function POST(_request: Request, { params }: Context) {
 
     let matches: unknown[] = [];
     if (["BATTLE_1V1", "BATTLE_2V2", "BATTLE_3V3", "BATTLE_4V4", "FINAL"].includes(nextPhase.type)) {
-      try {
-        matches = await generateBracket(categoryId, user.id);
-      } catch (error) {
-        if (error instanceof BracketError) return badRequest(error.message);
-        throw error;
+      const existingMatches = await prisma.battleMatch.count({ where: { categoryId } });
+      if (existingMatches === 0) {
+        try {
+          matches = await generateBracket(categoryId, user.id);
+        } catch (error) {
+          if (error instanceof BracketError) return badRequest(error.message);
+          throw error;
+        }
       }
     }
 

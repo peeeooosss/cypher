@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { badRequest, notFound, serverError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
+import { emitToSocket } from "@/lib/socket-emit";
+import { getMatchAggregate } from "@/lib/live-match";
 
 type Context = {
   params: Promise<{ matchId: string }>;
@@ -60,6 +62,17 @@ export async function POST(request: Request, { params }: Context) {
         competitorB: { include: { user: { select: { name: true } } } },
         scores: true,
       },
+    });
+
+    const aggregate = await getMatchAggregate(matchId);
+    await emitToSocket(slot.eventId, "score_submitted", {
+      matchId,
+      judgeSlotId: slot.id,
+      scoreRed: scoreA,
+      scoreBlue: scoreB,
+      aggregateRed: aggregate.scoreRed,
+      aggregateBlue: aggregate.scoreBlue,
+      judgeCount: aggregate.judgeCount,
     });
 
     return NextResponse.json(updated);

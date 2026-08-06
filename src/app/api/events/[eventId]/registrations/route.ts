@@ -42,6 +42,7 @@ export async function GET(request: Request, { params }: EventRegistrationsContex
     include: {
       user: { select: { id: true, name: true, email: true } },
       category: { select: { id: true, name: true } },
+      dancerScores: { select: { score: true } },
     },
     orderBy: [{ category: { name: "asc" } }, { createdAt: "asc" }],
   });
