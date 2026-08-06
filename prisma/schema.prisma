@@ -53,6 +53,13 @@ model User {
   role            UserRole          @default(ARTIST)
   avatarUrl       String?
   upiId           String?
+  style           String?
+  crew            String?
+  city            String?
+  country         String?
+  experience      String?
+  socialHandle    String?
+  referral        String?
   organizedEvents Event[]           @relation("EventOrganizer")
   registrations   Registration[]
   feedbackTemplates FeedbackTemplate[]

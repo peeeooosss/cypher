@@ -4,15 +4,25 @@ import { badRequest, unauthorized } from "@/lib/api";
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 
-const updateMeSchema = z.object({
-  name: z.string().trim().min(1).max(120).optional(),
-  upiId: z
+const nullableString = (max: number) =>
+  z
     .string()
     .trim()
-    .max(120)
+    .max(max)
     .nullable()
     .optional()
-    .transform((value) => (value === "" ? null : value)),
+    .transform((value) => (value === "" ? null : value));
+
+const updateMeSchema = z.object({
+  name: z.string().trim().min(1).max(120).optional(),
+  upiId: nullableString(120),
+  style: nullableString(80),
+  crew: nullableString(120),
+  city: nullableString(120),
+  country: nullableString(120),
+  experience: nullableString(50),
+  socialHandle: nullableString(120),
+  referral: nullableString(200),
 });
 
 export async function PATCH(request: Request) {
@@ -31,7 +41,19 @@ export async function PATCH(request: Request) {
   const updated = await prisma.user.update({
     where: { id: user.id },
     data: parsed.data,
-    select: { id: true, name: true, email: true, upiId: true },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      upiId: true,
+      style: true,
+      crew: true,
+      city: true,
+      country: true,
+      experience: true,
+      socialHandle: true,
+      referral: true,
+    },
   });
 
   return NextResponse.json(updated);

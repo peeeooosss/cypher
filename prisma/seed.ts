@@ -38,14 +38,44 @@ const artistDefs = [
   "Imani Jones", "Hiro Yamamoto", "Eva Novak", "Malik Carter", "Rosa Lopez",
 ];
 
+const styles = ["Breaking", "Popping", "Hip-Hop", "Locking", "House"];
+const crews = ["Soul Mechanics", "Floor Assassins", "Rhythm Killers", "Flow State", "Concrete Kings", null];
+const cities = ["Guwahati", "Shillong", "Imphal", "Dibrugarh", "Silchar"];
+const experiences = ["PRO", "ADVANCED", "INTERMEDIATE"];
+const socialHandles = ["@mikekicks", "@sarahpops", "@davetops", "@annafreeze", "@jamesbreaks", "@lisamoves", "@marcusthunder", "@ninaspins", "@tyronefresh", "@yukirocks"];
+const referrals = ["Instagram", "TikTok", "Friend", "Crew", "Event Website"];
+
 const artists = [];
 for (let i = 0; i < artistDefs.length; i++) {
   const name = artistDefs[i];
   const email = `artist${i + 1}@callout.local`;
   const user = await prisma.user.upsert({
     where: { email },
-    update: { name, role: UserRole.ARTIST, passwordHash },
-    create: { email, name, role: UserRole.ARTIST, passwordHash },
+    update: {
+      name,
+      role: UserRole.ARTIST,
+      passwordHash,
+      style: styles[i % styles.length],
+      crew: crews[i % crews.length],
+      city: cities[i % cities.length],
+      country: "India",
+      experience: experiences[i % experiences.length],
+      socialHandle: socialHandles[i % socialHandles.length],
+      referral: referrals[i % referrals.length],
+    },
+    create: {
+      email,
+      name,
+      role: UserRole.ARTIST,
+      passwordHash,
+      style: styles[i % styles.length],
+      crew: crews[i % crews.length],
+      city: cities[i % cities.length],
+      country: "India",
+      experience: experiences[i % experiences.length],
+      socialHandle: socialHandles[i % socialHandles.length],
+      referral: referrals[i % referrals.length],
+    },
   });
   artists.push(user);
 }
@@ -136,11 +166,6 @@ for (const slot of judgeSlotDefs) {
 }
 
 // ---- Registrations: 12 Breaking, 10 Popping, 8 Hip-Hop = 30 total ----
-const crews = ["Soul Mechanics", "Floor Assassins", "Rhythm Killers", "Flow State", "Concrete Kings", null];
-const cities = ["Brooklyn", "Queens", "Bronx", "Jersey City", "Newark"];
-const experiences = ["PRO", "ADVANCED", "INTERMEDIATE"];
-const referrals = ["Instagram", "TikTok", "Friend", "Crew", "Event Website"];
-
 const regPlan: Array<{ category: typeof breaking; count: number; offset: number }> = [
   { category: breaking, count: 12, offset: 0 },
   { category: popping, count: 10, offset: 12 },
@@ -164,7 +189,7 @@ for (const plan of regPlan) {
         style: plan.category.name,
         crew: crews[i % crews.length] ?? null,
         city: cities[i % cities.length],
-        country: "US",
+        country: "India",
         experience: experiences[i % experiences.length],
         socialHandle: `@${artist.name?.toLowerCase().replace(/\s+/g, "")}`,
         referral: referrals[i % referrals.length],

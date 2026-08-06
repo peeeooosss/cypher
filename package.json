@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "db:deploy": "prisma migrate deploy",
-    "db:seed": "tsx prisma/seed.ts",
+    "db:seed": "tsx -r dotenv/config prisma/seed.ts",
     "socket": "tsx server/socket.ts",
     "socket:dev": "tsx watch server/socket.ts",
     "test:e2e": "playwright test",

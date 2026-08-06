@@ -13,16 +13,6 @@ type CategoryOption = {
   registeredCount: number;
 };
 
-const DETAIL_FIELDS = [
-  { name: "style", label: "Style", placeholder: "e.g. Popping, Breaking" },
-  { name: "crew", label: "Crew", placeholder: "e.g. Soul Mechanics" },
-  { name: "city", label: "City", placeholder: "e.g. Guwahati" },
-  { name: "country", label: "Country", placeholder: "e.g. IN" },
-  { name: "experience", label: "Experience", placeholder: "e.g. PRO, ADVANCED, INTERMEDIATE" },
-  { name: "socialHandle", label: "Social handle", placeholder: "@yourname" },
-  { name: "referral", label: "How did you hear about us?", placeholder: "e.g. Instagram, Friend" },
-];
-
 export function RegistrationForm({
   eventId,
   categories,
@@ -62,17 +52,10 @@ export function RegistrationForm({
     setError("");
     setSubmitting(true);
 
-    const formData = new FormData(e.currentTarget);
-    const details: Record<string, string | undefined> = {};
-    for (const field of DETAIL_FIELDS) {
-      const value = String(formData.get(field.name) ?? "").trim();
-      if (value) details[field.name] = value;
-    }
-
     const response = await fetch("/api/registrations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ categoryIds: [...selected], ...details }),
+      body: JSON.stringify({ categoryIds: [...selected] }),
     });
 
     if (!response.ok) {
@@ -137,22 +120,16 @@ export function RegistrationForm({
       </div>
 
       <div className="mt-section border border-line">
-        <div className="border-b border-line bg-paper-soft px-lg py-md">
+        <div className="flex flex-wrap items-center justify-between gap-sm border-b border-line bg-paper-soft px-lg py-md">
           <p className="font-display text-title-md uppercase">Your details</p>
+          <p className="text-body-sm text-ink-muted">
+            Used from your artist profile
+          </p>
         </div>
-        <div className="grid gap-md p-lg sm:grid-cols-2">
-          {DETAIL_FIELDS.map((field) => (
-            <label key={field.name} className="block">
-              <span className="font-mono text-[0.7rem] uppercase text-ink-muted">{field.label}</span>
-              <input
-                className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm"
-                name={field.name}
-                placeholder={field.placeholder}
-                autoComplete="off"
-              />
-            </label>
-          ))}
-        </div>
+        <p className="px-lg py-md text-body-sm text-ink-muted">
+          Style, crew, city, country, experience and social handle come from your battle
+          profile — update them anytime from your artist dashboard.
+        </p>
       </div>
 
       {error ? <p className="mt-md text-body-sm text-accent">{error}</p> : null}

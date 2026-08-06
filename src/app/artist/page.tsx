@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SignOutButton } from "@/components/sign-out-button";
+import { ArtistProfileForm, type ArtistProfile } from "@/components/artist-profile-form";
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { formatFee } from "@/lib/format";
@@ -8,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ArtistPage() {
   const user = await requireRole("ARTIST");
-  const [events, registrations, battleResults] = await Promise.all([
+  const [events, registrations, battleResults, profile] = await Promise.all([
     prisma.event.findMany({
       where: { status: { in: ["PUBLISHED", "LIVE"] } },
       include: { categories: { include: { _count: { select: { registrations: true } } } } },
@@ -45,6 +46,19 @@ export default async function ArtistPage() {
       },
       orderBy: { createdAt: "desc" },
     }),
+    prisma.user.findUnique({
+      where: { id: user.id },
+      select: {
+        name: true,
+        style: true,
+        crew: true,
+        city: true,
+        country: true,
+        experience: true,
+        socialHandle: true,
+        referral: true,
+      },
+    }),
   ]);
   const registeredCategoryIds = new Set(registrations.map((registration) => registration.categoryId));
   const paidCategoryIds = new Set(registrations.filter((registration) => registration.paid).map((registration) => registration.categoryId));
@@ -59,6 +73,10 @@ export default async function ArtistPage() {
         </div>
         <SignOutButton />
       </div>
+
+      <section className="mt-section">
+        <ArtistProfileForm profile={profile as ArtistProfile} />
+      </section>
 
       <section className="mt-section grid gap-md lg:grid-cols-2">
         {events.length === 0 ? <p className="border border-line p-lg text-ink-muted">No open events right now.</p> : null}

@@ -7,6 +7,8 @@ import { EventStatus } from "@/generated/prisma/enums";
 
 export const dynamic = "force-dynamic";
 
+const REQUIRED_PROFILE_FIELDS = ["style", "city", "country", "experience", "socialHandle"] as const;
+
 type RegisterPageContext = { params: Promise<{ slug: string }> };
 
 export default async function RegisterPage({ params }: RegisterPageContext) {
@@ -37,12 +39,28 @@ export default async function RegisterPage({ params }: RegisterPageContext) {
 
   const isOpen = event.status === EventStatus.PUBLISHED || event.status === EventStatus.LIVE;
 
-  const existing = await prisma.registration.findMany({
-    where: { userId: user.id, categoryId: { in: event.categories.map((c) => c.id) } },
-    select: { categoryId: true, paid: true },
-  });
+  const [existing, profileUser] = await Promise.all([
+    prisma.registration.findMany({
+      where: { userId: user.id, categoryId: { in: event.categories.map((c) => c.id) } },
+      select: { categoryId: true, paid: true },
+    }),
+    prisma.user.findUnique({
+      where: { id: user.id },
+      select: {
+        style: true,
+        city: true,
+        country: true,
+        experience: true,
+        socialHandle: true,
+      },
+    }),
+  ]);
   const registeredCategoryIds = new Set(existing.map((r) => r.categoryId));
   const paidCategoryIds = new Set(existing.filter((r) => r.paid).map((r) => r.categoryId));
+
+  const profileComplete = REQUIRED_PROFILE_FIELDS.every((field) =>
+    Boolean(profileUser?.[field]),
+  );
 
   return (
     <main className="min-h-screen bg-paper">
@@ -60,7 +78,7 @@ export default async function RegisterPage({ params }: RegisterPageContext) {
           {event.title}
         </h1>
         <p className="mt-md text-body-sm text-ink-muted">
-          Pick the categories you want to enter, add your details, then pay the organizer to confirm your spot.
+          Pick the categories you want to enter, then pay the organizer to confirm your spot.
         </p>
 
         {!isOpen ? (
@@ -71,6 +89,22 @@ export default async function RegisterPage({ params }: RegisterPageContext) {
             <p className="mt-sm text-body-sm text-ink-muted">
               Registrations are not open for this event right now.
             </p>
+          </div>
+        ) : !profileComplete ? (
+          <div className="mt-section border border-line p-lg">
+            <p className="font-display text-title-md uppercase text-accent">
+              Complete your battle profile
+            </p>
+            <p className="mt-sm text-body-sm text-ink-muted">
+              Add your style, city, country, experience and social handle before you register.
+              Organizers see these details on your entry.
+            </p>
+            <Link
+              href="/artist"
+              className="mt-lg inline-block border border-accent bg-accent px-md py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper hover:opacity-80"
+            >
+              Update profile
+            </Link>
           </div>
         ) : (
           <RegistrationForm

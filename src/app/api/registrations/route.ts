@@ -9,13 +9,6 @@ const registrationSchema = z
   .object({
     categoryId: z.string().cuid().optional(),
     categoryIds: z.array(z.string().cuid()).min(1).optional(),
-    style: z.string().trim().max(80).optional(),
-    crew: z.string().trim().max(120).optional(),
-    city: z.string().trim().max(120).optional(),
-    country: z.string().trim().max(2).optional(),
-    experience: z.string().trim().max(50).optional(),
-    socialHandle: z.string().trim().max(120).optional(),
-    referral: z.string().trim().max(200).optional(),
   })
   .refine((data) => data.categoryId !== undefined || data.categoryIds !== undefined, {
     message: "Category is required",
@@ -58,10 +51,24 @@ export async function POST(request: Request) {
 
   const categoryIds = parsed.data.categoryIds ?? (parsed.data.categoryId ? [parsed.data.categoryId] : []);
 
-  const categories = await prisma.category.findMany({
-    where: { id: { in: categoryIds } },
-    include: { event: { select: { id: true, status: true } } },
-  });
+  const [categories, profile] = await Promise.all([
+    prisma.category.findMany({
+      where: { id: { in: categoryIds } },
+      include: { event: { select: { id: true, status: true } } },
+    }),
+    prisma.user.findUnique({
+      where: { id: user.id },
+      select: {
+        style: true,
+        crew: true,
+        city: true,
+        country: true,
+        experience: true,
+        socialHandle: true,
+        referral: true,
+      },
+    }),
+  ]);
 
   if (categories.length !== categoryIds.length) {
     return notFound("Category");
@@ -72,9 +79,15 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { categoryId, categoryIds: _categoryIds, ...profileFields } = parsed.data;
-    void categoryId;
-    void _categoryIds;
+    const profileFields = {
+      style: profile?.style ?? null,
+      crew: profile?.crew ?? null,
+      city: profile?.city ?? null,
+      country: profile?.country ?? null,
+      experience: profile?.experience ?? null,
+      socialHandle: profile?.socialHandle ?? null,
+      referral: profile?.referral ?? null,
+    };
 
     const existing = await prisma.registration.findMany({
       where: { userId: user.id, categoryId: { in: categoryIds }, status: { not: RegistrationStatus.WITHDRAWN } },
