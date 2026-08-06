@@ -70,6 +70,7 @@ export function CategoryForm({ eventId }: { eventId: string }) {
       body: JSON.stringify({
         name: formData.get("name"),
         maxCompetitors: formData.get("maxCompetitors") ? Number(formData.get("maxCompetitors")) : null,
+        entryFee: formData.get("entryFee") ? Number(formData.get("entryFee")) : null,
       }),
     });
 
@@ -87,6 +88,7 @@ export function CategoryForm({ eventId }: { eventId: string }) {
     <form className="mt-md flex flex-wrap gap-sm" onSubmit={handleSubmit}>
       <input required className="min-w-48 border border-line bg-paper px-sm py-xs" name="name" placeholder="1v1 Popping" />
       <input className="w-32 border border-line bg-paper px-sm py-xs" min="2" name="maxCompetitors" placeholder="Max" type="number" />
+      <input className="w-32 border border-line bg-paper px-sm py-xs" min="0" name="entryFee" placeholder="Entry fee (₹)" type="number" />
       <button className="border border-line px-md py-xs text-body-sm font-bold uppercase hover:border-accent" type="submit">Add category</button>
       {error ? <p className="basis-full text-body-sm text-accent">{error}</p> : null}
     </form>

@@ -13,7 +13,7 @@ export default async function ArtistPage() {
       include: { categories: { include: { _count: { select: { registrations: true } } } } },
       orderBy: { startsAt: "asc" },
     }),
-    prisma.registration.findMany({ where: { userId: user.id }, select: { categoryId: true } }),
+    prisma.registration.findMany({ where: { userId: user.id }, select: { categoryId: true, paid: true } }),
     prisma.registration.findMany({
       where: { userId: user.id },
       include: {
@@ -46,6 +46,7 @@ export default async function ArtistPage() {
     }),
   ]);
   const registeredCategoryIds = new Set(registrations.map((registration) => registration.categoryId));
+  const paidCategoryIds = new Set(registrations.filter((registration) => registration.paid).map((registration) => registration.categoryId));
 
   return (
     <main className="min-h-screen bg-paper px-md py-section md:px-xl">
@@ -69,7 +70,13 @@ export default async function ArtistPage() {
               {event.categories.map((category) => (
                 <li className="flex items-center justify-between gap-md" key={category.id}>
                   <span className="text-body-sm">{category.name} <span className="text-ink-muted">({category._count.registrations})</span></span>
-                  <RegistrationButton categoryId={category.id} registered={registeredCategoryIds.has(category.id)} />
+                  <RegistrationButton
+                    categoryId={category.id}
+                    registered={registeredCategoryIds.has(category.id)}
+                    paid={paidCategoryIds.has(category.id)}
+                    entryFee={category.entryFee}
+                    entryCurrency={category.entryCurrency}
+                  />
                 </li>
               ))}
             </ul>
@@ -88,6 +95,11 @@ export default async function ArtistPage() {
                 <article className="border border-line bg-paper-soft p-lg" key={reg.id}>
                   <h3 className="font-display text-title-md uppercase">{reg.category.event.title}</h3>
                   <p className="mt-xs text-body-sm text-ink-muted">{reg.category.name}</p>
+                  <p className={`mt-xs font-mono text-[0.7rem] uppercase tracking-[0.1em] ${reg.paid ? "text-accent" : "text-ink-muted"}`}>
+                    {reg.entryFee && reg.entryFee > 0
+                      ? `${reg.entryCurrency === "INR" ? "₹" : `${reg.entryCurrency} `}${reg.entryFee} — ${reg.paid ? "Paid & confirmed" : "Payment pending"}`
+                      : "Free entry"}
+                  </p>
                   <div className="mt-md space-y-sm border-t border-line pt-md">
                     {allMatches.length === 0 ? (
                       <p className="text-body-sm text-ink-muted">No matches yet.</p>

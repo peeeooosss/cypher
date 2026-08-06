@@ -8,6 +8,7 @@ import { useState } from "react";
 const navLinks = [
   { href: "/", label: "Home" },
   { href: "/events", label: "Events" },
+  { href: "/about", label: "About Us" },
 ];
 
 const dashboardLinks: Record<string, { href: string; label: string }[]> = {

@@ -74,9 +74,9 @@ const event = await prisma.event.create({
 });
 
 // ---- Categories ----
-const breaking = await prisma.category.create({ data: { eventId: event.id, name: "Breaking", maxCompetitors: 32 } });
-const popping = await prisma.category.create({ data: { eventId: event.id, name: "Popping", maxCompetitors: 32 } });
-const hiphop = await prisma.category.create({ data: { eventId: event.id, name: "Hip-Hop", maxCompetitors: 16 } });
+const breaking = await prisma.category.create({ data: { eventId: event.id, name: "Breaking", maxCompetitors: 32, entryFee: 500, entryCurrency: "INR" } });
+const popping = await prisma.category.create({ data: { eventId: event.id, name: "Popping", maxCompetitors: 32, entryFee: 500, entryCurrency: "INR" } });
+const hiphop = await prisma.category.create({ data: { eventId: event.id, name: "Hip-Hop", maxCompetitors: 16, entryFee: 500, entryCurrency: "INR" } });
 
 // ---- Round phases ----
 const phaseDefs: Record<string, Array<{ order: number; type: RoundType; label: string; roundCount: number; roundDuration: number; advanceCount?: number }>> = {
@@ -156,6 +156,10 @@ for (const plan of regPlan) {
         userId: artist.id,
         categoryId: plan.category.id,
         status: "CONFIRMED",
+        entryFee: plan.category.entryFee,
+        entryCurrency: plan.category.entryCurrency,
+        paid: true,
+        paidAt: now,
         seed: seedNum,
         style: plan.category.name,
         crew: crews[i % crews.length] ?? null,

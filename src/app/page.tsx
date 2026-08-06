@@ -146,18 +146,6 @@ export default async function Home() {
           </div>
         )}
       </section>
-
-      {/* Footer */}
-      <footer className="border-t border-line">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-sm px-md py-lg md:flex-row md:px-xl">
-          <p className="font-display text-[0.8rem] uppercase tracking-[-0.05em]">
-            CYPHR
-          </p>
-          <p className="font-mono text-[0.6rem] uppercase tracking-[0.15em] text-ink-muted">
-            Underground artist and performance platform
-          </p>
-        </div>
-      </footer>
     </main>
   );
 }

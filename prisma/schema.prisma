@@ -85,6 +85,8 @@ model Category {
   eventId        String
   name           String
   maxCompetitors Int?
+  entryFee       Int?           @default(0)
+  entryCurrency  String         @default("INR")
   event          Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
   rounds         RoundFormat[]
   registrations  Registration[]
@@ -123,6 +125,10 @@ model Registration {
   userId       String
   categoryId   String
   status       RegistrationStatus @default(PENDING)
+  entryFee     Int?
+  entryCurrency String?
+  paid         Boolean            @default(false)
+  paidAt       DateTime?
   seed         Int?
   style        String?
   crew         String?

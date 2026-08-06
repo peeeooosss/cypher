@@ -68,7 +68,13 @@ export async function POST(request: Request) {
     const { categoryId, ...profileFields } = parsed.data;
     void categoryId;
     const registration = await prisma.registration.create({
-      data: { user: { connect: { id: user.id } }, category: { connect: { id: category.id } }, ...profileFields },
+      data: {
+        user: { connect: { id: user.id } },
+        category: { connect: { id: category.id } },
+        entryFee: category.entryFee,
+        entryCurrency: category.entryCurrency,
+        ...profileFields,
+      },
       include: { category: true },
     });
 

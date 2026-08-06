@@ -8,6 +8,8 @@ import { prisma } from "@/lib/prisma";
 const categorySchema = z.object({
   name: z.string().trim().min(2).max(80),
   maxCompetitors: z.number().int().positive().max(256).nullable().optional(),
+  entryFee: z.number().int().min(0).max(10000000).nullable().optional(),
+  entryCurrency: z.string().trim().min(1).max(8).default("INR"),
 });
 
 type CategoryRouteContext = { params: Promise<{ eventId: string }> };

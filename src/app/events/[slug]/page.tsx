@@ -35,12 +35,20 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
   const registrations = isArtist
     ? await prisma.registration.findMany({
         where: { userId: user.id, categoryId: { in: event.categories.map((c) => c.id) } },
-        select: { categoryId: true },
+        select: { categoryId: true, paid: true },
       })
     : [];
   const registeredCategoryIds = new Set(registrations.map((r) => r.categoryId));
+  const paidCategoryIds = new Set(registrations.filter((r) => r.paid).map((r) => r.categoryId));
 
   const isOpen = event.status !== EventStatus.COMPLETED && event.status !== EventStatus.CANCELLED;
+
+  function formatFee(category: { entryFee: number | null; entryCurrency: string }) {
+    if (!category.entryFee || category.entryFee <= 0) return "Free entry";
+    return category.entryCurrency === "INR"
+      ? `₹${category.entryFee} entry`
+      : `${category.entryCurrency} ${category.entryFee} entry`;
+  }
 
   return (
     <main className="min-h-screen bg-paper">
@@ -102,6 +110,9 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
                       className="border border-line bg-paper-soft p-lg"
                     >
                       <h3 className="font-display text-title-md uppercase">{category.name}</h3>
+                      <p className="mt-sm font-mono text-body-sm uppercase tracking-[0.1em] text-accent">
+                        {formatFee(category)}
+                      </p>
                       <div className="mt-sm flex flex-wrap gap-md text-body-sm text-ink-muted">
                         <span>{category._count.registrations} registered</span>
                         {category.maxCompetitors && (
@@ -116,6 +127,9 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
                           <RegistrationButton
                             categoryId={category.id}
                             registered={registeredCategoryIds.has(category.id)}
+                            paid={paidCategoryIds.has(category.id)}
+                            entryFee={category.entryFee}
+                            entryCurrency={category.entryCurrency}
                           />
                         </div>
                       )}

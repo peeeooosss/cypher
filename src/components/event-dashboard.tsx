@@ -42,6 +42,8 @@ type Category = {
   id: string;
   eventId: string;
   name: string;
+  entryFee: number | null;
+  entryCurrency: string;
   rounds: Round[];
   judgeSlots: JudgeSlot[];
   prizePool: PrizePool | null;
@@ -71,6 +73,10 @@ type RegistrationRow = {
   style: string | null;
   crew: string | null;
   experience: string | null;
+  entryFee: number | null;
+  entryCurrency: string | null;
+  paid: boolean;
+  paidAt: Date | null;
   user: { name: string | null; email: string };
 };
 
@@ -453,12 +459,17 @@ function CategoriesTab({
     <div className="space-y-xl">
       {event.categories.map((category) => (
         <div key={category.id} className="border border-line p-lg">
-          <p className="font-display text-title-md uppercase">
-            {category.name}
-          </p>
-          <p className="mt-xs text-body-sm text-ink-muted">
-            {category._count.registrations} registered
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-md">
+            <div>
+              <p className="font-display text-title-md uppercase">
+                {category.name}
+              </p>
+              <p className="mt-xs text-body-sm text-ink-muted">
+                {category._count.registrations} registered
+              </p>
+            </div>
+            <CategoryFeeEditor category={category} refresh={refresh} />
+          </div>
 
           {category.rounds.length > 0 && (
             <div className="mt-lg">
@@ -505,6 +516,106 @@ function CategoriesTab({
       ))}
 
       <AddCategoryForm eventId={event.id} refresh={refresh} />
+    </div>
+  );
+}
+
+function CategoryFeeEditor({
+  category,
+  refresh,
+}: {
+  category: Category;
+  refresh: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [fee, setFee] = useState(category.entryFee?.toString() ?? "");
+  const [currency, setCurrency] = useState(category.entryCurrency);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSave() {
+    setError("");
+    setSaving(true);
+    const res = await fetch(`/api/categories/${category.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        entryFee: fee ? Number(fee) : null,
+        entryCurrency: currency || "INR",
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      setError(err?.error ?? "Failed to update price");
+      setSaving(false);
+      return;
+    }
+    setSaving(false);
+    setEditing(false);
+    refresh();
+  }
+
+  if (!editing) {
+    return (
+      <div className="text-right">
+        <p className="font-mono text-[0.7rem] uppercase tracking-[0.1em] text-accent">
+          {category.entryFee && category.entryFee > 0
+            ? `${category.entryCurrency === "INR" ? "₹" : `${category.entryCurrency} `}${category.entryFee}`
+            : "Free entry"}
+        </p>
+        <button
+          className="mt-sm border border-line px-sm py-xs text-[0.7rem] font-bold uppercase hover:border-accent"
+          onClick={() => {
+            setFee(category.entryFee?.toString() ?? "");
+            setCurrency(category.entryCurrency);
+            setEditing(true);
+          }}
+          type="button"
+        >
+          Edit price
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border border-line bg-paper-soft p-md">
+      <p className="font-mono text-[0.7rem] uppercase text-ink-muted">
+        Entry price point
+      </p>
+      <div className="mt-sm flex flex-wrap items-center gap-sm">
+        <input
+          className="w-28 border border-line bg-paper px-sm py-xs text-body-sm"
+          type="number"
+          min={0}
+          value={fee}
+          onChange={(e) => setFee(e.target.value)}
+          placeholder="Fee"
+        />
+        <input
+          className="w-20 border border-line bg-paper px-sm py-xs text-body-sm"
+          value={currency}
+          onChange={(e) => setCurrency(e.target.value)}
+          placeholder="INR"
+          maxLength={8}
+        />
+        <button
+          className="border border-accent bg-accent px-md py-xs text-[0.7rem] font-bold uppercase text-paper disabled:opacity-60"
+          disabled={saving}
+          onClick={() => void handleSave()}
+          type="button"
+        >
+          {saving ? "..." : "Save"}
+        </button>
+        <button
+          className="border border-line px-md py-xs text-[0.7rem] font-bold uppercase hover:border-accent"
+          onClick={() => setEditing(false)}
+          type="button"
+        >
+          Cancel
+        </button>
+      </div>
+      {error && <p className="mt-sm text-body-sm text-accent">{error}</p>}
     </div>
   );
 }
@@ -680,6 +791,7 @@ function AddCategoryForm({
         maxCompetitors: form.get("maxCompetitors")
           ? Number(form.get("maxCompetitors"))
           : null,
+        entryFee: form.get("entryFee") ? Number(form.get("entryFee")) : null,
       }),
     });
     if (!res.ok) {
@@ -721,6 +833,13 @@ function AddCategoryForm({
           type="number"
           min={2}
           placeholder="Max"
+        />
+        <input
+          className="w-32 border border-line bg-paper px-md py-sm text-body-sm"
+          name="entryFee"
+          type="number"
+          min={0}
+          placeholder="Entry fee (₹)"
         />
       </div>
       {error && <p className="mt-sm text-body-sm text-accent">{error}</p>}
@@ -1044,6 +1163,12 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
                   Exp
                 </th>
                 <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
+                  Fee
+                </th>
+                <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
+                  Payment
+                </th>
+                <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
                   Status
                 </th>
                 <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
@@ -1085,12 +1210,23 @@ function RegistrationRow({
   const [seed, setSeed] = useState(registration.seed?.toString() ?? "");
   const [updating, setUpdating] = useState(false);
 
-  async function handleStatus(status: "CONFIRMED" | "WITHDRAWN") {
+  async function handlePaid() {
     setUpdating(true);
     await fetch(`/api/registrations/${registration.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ paid: true }),
+    });
+    setUpdating(false);
+    onUpdate();
+  }
+
+  async function handleWithdraw() {
+    setUpdating(true);
+    await fetch(`/api/registrations/${registration.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "WITHDRAWN" }),
     });
     setUpdating(false);
     onUpdate();
@@ -1114,6 +1250,22 @@ function RegistrationRow({
       <td className="px-md py-sm">{registration.crew ?? "—"}</td>
       <td className="px-md py-sm">{registration.style ?? "—"}</td>
       <td className="px-md py-sm">{registration.experience ?? "—"}</td>
+      <td className="px-md py-sm font-mono text-[0.7rem] uppercase">
+        {registration.entryFee && registration.entryFee > 0
+          ? `${registration.entryCurrency === "INR" ? "₹" : `${registration.entryCurrency} `}${registration.entryFee}`
+          : "Free"}
+      </td>
+      <td className="px-md py-sm">
+        {registration.paid ? (
+          <span className="font-mono text-[0.7rem] uppercase text-accent">
+            Paid
+          </span>
+        ) : (
+          <span className="font-mono text-[0.7rem] uppercase text-ink-muted">
+            —
+          </span>
+        )}
+      </td>
       <td className="px-md py-sm">
         <span
           className={`font-mono text-[0.7rem] uppercase ${
@@ -1142,17 +1294,17 @@ function RegistrationRow({
       <td className="px-md py-sm">
         <div className="flex gap-xs">
           <button
-            className="border border-line px-sm py-xs text-[0.7rem] font-bold uppercase hover:border-accent disabled:opacity-60"
-            disabled={updating || registration.status === "CONFIRMED"}
-            onClick={() => handleStatus("CONFIRMED")}
+            className="border border-accent px-sm py-xs text-[0.7rem] font-bold uppercase text-accent hover:bg-accent hover:text-paper disabled:opacity-60"
+            disabled={updating || registration.paid || registration.status === "WITHDRAWN"}
+            onClick={() => void handlePaid()}
             type="button"
           >
-            Approve
+            {registration.paid ? "Paid" : "Mark paid"}
           </button>
           <button
             className="border border-line px-sm py-xs text-[0.7rem] font-bold uppercase text-ink-muted hover:border-accent disabled:opacity-60"
             disabled={updating || registration.status === "WITHDRAWN"}
-            onClick={() => handleStatus("WITHDRAWN")}
+            onClick={() => void handleWithdraw()}
             type="button"
           >
             Reject
