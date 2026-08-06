@@ -33,6 +33,29 @@ const pillars = [
   },
 ];
 
+const roles = [
+  {
+    tag: "Compete",
+    title: "For artists",
+    text: "Enter competitions, battles, and cyphers from one place. Apply to categories, pay your entry, get scored live by judges, and win real prizes.",
+  },
+  {
+    tag: "Organize",
+    title: "For organizers",
+    text: "Create your own events and organizations. Set entry prices, manage categories and brackets, generate judge codes, and run the whole competition.",
+  },
+  {
+    tag: "Hire",
+    title: "For organizations",
+    text: "Book artists directly for your events. Dancers, DJs, guitarists, drummers, and performers — find and hire the talent you need from one platform.",
+  },
+  {
+    tag: "Judge",
+    title: "For judges",
+    text: "Score battles live from anywhere with a simple access code. Transparent rounds, real-time verdicts, and feedback for every artist.",
+  },
+];
+
 export default function AboutPage() {
   return (
     <main className="min-h-screen bg-paper">
@@ -116,13 +139,35 @@ export default function AboutPage() {
         </div>
       </section>
 
+      <section className="border-b border-line">
+        <div className="mx-auto max-w-7xl px-md py-section md:px-xl">
+          <p className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">
+            Everything you need
+          </p>
+          <h2 className="mt-md max-w-4xl font-display text-display-lg uppercase">
+            One platform for every role.
+          </h2>
+          <div className="mt-lg grid gap-md md:grid-cols-2">
+            {roles.map((role) => (
+              <div key={role.tag} className="border border-line bg-paper-soft p-lg">
+                <span className="font-mono text-body-sm text-accent">{role.tag}</span>
+                <h3 className="mt-sm font-display text-title-md uppercase">{role.title}</h3>
+                <p className="mt-sm max-w-prose text-body-sm leading-relaxed text-ink-muted">
+                  {role.text}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <section className="mx-auto max-w-7xl px-md py-section text-center md:px-xl">
         <h2 className="font-display text-display-lg uppercase">
           We can do this.
         </h2>
-        <p className="mx-auto mt-md max-w-xl text-body-md text-ink-muted">
-          If you are an artist, an organizer, a judge, or someone who just loves
-          the floor — your platform is here.
+        <p className="mx-auto mt-md max-w-4xl text-body-md text-ink-muted">
+          If you are an artist, an organizer, an organization, a judge, or someone
+          who just loves the floor — your platform is here.
         </p>
         <div className="mt-xl flex flex-wrap justify-center gap-sm">
           <Link
