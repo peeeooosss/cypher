@@ -6,11 +6,15 @@ const authProxy = withAuth({
   },
   callbacks: {
     authorized({ req, token }) {
+      const pathname = req.nextUrl.pathname;
+
+      if (pathname.startsWith("/artist/directory")) {
+        return true;
+      }
+
       if (!token) {
         return false;
       }
-
-      const pathname = req.nextUrl.pathname;
 
       if (pathname.startsWith("/organizer")) {
         return token.role === "ORGANIZER";

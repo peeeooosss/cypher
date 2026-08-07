@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { io } from "socket.io-client";
 
 type LeaderboardScore = { score: number; roundFormatId: string };
@@ -60,9 +60,21 @@ export function LiveLeaderboard({
   const [phaseId, setPhaseId] = useState("");
   const [connectionStatus, setConnectionStatus] = useState("offline");
   const [error, setError] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+
+  const load = useCallback(async () => {
+    const res = await fetch(`/api/events/${eventId}/leaderboard`);
+    if (res.ok) {
+      const json = (await res.json()) as LeaderboardData;
+      setData(json);
+      setError("");
+    } else {
+      setError("Unable to load leaderboard");
+    }
+  }, [eventId]);
 
   useEffect(() => {
-    const load = async () => {
+    const loadInitial = async () => {
       try {
         const res = await fetch(`/api/events/${eventId}/leaderboard`);
         if (res.ok) {
@@ -82,7 +94,7 @@ export function LiveLeaderboard({
         setError("Unable to load leaderboard");
       }
     };
-    void load();
+    void loadInitial();
   }, [eventId]);
 
   useEffect(() => {
@@ -99,8 +111,7 @@ export function LiveLeaderboard({
     socket.on("disconnect", () => setConnectionStatus("offline"));
 
     const refresh = async () => {
-      const res = await fetch(`/api/events/${eventId}/leaderboard`);
-      if (res.ok) setData(await res.json());
+      await load();
     };
 
     socket.on("dancer:updated", () => void refresh());
@@ -115,7 +126,16 @@ export function LiveLeaderboard({
     return () => {
       socket.disconnect();
     };
-  }, [eventId]);
+  }, [eventId, load]);
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    try {
+      await load();
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   if (error) {
     return (
@@ -161,11 +181,21 @@ export function LiveLeaderboard({
           <p className="font-mono text-[0.7rem] uppercase text-ink-muted">Live leaderboard</p>
           <h2 className="mt-xs font-display text-title-md uppercase">{title}</h2>
         </div>
-        <span className="flex items-center gap-sm font-mono text-[0.7rem] uppercase">
-          {connectionStatus === "live" ? "LIVE" : "SYNCING..."}
-          <span
-            className={`h-2 w-2 rounded-full ${connectionStatus === "live" ? "bg-accent" : "bg-line"}`}
-          />
+        <span className="flex items-center gap-md">
+          <button
+            className="border border-line px-md py-xs font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted transition-colors hover:border-accent hover:text-accent disabled:cursor-wait disabled:opacity-60"
+            disabled={refreshing}
+            onClick={() => void handleRefresh()}
+            type="button"
+          >
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </button>
+          <span className="flex items-center gap-sm font-mono text-[0.7rem] uppercase">
+            {connectionStatus === "live" ? "LIVE" : "SYNCING..."}
+            <span
+              className={`h-2 w-2 rounded-full ${connectionStatus === "live" ? "bg-accent" : "bg-line"}`}
+            />
+          </span>
         </span>
       </div>
 

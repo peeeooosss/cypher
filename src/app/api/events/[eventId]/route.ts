@@ -3,6 +3,8 @@ import { z } from "zod";
 import { EventStatus, EventType } from "@/generated/prisma/enums";
 import { badRequest, conflict, forbidden, isUniqueConstraintError, notFound, serverError, unauthorized } from "@/lib/api";
 import { getCurrentUser } from "@/lib/rbac";
+import { COMMISSION_RATE, isEventFlatFeePaid } from "@/lib/pricing";
+import { isValidState } from "@/lib/states";
 import { prisma } from "@/lib/prisma";
 
 const updateEventSchema = z.object({
@@ -13,6 +15,9 @@ const updateEventSchema = z.object({
   posterUrl: z.string().trim().max(3_000_000).nullable().optional(),
   venue: z.string().trim().max(200).nullable().optional(),
   city: z.string().trim().max(120).nullable().optional(),
+  state: z.string().trim().max(120).nullable().optional().refine((s) => s === undefined || s === null || s === "" || isValidState(s), {
+    message: "Invalid state",
+  }),
   startsAt: z.coerce.date().optional(),
   status: z.enum(EventStatus).optional(),
 });
@@ -49,7 +54,14 @@ export async function PATCH(request: Request, { params }: EventRouteContext) {
 
   const ownedEvent = await prisma.event.findFirst({
     where: { id: eventId, organizerId: user.id },
-    select: { id: true },
+    select: {
+      id: true,
+      status: true,
+      flatFee: true,
+      flatFeePaid: true,
+      commissionPaid: true,
+      commissionPaymentStatus: true,
+    },
   });
 
   if (!ownedEvent) {
@@ -60,6 +72,46 @@ export async function PATCH(request: Request, { params }: EventRouteContext) {
 
   if (!parsed.success) {
     return badRequest(parsed.error.issues[0]?.message ?? "Invalid event data");
+  }
+
+  const targetStatus = parsed.data.status;
+
+  if (targetStatus === EventStatus.PUBLISHED || targetStatus === EventStatus.LIVE) {
+    if (!isEventFlatFeePaid(ownedEvent)) {
+      return NextResponse.json(
+        {
+          error: "Pay the flat fee before the event can go live.",
+          code: "FLAT_FEE_REQUIRED",
+          billUrl: `/organizer/${eventId}/bill`,
+        },
+        { status: 402 },
+      );
+    }
+  }
+
+  if (targetStatus === EventStatus.COMPLETED) {
+    const registrations = await prisma.registration.findMany({
+      where: { category: { eventId }, status: "CONFIRMED" },
+      select: { entryFee: true },
+    });
+    const totalEntryFees = registrations.reduce((sum, r) => sum + (r.entryFee ?? 0), 0);
+    const commissionDue = Math.round(totalEntryFees * COMMISSION_RATE);
+
+    if (commissionDue > 0 && ownedEvent.commissionPaymentStatus !== "VERIFIED") {
+      await prisma.event.update({
+        where: { id: eventId },
+        data: { commissionDue },
+      });
+      return NextResponse.json(
+        {
+          error: "Settle the 1.5% commission before completing the event.",
+          code: "COMMISSION_REQUIRED",
+          commissionDue,
+          billUrl: `/organizer/${eventId}/bill#commission`,
+        },
+        { status: 402 },
+      );
+    }
   }
 
   try {

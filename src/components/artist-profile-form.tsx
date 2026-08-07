@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SKILLS, SKILL_LABELS } from "@/lib/skills";
+import { DANCE_STYLES, EXPERIENCE_OPTIONS, isDanceStyle } from "@/lib/styles";
 
 export type ArtistProfile = {
   name: string | null;
@@ -21,11 +22,9 @@ const PROFILE_FIELDS: Array<{
   label: string;
   placeholder: string;
 }> = [
-  { name: "style", label: "Style", placeholder: "e.g. Popping, Breaking" },
   { name: "crew", label: "Crew", placeholder: "e.g. Soul Mechanics" },
   { name: "city", label: "City", placeholder: "e.g. Guwahati" },
   { name: "country", label: "Country", placeholder: "e.g. India" },
-  { name: "experience", label: "Experience", placeholder: "e.g. PRO, ADVANCED, INTERMEDIATE" },
   { name: "socialHandle", label: "Social handle", placeholder: "@yourname" },
   { name: "referral", label: "How did you hear about us?", placeholder: "e.g. Instagram, Friend" },
 ];
@@ -123,6 +122,39 @@ export function ArtistProfileForm({ profile }: { profile: ArtistProfile }) {
             })}
           </div>
         </div>
+        <label className="block">
+          <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Style — dance style</span>
+          <select
+            className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm"
+            name="style"
+            defaultValue={profile.style ?? ""}
+          >
+            <option value="">Select a dance style</option>
+            {profile.style && !isDanceStyle(profile.style) ? (
+              <option value={profile.style}>{profile.style} (current)</option>
+            ) : null}
+            {DANCE_STYLES.map((style) => (
+              <option key={style} value={style}>
+                {style}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block">
+          <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Years of experience</span>
+          <select
+            className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm"
+            name="experience"
+            defaultValue={profile.experience ?? ""}
+          >
+            <option value="">Select years</option>
+            {EXPERIENCE_OPTIONS.map((years) => (
+              <option key={years} value={years}>
+                {years === "0" ? "Under 1 year" : `${years} ${years === "1" ? "year" : "years"}`}
+              </option>
+            ))}
+          </select>
+        </label>
         {PROFILE_FIELDS.map((field) => (
           <label key={field.name} className="block">
             <span className="font-mono text-[0.7rem] uppercase text-ink-muted">

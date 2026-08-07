@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { SKILLS, SKILL_LABELS, skillLabel } from "@/lib/skills";
+import { formatExperience } from "@/lib/format";
 
 export type DirectoryArtist = {
   id: string;
@@ -20,7 +21,15 @@ export type DirectoryArtist = {
   achievements: number;
 };
 
-export function ArtistDirectory({ artists }: { artists: DirectoryArtist[] }) {
+export function ArtistDirectory({
+  artists,
+  baseHref = "/artist/directory",
+  isPublic = false,
+}: {
+  artists: DirectoryArtist[];
+  baseHref?: string;
+  isPublic?: boolean;
+}) {
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [query, setQuery] = useState("");
 
@@ -82,14 +91,19 @@ export function ArtistDirectory({ artists }: { artists: DirectoryArtist[] }) {
           {filtered.map((artist) => (
             <Link
               key={artist.id}
-              href={`/organizer/artists/${artist.id}`}
-              className="group border border-line bg-paper-soft p-lg transition-colors hover:border-accent"
+              href={`${baseHref}/${artist.id}`}
+              className="group relative border border-line bg-paper-soft p-lg transition-colors hover:border-accent"
             >
+              {isPublic ? (
+                <span className="absolute right-md top-md font-mono text-[0.55rem] uppercase tracking-[0.15em] text-ink-muted">
+                  Public profile
+                </span>
+              ) : null}
               <h2 className="font-display text-title-md uppercase transition-colors group-hover:text-accent">
                 {artist.name ?? "Unnamed artist"}
               </h2>
               <p className="mt-xs text-body-sm text-ink-muted">
-                {[artist.style, artist.crew, artist.city, artist.experience]
+                {[artist.style, artist.crew, artist.city, formatExperience(artist.experience)]
                   .filter(Boolean)
                   .join(" · ")}
               </p>

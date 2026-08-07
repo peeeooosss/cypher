@@ -3,6 +3,7 @@ import { z } from "zod";
 import { badRequest, conflict, forbidden, isUniqueConstraintError, notFound, serverError, unauthorized } from "@/lib/api";
 import { getEventForOwner } from "@/lib/event-access";
 import { getCurrentUser } from "@/lib/rbac";
+import { isCompetitionType } from "@/lib/event-types";
 import { prisma } from "@/lib/prisma";
 
 const categorySchema = z.object({
@@ -51,9 +52,23 @@ export async function POST(request: Request, { params }: CategoryRouteContext) {
   try {
     const { prizeAmount, ...categoryData } = parsed.data;
 
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      select: { eventType: true },
+    });
+
     const category = await prisma.category.create({
       data: { ...categoryData, event: { connect: { id: eventId } } },
     });
+
+    if (isCompetitionType(event?.eventType)) {
+      await prisma.roundFormat.createMany({
+        data: [
+          { categoryId: category.id, order: 1, type: "QUALIFIER", label: "Qualifiers", phaseStatus: "PENDING" },
+          { categoryId: category.id, order: 2, type: "QUALIFIER", label: "Finals", phaseStatus: "PENDING" },
+        ],
+      });
+    }
 
     if (prizeAmount && prizeAmount > 0) {
       await prisma.prizePool.create({

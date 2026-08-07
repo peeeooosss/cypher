@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 
 const footerLinks = [
@@ -22,7 +23,15 @@ export function Footer() {
     <footer className="border-t border-line bg-paper">
       <div className="mx-auto max-w-7xl px-md py-section md:px-xl">
         <div className="border-b border-line pb-section">
-          <p className="font-display text-title-md uppercase tracking-[-0.08em]">CYPHR</p>
+          <Link href="/" className="inline-block leading-none" aria-label="CYPHR home">
+            <Image
+              src="/logo.svg"
+              alt="CYPHR"
+              width={160}
+              height={40}
+              className="block h-10 w-auto"
+            />
+          </Link>
           <p className="mt-md max-w-4xl font-display text-body-md uppercase leading-relaxed tracking-[0.02em] text-ink-muted">
             The underground artist and performance platform. Battles, cyphers, live
             scoring, and the marketplace — one home for the floor.

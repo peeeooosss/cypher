@@ -80,7 +80,6 @@ export default async function RegisterPage({ params }: RegisterPageContext) {
         <p className="mt-md text-body-sm text-ink-muted">
           Pick the categories you want to enter, then pay the organizer to confirm your spot.
         </p>
-
         {!isOpen ? (
           <div className="mt-section border border-line p-lg">
             <p className="font-display text-title-md uppercase text-ink-muted">

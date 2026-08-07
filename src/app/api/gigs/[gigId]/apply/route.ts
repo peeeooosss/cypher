@@ -18,9 +18,24 @@ export async function POST(request: Request, { params }: Context) {
     return forbidden();
   }
 
+  const artist = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { gigWorkExpiresAt: true },
+  });
+
+  if (!artist || !artist.gigWorkExpiresAt || artist.gigWorkExpiresAt.getTime() <= Date.now()) {
+    return NextResponse.json(
+      {
+        error: "Enable Gig Work (₹49 for 3 months) to apply to gigs.",
+        code: "GIG_WORK_REQUIRED",
+      },
+      { status: 403 },
+    );
+  }
+
   const gig = await prisma.gig.findUnique({
     where: { id: gigId },
-    select: { id: true, status: true },
+    select: { id: true, status: true, feePaid: true },
   });
 
   if (!gig) {
@@ -29,6 +44,10 @@ export async function POST(request: Request, { params }: Context) {
 
   if (gig.status !== "OPEN") {
     return conflict("This gig is no longer accepting applications");
+  }
+
+  if (!gig.feePaid) {
+    return conflict("This gig is not published yet");
   }
 
   const existing = await prisma.gigApplication.findUnique({

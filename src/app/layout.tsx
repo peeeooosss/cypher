@@ -7,6 +7,9 @@ import { Footer } from "@/components/footer";
 export const metadata: Metadata = {
   title: "CYPHR | Underground Artist Platform",
   description: "The underground platform connecting dancers, DJs, guitarists, drummers, performers, organizers, and judges.",
+  icons: {
+    icon: "/logo.svg",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -2,15 +2,13 @@
 
 import { useState, useEffect, useCallback, FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { LiveLeaderboard } from "@/components/live-leaderboard";
 import { PosterUpload } from "@/components/poster-upload";
-import type { EventStatus, RoundType, RegistrationStatus, EventType } from "@/generated/prisma/enums";
-
-const EVENT_TYPE_LABELS: Record<EventType, string> = {
-  UNDERGROUND_BATTLE: "Underground battle",
-  DANCE_COMPETITION: "Dance competition",
-  MUSIC_COMPETITION: "Music competition",
-};
+import { formatInr, isEventFlatFeePaid } from "@/lib/pricing";
+import { EVENT_TYPE_LABELS, EVENT_TYPE_LIST, isCompetitionType, isWorkshopType, SINGLE_POINT_ROUND_TYPES } from "@/lib/event-types";
+import { INDIAN_STATES } from "@/lib/states";
+import type { EventStatus, RoundType, RegistrationStatus, PaymentStatus } from "@/generated/prisma/enums";
 
 type Round = {
   id: string;
@@ -70,6 +68,15 @@ type EventWithRelations = {
   posterUrl: string | null;
   venue: string | null;
   city: string | null;
+  state: string | null;
+  flatFee: number | null;
+  flatFeePaid: boolean;
+  flatFeePaymentStatus: PaymentStatus | null;
+  commissionDue: number | null;
+  commissionPaid: boolean;
+  commissionPaymentStatus: PaymentStatus | null;
+  commissionPaymentMethod: string | null;
+  commissionPaymentSentAt: Date | string | null;
   categories: Category[];
   judgeSlots: JudgeSlotWithCategory[];
 };
@@ -134,14 +141,20 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
     }
   }, [event.id]);
 
+  const visibleTabs: string[] = isWorkshopType(event.eventType)
+    ? TABS.filter((tab) => tab !== "Judges" && tab !== "Prizes" && tab !== "Leaderboard" && tab !== "Control Room")
+    : [...TABS];
+
+  const resolvedTab = visibleTabs.includes(activeTab) ? activeTab : "Overview";
+
   return (
     <div className="mt-section">
       <div className="grid grid-cols-6 gap-sm mb-xl">
-        {TABS.map((tab) => (
+        {visibleTabs.map((tab) => (
           <button
             key={tab}
             className={`border px-md py-sm text-button-md font-bold uppercase ${
-              activeTab === tab
+              resolvedTab === tab
                 ? "border-accent bg-accent text-paper"
                 : "border-line bg-paper text-ink hover:border-accent"
             }`}
@@ -153,25 +166,25 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
         ))}
       </div>
 
-      {activeTab === "Overview" && (
+      {resolvedTab === "Overview" && (
         <OverviewTab event={event} setEvent={setEvent} />
       )}
-      {activeTab === "Categories" && (
+      {resolvedTab === "Categories" && (
         <CategoriesTab event={event} refresh={refresh} />
       )}
-      {activeTab === "Judges" && (
+      {resolvedTab === "Judges" && (
         <JudgesTab event={event} refresh={refresh} />
       )}
-      {activeTab === "Registrations" && (
+      {resolvedTab === "Registrations" && (
         <RegistrationsTab event={event} />
       )}
-      {activeTab === "Prizes" && (
+      {resolvedTab === "Prizes" && (
         <PrizesTab event={event} refresh={refresh} />
       )}
-      {activeTab === "Leaderboard" && (
+      {resolvedTab === "Leaderboard" && (
         <LiveLeaderboard eventId={event.id} title="Leaderboard" />
       )}
-      {activeTab === "Control Room" && (
+      {resolvedTab === "Control Room" && (
         <div className="space-y-xl">
           <div className="flex flex-wrap items-center justify-between gap-md">
             <div className="flex items-center gap-sm">
@@ -186,6 +199,14 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
               {refreshing ? "Refreshing..." : "Refresh"}
             </button>
           </div>
+          {isCompetitionType(event.eventType) && (
+            <div className="mb-lg border border-accent bg-paper p-md">
+              <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent">Competition mode</p>
+              <p className="mt-xs text-body-sm text-ink-muted">
+                Single-point scoring — no 1v1 battles. Judges score each performer 0&ndash;10 with optional feedback, then you advance the top performers to the next round.
+              </p>
+            </div>
+          )}
           {event.status !== "LIVE" ? (
             <div className="border border-line p-xl text-center">
               <p className="font-display text-title-md uppercase text-ink-muted">Event is not live</p>
@@ -310,8 +331,11 @@ function OverviewTab({
   event: EventWithRelations;
   setEvent: (e: EventWithRelations) => void;
 }) {
+  const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  const flatFeePaid = isEventFlatFeePaid(event);
 
   async function handleSave(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -323,6 +347,7 @@ function OverviewTab({
     const slug = form.get("slug") as string;
     const venue = form.get("venue") as string;
     const city = form.get("city") as string;
+    const state = form.get("state") as string;
     const startsAt = form.get("startsAt") as string;
     const description = form.get("description") as string;
     const eventType = form.get("eventType") as string;
@@ -331,6 +356,7 @@ function OverviewTab({
     if (slug && slug !== event.slug) body.slug = slug;
     body.venue = venue || null;
     body.city = city || null;
+    body.state = state || null;
     body.description = description || null;
     body.eventType = eventType || null;
     if (startsAt) body.startsAt = new Date(startsAt).toISOString();
@@ -360,6 +386,11 @@ function OverviewTab({
     });
     if (!res.ok) {
       const err = await res.json().catch(() => null);
+      if (err?.code === "COMMISSION_REQUIRED") {
+        setError(err?.error ?? "Commission required");
+        router.push(`/organizer/${event.id}/bill#commission`);
+        return;
+      }
       setError(err?.error ?? "Failed to update status");
       return;
     }
@@ -374,7 +405,42 @@ function OverviewTab({
   const totalJudgeSlots = event.judgeSlots.length;
 
   return (
-    <div className="grid gap-xl lg:grid-cols-3">
+    <div className="space-y-xl">
+      {!flatFeePaid ? (
+        event.flatFeePaymentStatus === "PENDING" ? (
+          <div className="flex flex-wrap items-center justify-between gap-md border border-accent bg-paper-soft p-lg">
+            <div>
+              <p className="font-display text-title-md uppercase text-accent">Payment sent — waiting for confirmation</p>
+              <p className="mt-xs text-body-sm text-ink-muted">
+                Your {formatInr(event.flatFee ?? 0)} flat fee is being verified. It usually takes a few minutes.
+              </p>
+            </div>
+            <Link
+              href={`/organizer/${event.id}/bill`}
+              className="border border-accent bg-accent px-lg py-sm font-bold uppercase text-paper"
+            >
+              View bill
+            </Link>
+          </div>
+        ) : (
+        <div className="flex flex-wrap items-center justify-between gap-md border border-accent bg-paper-soft p-lg">
+          <div>
+            <p className="font-display text-title-md uppercase text-accent">Pay the flat fee to activate</p>
+            <p className="mt-xs text-body-sm text-ink-muted">
+              This event needs a {formatInr(event.flatFee ?? 0)} flat fee before it can be published or go live.
+            </p>
+          </div>
+          <Link
+            href={`/organizer/${event.id}/bill`}
+            className="border border-accent bg-accent px-lg py-sm font-bold uppercase text-paper"
+          >
+            Pay flat fee
+          </Link>
+        </div>
+        )
+      ) : null}
+
+      <div className="grid gap-xl lg:grid-cols-3">
       <form className="border border-line p-lg lg:col-span-2" onSubmit={handleSave}>
         <p className="font-display text-title-md uppercase">Event details</p>
         <div className="mt-lg grid gap-md md:grid-cols-2">
@@ -402,6 +468,19 @@ function OverviewTab({
             defaultValue={event.city ?? ""}
             placeholder="City"
           />
+          <label className="block">
+            <span className="font-mono text-[0.7rem] uppercase text-ink-muted">State</span>
+            <select
+              className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm"
+              name="state"
+              defaultValue={event.state ?? ""}
+            >
+              <option value="">Select a state</option>
+              {INDIAN_STATES.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </label>
           <input
             className="border border-line bg-paper px-md py-sm text-body-sm md:col-span-2"
             name="startsAt"
@@ -416,7 +495,7 @@ function OverviewTab({
               defaultValue={event.eventType ?? ""}
             >
               <option value="">Select a type</option>
-              {(Object.keys(EVENT_TYPE_LABELS) as EventType[]).map((t) => (
+              {EVENT_TYPE_LIST.map((t) => (
                 <option key={t} value={t}>{EVENT_TYPE_LABELS[t]}</option>
               ))}
             </select>
@@ -453,20 +532,26 @@ function OverviewTab({
         <div className="mt-lg">
           <p className="font-mono text-[0.7rem] uppercase text-ink-muted">Status</p>
           <div className="mt-sm flex flex-wrap gap-sm">
-            {STATUS_OPTIONS.map((s) => (
-              <button
-                key={s}
-                type="button"
-                className={`border px-md py-sm text-button-md font-bold uppercase ${
-                  event.status === s
-                    ? "border-accent bg-accent text-paper"
-                    : "border-line bg-paper text-ink hover:border-accent"
-                }`}
-                onClick={() => handleStatusChange(s)}
-              >
-                {s}
-              </button>
-            ))}
+            {STATUS_OPTIONS.map((s) => {
+              const blocked =
+                !flatFeePaid && (s === "PUBLISHED" || s === "LIVE");
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  title={blocked ? "Pay the flat fee first" : undefined}
+                  disabled={blocked}
+                  className={`border px-md py-sm text-button-md font-bold uppercase disabled:cursor-not-allowed disabled:opacity-40 ${
+                    event.status === s
+                      ? "border-accent bg-accent text-paper"
+                      : "border-line bg-paper text-ink hover:border-accent"
+                  }`}
+                  onClick={() => handleStatusChange(s)}
+                >
+                  {s}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -498,7 +583,78 @@ function OverviewTab({
             </div>
           </div>
         </div>
+
+        <div className="border border-line p-lg">
+          <p className="font-mono text-[0.7rem] uppercase text-ink-muted">Billing</p>
+          <div className="mt-md space-y-sm">
+            <div className="flex justify-between text-body-sm">
+              <span>Flat fee</span>
+              {flatFeePaid ? (
+                <span className="font-mono text-accent">{formatInr(event.flatFee ?? 0)} paid</span>
+              ) : (
+                <span className="font-mono text-accent">
+                  <Link href={`/organizer/${event.id}/bill`} className="underline">
+                    {formatInr(event.flatFee ?? 0)} — pay
+                  </Link>
+                </span>
+              )}
+            </div>
+            <div className="flex justify-between text-body-sm">
+              <span>Commission</span>
+              {event.commissionDue != null && event.commissionDue > 0 ? (
+                <span className="font-mono text-accent">{formatInr(event.commissionDue)}</span>
+              ) : (
+                <span className="font-mono text-ink-muted">1.5% at completion</span>
+              )}
+            </div>
+          </div>
+
+          {event.commissionDue != null && event.commissionDue > 0 && !event.commissionPaid ? (
+            <div className="mt-md border border-accent bg-paper p-md">
+              {event.commissionPaymentStatus === "PENDING" ? (
+                <div>
+                  <p className="text-body-sm font-bold uppercase text-accent">
+                    Commission sent — waiting for confirmation
+                  </p>
+                  <p className="mt-xs text-body-sm text-ink-muted">
+                    We&apos;re verifying your transfer
+                    {event.commissionPaymentSentAt ? ` sent ${new Date(event.commissionPaymentSentAt).toLocaleString()}` : ""}.
+                    Refresh this page later.
+                  </p>
+                  <Link
+                    href={`/organizer/${event.id}/bill#commission`}
+                    className="mt-md inline-block border border-line px-md py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-ink hover:border-accent hover:text-accent"
+                  >
+                    View bill
+                  </Link>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-body-sm font-bold uppercase text-accent">
+                    Commission not paid — {formatInr(event.commissionDue)}
+                  </p>
+                  <p className="mt-xs text-body-sm text-ink-muted">
+                    Settle the 1.5% commission on confirmed entries before marking the event Completed.
+                  </p>
+                  <Link
+                    href={`/organizer/${event.id}/bill#commission`}
+                    className="mt-md inline-block border border-accent bg-accent px-md py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper"
+                  >
+                    Pay commission
+                  </Link>
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          {event.commissionPaid ? (
+            <p className="mt-md border border-accent bg-accent/10 px-md py-sm font-mono text-[0.7rem] uppercase tracking-[0.1em] text-accent">
+              Commission paid — {formatInr(event.commissionDue ?? 0)}
+            </p>
+          ) : null}
+        </div>
       </div>
+    </div>
     </div>
   );
 }
@@ -566,7 +722,7 @@ function CategoriesTab({
             </div>
           )}
 
-          <AddRoundForm categoryId={category.id} refresh={refresh} />
+          <AddRoundForm categoryId={category.id} eventType={event.eventType} refresh={refresh} />
         </div>
       ))}
 
@@ -706,9 +862,11 @@ function DeleteRoundButton({
 
 function AddRoundForm({
   categoryId,
+  eventType,
   refresh,
 }: {
   categoryId: string;
+  eventType: string | null;
   refresh: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -767,7 +925,7 @@ function AddRoundForm({
           required
         >
           <option value="">Select round type</option>
-          {ROUND_TYPES.map((t) => (
+          {(isCompetitionType(eventType) ? SINGLE_POINT_ROUND_TYPES : ROUND_TYPES).map((t) => (
             <option key={t} value={t}>
               {t}
             </option>
@@ -1158,13 +1316,13 @@ function CypherDancerPicker({ eventId, categoryId, onResult }: { eventId: string
 function RegistrationsTab({ event }: { event: EventWithRelations }) {
   const [categoryId, setCategoryId] = useState(event.categories[0]?.id ?? "");
   const [registrations, setRegistrations] = useState<RegistrationRow[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (!categoryId) return;
     let cancelled = false;
     const load = async () => {
-      setLoading(true);
       try {
         const res = await fetch(`/api/events/${event.id}/registrations?categoryId=${categoryId}`);
         const data = await res.json();
@@ -1178,6 +1336,29 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
     void load();
     return () => { cancelled = true; };
   }, [categoryId, event.id]);
+
+  useEffect(() => {
+    if (!categoryId) return;
+    let cancelled = false;
+    const load = async () => {
+      const res = await fetch(`/api/events/${event.id}/registrations?categoryId=${categoryId}`);
+      const data = await res.json();
+      if (!cancelled) setRegistrations(Array.isArray(data) ? data : []);
+    };
+    const interval = window.setInterval(() => void load(), 5000);
+    return () => { cancelled = true; window.clearInterval(interval); };
+  }, [categoryId, event.id]);
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    try {
+      const res = await fetch(`/api/events/${event.id}/registrations?categoryId=${categoryId}`);
+      const data = await res.json();
+      setRegistrations(Array.isArray(data) ? data : []);
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   return (
     <div>
@@ -1199,6 +1380,14 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
         <span className="text-body-sm text-ink-muted">
           ({registrations.length} registrations)
         </span>
+        <button
+          className="ml-auto border border-line px-md py-sm font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted transition-colors hover:border-accent hover:text-accent disabled:cursor-wait disabled:opacity-60"
+          disabled={refreshing}
+          onClick={() => void handleRefresh()}
+          type="button"
+        >
+          {refreshing ? "Refreshing..." : "Refresh"}
+        </button>
       </div>
 
       {loading ? (

@@ -6,14 +6,9 @@ import { formatDate } from "@/lib/format";
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { EventStatus, EventType } from "@/generated/prisma/enums";
+import { EVENT_TYPE_LABELS, isWorkshopType } from "@/lib/event-types";
 
 export const dynamic = "force-dynamic";
-
-const EVENT_TYPE_LABELS: Record<EventType, string> = {
-  UNDERGROUND_BATTLE: "Underground battle",
-  DANCE_COMPETITION: "Dance competition",
-  MUSIC_COMPETITION: "Music competition",
-};
 
 type EventDetailContext = { params: Promise<{ slug: string }> };
 
@@ -71,6 +66,11 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
                 {event.city}
               </span>
             )}
+            {event.state && (
+              <span className="font-mono text-[0.65rem] uppercase tracking-[0.15em] text-ink-muted">
+                {event.state}
+              </span>
+            )}
           </div>
           <h1 className="mt-lg max-w-4xl font-display text-display-xl uppercase">{event.title}</h1>
           {event.posterUrl ? (
@@ -112,7 +112,9 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
 
             <div className={event.description ? "mt-section" : ""}>
               <h2 className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">
-                Categories ({event.categories.length})
+                {isWorkshopType(event.eventType)
+                  ? `Sessions (${event.categories.length})`
+                  : `Categories (${event.categories.length})`}
               </h2>
               {event.categories.length === 0 ? (
                 <p className="mt-md border border-line p-lg text-body-sm text-ink-muted">
@@ -163,13 +165,14 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
                 href={`/events/${event.slug}/register`}
                 className="mt-lg block border border-accent bg-accent px-md py-sm text-center font-mono text-[0.7rem] uppercase tracking-[0.15em] text-paper transition-opacity hover:opacity-80"
               >
-                Register for this event
+                {isWorkshopType(event.eventType) ? "Join this workshop" : "Register for this event"}
               </Link>
             )}
             {isArtist && registeredCategoryIds.size > 0 && (
               <p className="mt-sm text-body-sm text-ink-muted">
-                You are registered in {registeredCategoryIds.size}{" "}
-                {registeredCategoryIds.size === 1 ? "category" : "categories"}
+                {isWorkshopType(event.eventType)
+                  ? `You are joining ${registeredCategoryIds.size} ${registeredCategoryIds.size === 1 ? "session" : "sessions"}`
+                  : `You are registered in ${registeredCategoryIds.size} `}
                 {[...paidCategoryIds].length > 0 ? " (paid)" : ""}.
               </p>
             )}
@@ -184,7 +187,7 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
           </aside>
         </div>
 
-        {event.status === EventStatus.LIVE && (
+        {event.status === EventStatus.LIVE && !isWorkshopType(event.eventType) && (
           <div className="mt-section border-t border-line pt-section">
             <LiveLeaderboard eventId={event.id} title={`${event.title} — Live standings`} />
           </div>

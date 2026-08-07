@@ -45,18 +45,6 @@ export default async function OrganizerPage() {
             Post gigs for dancers, DJs, MCs, guitarists and more. Review applications and accept.
           </p>
         </Link>
-        <Link
-          href="/organizer/artists"
-          className="group border border-line bg-paper-soft p-lg transition-colors hover:border-accent"
-        >
-          <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent">Scout talent</p>
-          <h2 className="mt-sm font-display text-title-md uppercase group-hover:text-accent">
-            Artist directory
-          </h2>
-          <p className="mt-sm text-body-sm text-ink-muted">
-            Browse artist profiles, battle records, skills and achievements.
-          </p>
-        </Link>
       </div>
 
       <div className="mt-section">

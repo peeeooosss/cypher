@@ -2,13 +2,20 @@ import Link from "next/link";
 import { SignOutButton } from "@/components/sign-out-button";
 import { ArtistProfileForm, type ArtistProfile } from "@/components/artist-profile-form";
 import { ArtistAchievements, type Achievement } from "@/components/artist-achievements";
+import { GigWorkCard } from "@/components/gig-work-card";
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { formatFee } from "@/lib/format";
+import { Pagination } from "@/components/pagination";
 
 export const dynamic = "force-dynamic";
 
-export default async function ArtistPage() {
+const RESULTS_PER_PAGE = 5;
+
+type PageProps = { searchParams: Promise<{ page?: string }> };
+
+export default async function ArtistPage({ searchParams }: PageProps) {
+  const params = await searchParams;
   const user = await requireRole("ARTIST");
   const [events, registrations, battleResults, profile, achievements] = await Promise.all([
     prisma.event.findMany({
@@ -60,6 +67,7 @@ export default async function ArtistPage() {
         socialHandle: true,
         referral: true,
         skills: true,
+        gigWorkExpiresAt: true,
       },
     }),
     prisma.artistAchievement.findMany({
@@ -80,6 +88,11 @@ export default async function ArtistPage() {
   );
   const prizesPending = battleResults.filter((r) => r.matchesWon.length > 0 && r.category.prizePool && !r.category.prizePool.isPaid).length;
   const prizesPaid = battleResults.filter((r) => r.matchesWon.length > 0 && r.category.prizePool?.isPaid).length;
+
+  const totalPages = Math.max(1, Math.ceil(battleResults.length / RESULTS_PER_PAGE));
+  const requestedPage = Math.max(1, Number(params.page) || 1);
+  const currentPage = Math.min(requestedPage, totalPages);
+  const pageResults = battleResults.slice((currentPage - 1) * RESULTS_PER_PAGE, currentPage * RESULTS_PER_PAGE);
 
   return (
     <main className="min-h-screen bg-paper px-md py-section md:px-xl">
@@ -133,6 +146,8 @@ export default async function ArtistPage() {
         </div>
       </section>
 
+      <GigWorkCard expiresAt={profile?.gigWorkExpiresAt ?? null} />
+
       <section className="mt-section grid gap-md lg:grid-cols-2">
         {events.length === 0 ? <p className="border border-line p-lg text-ink-muted">No open events right now.</p> : null}
         {events.map((event) => (
@@ -174,7 +189,7 @@ export default async function ArtistPage() {
         <section className="mt-section">
           <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-ink-muted">My Results</p>
           <div className="mt-lg grid gap-md lg:grid-cols-2">
-            {battleResults.map((reg) => {
+            {pageResults.map((reg) => {
               const allMatches = [...reg.matchesAsA, ...reg.matchesAsB].sort((a, b) => a.round - b.round || a.position - b.position);
               const wins = allMatches.filter((m) => m.winner?.userId === user.id).length;
               return (
@@ -231,6 +246,7 @@ export default async function ArtistPage() {
               );
             })}
           </div>
+          <Pagination currentPage={currentPage} totalPages={totalPages} basePath="/artist" />
         </section>
       ) : null}
     </main>

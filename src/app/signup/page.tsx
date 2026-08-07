@@ -3,15 +3,14 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
+import { DANCE_STYLES, EXPERIENCE_OPTIONS } from "@/lib/styles";
 
 type Role = "ORGANIZER" | "ARTIST";
 
 const ARTIST_PROFILE_FIELDS = [
-  { name: "style", label: "Style", placeholder: "e.g. Popping, Breaking", required: true },
   { name: "crew", label: "Crew", placeholder: "e.g. Soul Mechanics (optional)", required: false },
   { name: "city", label: "City", placeholder: "e.g. Guwahati", required: true },
   { name: "country", label: "Country", placeholder: "e.g. India", required: true },
-  { name: "experience", label: "Experience", placeholder: "e.g. PRO, ADVANCED, INTERMEDIATE", required: true },
   { name: "socialHandle", label: "Social handle", placeholder: "@yourname", required: true },
   { name: "referral", label: "How did you hear about us?", placeholder: "e.g. Instagram, Friend (optional)", required: false },
 ] as const;
@@ -168,6 +167,40 @@ export default function SignupPage() {
                 This is shown to organizers so they know who&rsquo;s on the floor.
               </p>
               <div className="mt-lg grid gap-md sm:grid-cols-2">
+                <label className="block text-body-sm font-bold uppercase">
+                  Style — dance style
+                  <select
+                    required
+                    autoComplete="off"
+                    className="mt-sm block w-full border border-line bg-paper px-md py-md text-body-md outline-none focus:border-accent"
+                    name="style"
+                    defaultValue=""
+                  >
+                    <option value="">Select a dance style</option>
+                    {DANCE_STYLES.map((style) => (
+                      <option key={style} value={style}>
+                        {style}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-body-sm font-bold uppercase">
+                  Years of experience
+                  <select
+                    required
+                    autoComplete="off"
+                    className="mt-sm block w-full border border-line bg-paper px-md py-md text-body-md outline-none focus:border-accent"
+                    name="experience"
+                    defaultValue=""
+                  >
+                    <option value="">Select years</option>
+                    {EXPERIENCE_OPTIONS.map((years) => (
+                      <option key={years} value={years}>
+                        {years === "0" ? "Under 1 year" : `${years} ${years === "1" ? "year" : "years"}`}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 {ARTIST_PROFILE_FIELDS.map((field) => (
                   <label
                     key={field.name}

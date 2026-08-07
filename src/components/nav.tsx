@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
@@ -8,6 +9,7 @@ import { useState } from "react";
 const navLinks = [
   { href: "/", label: "Home" },
   { href: "/events", label: "Events" },
+  { href: "/artist/directory", label: "Artists" },
   { href: "/for-organizers", label: "For Organizers" },
   { href: "/for-artists", label: "For Artists" },
   { href: "/about", label: "About Us" },
@@ -17,13 +19,13 @@ const dashboardLinks: Record<string, { href: string; label: string }[]> = {
   ORGANIZER: [
     { href: "/organizer", label: "Dashboard" },
     { href: "/organizer/gigs", label: "Gigs" },
-    { href: "/organizer/artists", label: "Artists" },
   ],
   ARTIST: [
     { href: "/artist", label: "Dashboard" },
     { href: "/artist/gigs", label: "Marketplace" },
   ],
   JUDGE: [{ href: "/judge", label: "Portal" }],
+  ADMIN: [{ href: "/admin", label: "Admin" }],
 };
 
 export function Nav() {
@@ -37,8 +39,15 @@ export function Nav() {
   return (
     <header className="sticky top-0 z-50 border-b border-line bg-paper">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-md py-md md:px-xl">
-        <Link href="/" className="font-display text-title-md uppercase tracking-[-0.08em]">
-          CYPHR
+        <Link href="/" className="block leading-none" aria-label="CYPHR home">
+          <Image
+            src="/logo.svg"
+            alt="CYPHR"
+            width={112}
+            height={28}
+            priority
+            className="block h-7 w-auto"
+          />
         </Link>
 
         <div className="hidden items-center gap-lg md:flex">

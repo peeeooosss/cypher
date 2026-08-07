@@ -2,20 +2,17 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { EventType } from "@/generated/prisma/enums";
+import { flatFeeForCategoryCount, formatInr } from "@/lib/pricing";
 import { PosterUpload } from "@/components/poster-upload";
-
-const EVENT_TYPE_LABELS: Record<EventType, string> = {
-  UNDERGROUND_BATTLE: "Underground battle",
-  DANCE_COMPETITION: "Dance competition",
-  MUSIC_COMPETITION: "Music competition",
-};
+import { EVENT_TYPE_LABELS, EVENT_TYPE_LIST } from "@/lib/event-types";
+import { INDIAN_STATES } from "@/lib/states";
 
 export function EventForm() {
   const router = useRouter();
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [posterUrl, setPosterUrl] = useState<string | null>(null);
+  const [categoryCount, setCategoryCount] = useState(2);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -35,7 +32,9 @@ export function EventForm() {
         posterUrl,
         venue: formData.get("venue") || undefined,
         city: formData.get("city") || undefined,
+        state: formData.get("state") || undefined,
         startsAt: formData.get("startsAt"),
+        categoryCount,
       }),
     });
 
@@ -46,10 +45,9 @@ export function EventForm() {
       return;
     }
 
-    event.currentTarget.reset();
-    setPosterUrl(null);
+    const created = await response.json();
     setIsSubmitting(false);
-    router.refresh();
+    router.push(`/organizer/${created.id}/bill`);
   }
 
   return (
@@ -62,15 +60,49 @@ export function EventForm() {
           <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Event type</span>
           <select className="mt-xs w-full border border-line bg-paper px-md py-sm" name="eventType" defaultValue="">
             <option value="">Select a type</option>
-            {(Object.keys(EVENT_TYPE_LABELS) as EventType[]).map((t) => (
+            {EVENT_TYPE_LIST.map((t) => (
               <option key={t} value={t}>{EVENT_TYPE_LABELS[t]}</option>
             ))}
           </select>
+        </label>
+        <label className="block">
+          <span className="font-mono text-[0.7rem] uppercase text-ink-muted">State</span>
+          <select className="mt-xs w-full border border-line bg-paper px-md py-sm" name="state" defaultValue="">
+            <option value="">Select a state</option>
+            {INDIAN_STATES.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </label>
+        <label className="block">
+          <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Categories</span>
+          <input
+            className="mt-xs w-full border border-line bg-paper px-md py-sm"
+            type="number"
+            min={1}
+            max={20}
+            value={categoryCount}
+            onChange={(e) => setCategoryCount(Number(e.target.value))}
+          />
         </label>
         <input className="border border-line bg-paper px-md py-sm" name="venue" placeholder="Venue" />
         <input className="border border-line bg-paper px-md py-sm" name="city" placeholder="City" />
         <input required className="border border-line bg-paper px-md py-sm md:col-span-2" name="startsAt" type="datetime-local" />
         <textarea className="border border-line bg-paper px-md py-sm md:col-span-2" name="description" placeholder="Event description — shown on the public event page" rows={4} />
+      </div>
+      <div className="mt-lg border border-accent bg-paper p-md">
+        <div className="flex flex-wrap items-center justify-between gap-md">
+          <div>
+            <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">Flat fee to activate</p>
+            <p className="mt-xs font-display text-title-md text-accent">{formatInr(flatFeeForCategoryCount(categoryCount))}</p>
+          </div>
+          <p className="font-mono text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">
+            1–2 categories ₹49 · 3–4 ₹99 · 5+ ₹199
+          </p>
+        </div>
+        <p className="mt-md border-t border-line pt-md text-body-sm text-ink-muted">
+          Paid once at creation. Later, just 1.5% per confirmed entry — taken at event completion.
+        </p>
       </div>
       <div className="mt-lg">
         <p className="font-mono text-[0.7rem] uppercase text-ink-muted">Poster</p>
@@ -80,7 +112,7 @@ export function EventForm() {
       </div>
       {error ? <p className="mt-md text-body-sm text-accent">{error}</p> : null}
       <button className="mt-lg border border-accent bg-accent px-lg py-sm font-bold uppercase text-paper disabled:opacity-60" disabled={isSubmitting} type="submit">
-        {isSubmitting ? "Creating..." : "Create event"}
+        {isSubmitting ? "Creating..." : "Create event & pay flat fee"}
       </button>
     </form>
   );

@@ -1,0 +1,157 @@
+import Link from "next/link";
+import { requireRole } from "@/lib/rbac";
+import { prisma } from "@/lib/prisma";
+import { formatInr, GIG_WORK_FEE } from "@/lib/pricing";
+import { PaymentMethods } from "@/components/payment-methods";
+import { GigWorkBillSubmit } from "@/components/gig-work-bill-submit";
+import { SignOutButton } from "@/components/sign-out-button";
+import {
+  BILL_WHATSAPP_NUMBER,
+  PAYMENT_NAME,
+  PAYMENT_UPI_ID,
+  whatsappLink,
+} from "@/lib/payment";
+import type { PaymentStatus } from "@/generated/prisma/enums";
+
+export const dynamic = "force-dynamic";
+
+export default async function ArtistGigBillPage() {
+  const user = await requireRole("ARTIST");
+
+  const me = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: {
+      name: true,
+      gigWorkPaymentStatus: true,
+      gigWorkPaymentMethod: true,
+      gigWorkPaymentSentAt: true,
+      gigWorkPaidAt: true,
+      gigWorkExpiresAt: true,
+    },
+  });
+
+  const status = (me?.gigWorkPaymentStatus ?? "NONE") as PaymentStatus;
+  const paidAt = me?.gigWorkPaidAt ?? null;
+  const expiresAt = me?.gigWorkExpiresAt ?? null;
+  const amount = GIG_WORK_FEE;
+
+  return (
+    <main className="min-h-screen bg-paper px-md py-section md:px-xl">
+      <Link
+        href="/artist/gigs"
+        className="font-mono text-body-sm uppercase text-ink-muted hover:text-accent"
+      >
+        &larr; Back to marketplace
+      </Link>
+
+      <div className="mt-lg flex flex-wrap items-end justify-between gap-md">
+        <div>
+          <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-accent">Gig work bill</p>
+          <h1 className="font-display text-display-lg uppercase">Unlock the marketplace</h1>
+          <p className="mt-sm text-body-sm text-ink-muted">
+            Pay {formatInr(amount)} once for 3 months of access to freelance gigs.
+          </p>
+        </div>
+        <SignOutButton />
+      </div>
+
+      <section className="mt-section grid gap-lg lg:grid-cols-2">
+        <div className="border border-line bg-paper-soft p-lg">
+          <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">Gig work access</p>
+          <div className="mt-md space-y-sm text-body-sm">
+            <div className="flex justify-between">
+              <span>Access period</span>
+              <span className="font-mono text-accent">3 months</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Gig work fee</span>
+              <span className="font-mono text-accent">{formatInr(amount)}</span>
+            </div>
+            <div className="flex justify-between border-t border-line pt-sm">
+              <span>Total due now</span>
+              <span className="font-mono text-accent">{formatInr(amount)}</span>
+            </div>
+          </div>
+          <p className="mt-md text-body-sm text-ink-muted">
+            Verified once by the CYPHR team. After verification your access is enabled
+            immediately and lasts 3 months from the verified payment date.
+          </p>
+        </div>
+
+        <div className="border border-line p-lg">
+          <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">Payment</p>
+          <div className="mt-md">
+            {status === "VERIFIED" ? (
+              <div className="space-y-md">
+                <div className="border border-accent bg-accent/10 px-md py-sm">
+                  <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent">
+                    Payment verified — Gig Work enabled
+                    {paidAt ? ` · ${paidAt.toLocaleString()}` : ""}
+                  </p>
+                  {expiresAt ? (
+                    <p className="mt-xs text-body-sm text-ink-muted">
+                      Your access runs until {expiresAt.toLocaleString()}. Apply to gigs anytime.
+                    </p>
+                  ) : null}
+                </div>
+                <Link
+                  href="/artist/gigs"
+                  className="block border border-accent bg-accent px-md py-sm text-center font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper"
+                >
+                  Browse the marketplace
+                </Link>
+              </div>
+            ) : status === "PENDING" ? (
+              <div className="space-y-md">
+                <div className="border border-accent bg-paper p-md">
+                  <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent">
+                    Payment sent — waiting for confirmation
+                  </p>
+                  <p className="mt-xs text-body-sm text-ink-muted">
+                    We&apos;re verifying your transfer
+                    {me?.gigWorkPaymentSentAt ? ` sent ${me.gigWorkPaymentSentAt.toLocaleString()}` : ""}.
+                    This usually takes a few minutes. Refresh this page later.
+                  </p>
+                </div>
+                <a
+                  href={whatsappLink(
+                    BILL_WHATSAPP_NUMBER,
+                    `Hi CYPHR, I've sent ${formatInr(amount)} for Gig Work access. Attaching the payment screenshot for verification.`,
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block border border-line px-md py-sm text-center font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-ink hover:border-accent hover:text-accent"
+                >
+                  Resend screenshot on WhatsApp
+                </a>
+              </div>
+            ) : (
+              <div className="space-y-md">
+                <PaymentMethods
+                  amount={amount}
+                  upiId={PAYMENT_UPI_ID}
+                  payeeName={PAYMENT_NAME}
+                  note="CYPHR Gig Work access - 3 months"
+                />
+                <div className="border-t border-line pt-md">
+                  <a
+                    href={whatsappLink(
+                      BILL_WHATSAPP_NUMBER,
+                      `Hi CYPHR, I've sent ${formatInr(amount)} for Gig Work access. Attaching the payment screenshot for verification.`,
+                    )}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block border border-line px-md py-sm text-center font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-ink hover:border-accent hover:text-accent"
+                  >
+                    Send screenshot on WhatsApp
+                  </a>
+                  <GigWorkBillSubmit />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}

@@ -11,6 +11,13 @@ enum UserRole {
   ORGANIZER
   ARTIST
   JUDGE
+  ADMIN
+}
+
+enum PaymentStatus {
+  NONE
+  PENDING
+  VERIFIED
 }
 
 enum EventStatus {
@@ -25,6 +32,7 @@ enum EventType {
   UNDERGROUND_BATTLE
   DANCE_COMPETITION
   MUSIC_COMPETITION
+  WORKSHOP
 }
 
 enum Skill {
@@ -103,6 +111,14 @@ model User {
   gigs            Gig[]             @relation("OrganizerGigs")
   gigApplications GigApplication[]  @relation("ArtistGigApplications")
   achievements    ArtistAchievement[]
+  gigWorkEnabledAt DateTime?
+  gigWorkExpiresAt DateTime?
+  gigWorkPaymentStatus PaymentStatus @default(NONE)
+  gigWorkPaymentMethod String?
+  gigWorkPaymentSentAt DateTime?
+  gigWorkPaymentVerifiedBy String?
+  gigWorkPaidAt DateTime?
+  isSuspended    Boolean           @default(false)
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 }
@@ -117,8 +133,24 @@ model Event {
   posterUrl      String?
   venue          String?
   city           String?
+  state          String?
   startsAt       DateTime
   status         EventStatus  @default(DRAFT)
+  categoryCount  Int?
+  flatFee        Int?
+  flatFeePaid    Boolean      @default(false)
+  flatFeePaidAt  DateTime?
+  flatFeePaymentStatus PaymentStatus @default(NONE)
+  flatFeePaymentMethod String?
+  flatFeePaymentSentAt DateTime?
+  flatFeePaymentVerifiedBy String?
+  commissionDue  Int?
+  commissionPaid Boolean      @default(false)
+  commissionPaidAt DateTime?
+  commissionPaymentStatus PaymentStatus @default(NONE)
+  commissionPaymentMethod String?
+  commissionPaymentSentAt DateTime?
+  commissionPaymentVerifiedBy String?
   organizer      User         @relation("EventOrganizer", fields: [organizerId], references: [id])
   categories     Category[]
   judgeSlots     JudgeSlot[]
@@ -366,6 +398,8 @@ model Gig {
   currency       String             @default("INR")
   startsAt       DateTime?
   status         GigStatus          @default(OPEN)
+  feePaid        Boolean            @default(false)
+  feePaidAt      DateTime?
   organizer      User               @relation("OrganizerGigs", fields: [organizerId], references: [id], onDelete: Cascade)
   applications   GigApplication[]
   createdAt      DateTime           @default(now())

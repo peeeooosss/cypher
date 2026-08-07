@@ -4,6 +4,15 @@ import { badRequest, forbidden, notFound, unauthorized } from "@/lib/api";
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { RoundType } from "@/generated/prisma/enums";
+import { isCompetitionType } from "@/lib/event-types";
+
+const BATTLE_ROUND_TYPES: RoundType[] = [
+  RoundType.BATTLE_1V1,
+  RoundType.BATTLE_2V2,
+  RoundType.BATTLE_3V3,
+  RoundType.BATTLE_4V4,
+  RoundType.FINAL,
+];
 
 type Context = { params: Promise<{ categoryId: string }> };
 
@@ -37,7 +46,7 @@ export async function POST(request: Request, context: Context) {
 
   const category = await prisma.category.findUnique({
     where: { id: categoryId },
-    include: { event: { select: { organizerId: true } } },
+    include: { event: { select: { organizerId: true, eventType: true } } },
   });
   if (!category) return notFound("Category");
   if (category.event.organizerId !== user.id) return forbidden();
@@ -46,6 +55,10 @@ export async function POST(request: Request, context: Context) {
   if (!body.success) return badRequest(body.error.issues[0].message);
 
   const { type, label, roundCount, roundDuration, advanceCount } = body.data;
+
+  if (isCompetitionType(category.event.eventType) && BATTLE_ROUND_TYPES.includes(type)) {
+    return badRequest("Competition events use single-point scoring (CYPHER/QUALIFIER) — no 1v1 battle rounds");
+  }
 
   const maxOrder = await prisma.roundFormat.aggregate({
     where: { categoryId },

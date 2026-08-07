@@ -1,0 +1,70 @@
+import Link from "next/link";
+import { getAdminArtists, requireAdmin } from "@/lib/admin";
+
+export const dynamic = "force-dynamic";
+
+export default async function AdminArtistsPage() {
+  await requireAdmin();
+  const artists = await getAdminArtists();
+
+  return (
+    <div>
+      <h2 className="font-display text-title-md uppercase">Artists</h2>
+      {artists.length === 0 ? (
+        <p className="mt-md border border-line p-lg text-ink-muted">No artists yet.</p>
+      ) : (
+        <div className="mt-md overflow-x-auto">
+          <table className="w-full border border-line text-body-sm">
+            <thead>
+              <tr className="border-b border-line bg-paper-soft text-left">
+                <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">Name</th>
+                <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">Email</th>
+                <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">Style</th>
+                <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">Crew</th>
+                <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">City</th>
+                <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">Battles</th>
+                <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">Gig work</th>
+                <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {artists.map((artist) => {
+                const gigWorkActive = artist.gigWorkExpiresAt != null && artist.gigWorkExpiresAt > new Date();
+                return (
+                  <tr key={artist.id} className="border-b border-line">
+                    <td className="px-md py-sm">
+                      <Link className="font-bold uppercase hover:text-accent" href={`/admin/artists/${artist.id}`}>
+                        {artist.name ?? "—"}
+                      </Link>
+                    </td>
+                    <td className="px-md py-sm">{artist.email}</td>
+                    <td className="px-md py-sm">{artist.style ?? "—"}</td>
+                    <td className="px-md py-sm">{artist.crew ?? "—"}</td>
+                    <td className="px-md py-sm">{artist.city ?? "—"}</td>
+                    <td className="px-md py-sm">{artist._count.registrations}</td>
+                    <td className="px-md py-sm">
+                      {artist.gigWorkEnabledAt ? (
+                        <span className="font-mono text-[0.7rem] uppercase text-accent">
+                          {gigWorkActive ? "Active" : "Expired"}
+                        </span>
+                      ) : (
+                        <span className="font-mono text-[0.7rem] uppercase text-ink-muted">No</span>
+                      )}
+                    </td>
+                    <td className="px-md py-sm">
+                      {artist.isSuspended ? (
+                        <span className="font-mono text-[0.7rem] uppercase text-accent">Suspended</span>
+                      ) : (
+                        <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Active</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}

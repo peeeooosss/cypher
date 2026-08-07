@@ -1,19 +1,58 @@
 import Link from "next/link";
-import { EventStatus } from "@/generated/prisma/enums";
+import { EventStatus, EventType } from "@/generated/prisma/enums";
+import type { Prisma } from "@/generated/prisma/client";
 import { EventCard } from "@/components/event-card";
+import { StateFilter } from "@/components/state-filter";
 import { prisma } from "@/lib/prisma";
+import { INDIAN_STATES } from "@/lib/states";
 
 export const dynamic = "force-dynamic";
 
-type SearchParams = Promise<{ status?: string }>;
+type SearchParams = Promise<{ status?: string; type?: string; state?: string }>;
+
+type TypeFilter = {
+  label: string;
+  key: string;
+  eventType?: EventType | EventType[];
+};
+
+const TYPE_FILTERS: TypeFilter[] = [
+  { label: "All", key: "" },
+  { label: "Battles", key: "battles", eventType: EventType.UNDERGROUND_BATTLE },
+  { label: "Competitions", key: "competitions", eventType: [EventType.DANCE_COMPETITION, EventType.MUSIC_COMPETITION] },
+  { label: "Workshops", key: "workshops", eventType: EventType.WORKSHOP },
+];
+
+function buildHref(base: Record<string, string | undefined>, overrides: Record<string, string | undefined>): string {
+  const merged = { ...base, ...overrides };
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(merged)) {
+    if (value) params.set(key, value);
+  }
+  const qs = params.toString();
+  return qs ? `/events?${qs}` : "/events";
+}
 
 export default async function EventsPage({ searchParams }: { searchParams: SearchParams }) {
-  const { status } = await searchParams;
-  const filter = status ? (status.toUpperCase() as EventStatus) : undefined;
+  const { status, type, state } = await searchParams;
 
-  const where = filter
-    ? { status: filter }
-    : { status: { in: [EventStatus.PUBLISHED, EventStatus.LIVE, EventStatus.COMPLETED] } };
+  const statusFilter = status ? (status.toUpperCase() as EventStatus) : undefined;
+  const typeFilter = TYPE_FILTERS.find((t) => t.key === type);
+  const stateFilter = state && INDIAN_STATES.includes(state as (typeof INDIAN_STATES)[number]) ? state : undefined;
+
+  const eventTypeFilter = typeFilter?.eventType
+    ? Array.isArray(typeFilter.eventType)
+      ? { in: typeFilter.eventType }
+      : typeFilter.eventType
+    : undefined;
+
+  const where: Prisma.EventWhereInput = {
+    status: statusFilter
+      ? statusFilter
+      : { in: [EventStatus.PUBLISHED, EventStatus.LIVE, EventStatus.COMPLETED] },
+    ...(eventTypeFilter ? { eventType: eventTypeFilter } : {}),
+    ...(stateFilter ? { state: { equals: stateFilter, mode: "insensitive" } } : {}),
+  };
 
   const events = await prisma.event.findMany({
     where,
@@ -23,6 +62,7 @@ export default async function EventsPage({ searchParams }: { searchParams: Searc
       slug: true,
       venue: true,
       city: true,
+      state: true,
       startsAt: true,
       status: true,
       eventType: true,
@@ -33,11 +73,13 @@ export default async function EventsPage({ searchParams }: { searchParams: Searc
   });
 
   const tabs = [
-    { label: "All", href: "/events", active: !filter },
-    { label: "Live", href: "/events?status=LIVE", active: filter === EventStatus.LIVE },
-    { label: "Upcoming", href: "/events?status=PUBLISHED", active: filter === EventStatus.PUBLISHED },
-    { label: "Completed", href: "/events?status=COMPLETED", active: filter === EventStatus.COMPLETED },
+    { label: "All", href: buildHref({ status: "", type, state }, { status: "" }), active: !statusFilter },
+    { label: "Live", href: buildHref({ status, type, state }, { status: EventStatus.LIVE }), active: statusFilter === EventStatus.LIVE },
+    { label: "Upcoming", href: buildHref({ status, type, state }, { status: EventStatus.PUBLISHED }), active: statusFilter === EventStatus.PUBLISHED },
+    { label: "Completed", href: buildHref({ status, type, state }, { status: EventStatus.COMPLETED }), active: statusFilter === EventStatus.COMPLETED },
   ];
+
+  const current = { status, type, state };
 
   return (
     <main className="min-h-screen bg-paper">
@@ -45,7 +87,7 @@ export default async function EventsPage({ searchParams }: { searchParams: Searc
         <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-accent">Browse</p>
         <h1 className="mt-lg font-display text-display-lg uppercase">Events</h1>
         <p className="mt-md max-w-2xl text-body-md text-ink-muted">
-          Find upcoming battles, live cyphers, and past events from the underground community.
+          Find battles, competitions, and workshops from the underground community.
         </p>
 
         <div className="mt-xl flex flex-wrap gap-sm border-b border-line pb-sm">
@@ -62,6 +104,25 @@ export default async function EventsPage({ searchParams }: { searchParams: Searc
               {tab.label}
             </Link>
           ))}
+        </div>
+
+        <div className="mt-md flex flex-wrap items-center gap-sm">
+          <div className="flex flex-wrap gap-sm">
+            {TYPE_FILTERS.map((filter) => (
+              <Link
+                key={filter.key}
+                href={buildHref(current, { type: filter.key })}
+                className={`border px-md py-xs font-mono text-[0.7rem] uppercase tracking-[0.15em] transition-colors ${
+                  type === filter.key
+                    ? "border-accent bg-accent/10 text-accent"
+                    : "border-line text-ink-muted hover:border-accent hover:text-ink"
+                }`}
+              >
+                {filter.label}
+              </Link>
+            ))}
+          </div>
+          <StateFilter current={state ?? ""} status={status} type={type} />
         </div>
 
         {events.length === 0 ? (

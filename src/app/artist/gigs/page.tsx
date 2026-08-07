@@ -9,9 +9,9 @@ export const dynamic = "force-dynamic";
 export default async function ArtistGigsPage() {
   const user = await requireRole("ARTIST");
 
-  const [gigs, applications] = await Promise.all([
+  const [gigs, applications, me] = await Promise.all([
     prisma.gig.findMany({
-      where: { status: "OPEN" },
+      where: { status: "OPEN", feePaid: true },
       include: { organizer: { select: { name: true } } },
       orderBy: { createdAt: "desc" },
     }),
@@ -31,7 +31,15 @@ export default async function ArtistGigsPage() {
       },
       orderBy: { createdAt: "desc" },
     }),
+    prisma.user.findUnique({
+      where: { id: user.id },
+      select: { gigWorkExpiresAt: true, gigWorkPaymentStatus: true },
+    }),
   ]);
+
+  const gigWorkEnabled =
+    me?.gigWorkExpiresAt != null && me.gigWorkExpiresAt.getTime() > Date.now();
+  const gigWorkStatus = (me?.gigWorkPaymentStatus ?? "NONE") as "NONE" | "PENDING" | "VERIFIED";
 
   return (
     <main className="min-h-screen bg-paper px-md py-section md:px-xl">
@@ -54,7 +62,7 @@ export default async function ArtistGigsPage() {
         <SignOutButton />
       </div>
 
-      <GigsMarketplace gigs={gigs} applications={applications} />
+      <GigsMarketplace gigs={gigs} applications={applications} gigWorkEnabled={gigWorkEnabled} gigWorkStatus={gigWorkStatus} />
     </main>
   );
 }

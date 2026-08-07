@@ -21,3 +21,11 @@ export function formatFee(entryFee: number | null | undefined, entryCurrency: st
   const currency = entryCurrency ?? "INR";
   return currency === "INR" ? `₹${entryFee}` : `${currency} ${entryFee}`;
 }
+
+export function formatExperience(experience: string | null | undefined) {
+  if (!experience) return "";
+  const years = Number(experience);
+  if (!Number.isFinite(years) || years < 0) return experience;
+  if (years === 0) return "Under 1 yr";
+  return `${years} yr${years === 1 ? "" : "s"}`;
+}

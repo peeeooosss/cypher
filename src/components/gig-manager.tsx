@@ -3,7 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatExperience } from "@/lib/format";
 import { SKILLS, SKILL_LABELS, skillLabel } from "@/lib/skills";
 
 type GigApplication = {
@@ -33,6 +33,7 @@ type Gig = {
   currency: string;
   startsAt: Date | null;
   status: string;
+  feePaid: boolean;
   applications: GigApplication[];
 };
 
@@ -96,6 +97,11 @@ export function GigManager({ gigs }: { gigs: Gig[] }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
     });
+    if (res.ok) router.refresh();
+  }
+
+  async function payGigFee(gigId: string) {
+    const res = await fetch(`/api/gigs/${gigId}/pay`, { method: "POST" });
     if (res.ok) router.refresh();
   }
 
@@ -168,18 +174,35 @@ export function GigManager({ gigs }: { gigs: Gig[] }) {
                 </p>
               </div>
               <div className="flex items-center gap-sm">
-                <span className="font-mono text-[0.65rem] uppercase text-ink-muted">{gig.status}</span>
-                {gig.status === "OPEN" ? (
+                {gig.feePaid ? (
+                  <>
+                    <span className="font-mono text-[0.65rem] uppercase text-ink-muted">{gig.status}</span>
+                    {gig.status === "OPEN" ? (
+                      <button
+                        type="button"
+                        className="border border-line px-sm py-xs font-mono text-[0.65rem] uppercase text-ink-muted hover:border-accent hover:text-accent"
+                        onClick={() => void updateGigStatus(gig.id, "CLOSED")}
+                      >
+                        Close
+                      </button>
+                    ) : null}
+                  </>
+                ) : (
                   <button
                     type="button"
-                    className="border border-line px-sm py-xs font-mono text-[0.65rem] uppercase text-ink-muted hover:border-accent hover:text-accent"
-                    onClick={() => void updateGigStatus(gig.id, "CLOSED")}
+                    className="border border-accent bg-accent px-sm py-xs font-mono text-[0.65rem] uppercase text-paper"
+                    onClick={() => void payGigFee(gig.id)}
                   >
-                    Close
+                    Pay ₹149 to publish
                   </button>
-                ) : null}
+                )}
               </div>
             </div>
+            {!gig.feePaid ? (
+              <p className="mt-sm text-body-sm text-accent">
+                This gig is saved as a draft. Pay the ₹149 posting fee to publish it and let artists apply.
+              </p>
+            ) : null}
             <p className="mt-sm text-body-sm text-ink whitespace-pre-wrap">{gig.description}</p>
             <div className="mt-sm flex flex-wrap gap-xs">
               {gig.skillsRequired.map((skill) => (
@@ -202,13 +225,13 @@ export function GigManager({ gigs }: { gigs: Gig[] }) {
                       <div className="flex flex-wrap items-start justify-between gap-sm">
                         <div>
                           <Link
-                            href={`/organizer/artists/${application.artist.id}`}
+                            href={`/artist/directory/${application.artist.id}`}
                             className="font-display text-title-sm uppercase hover:text-accent"
                           >
                             {application.artist.name ?? "Unnamed artist"}
                           </Link>
                           <p className="mt-xs text-body-sm text-ink-muted">
-                            {[application.artist.style, application.artist.crew, application.artist.city, application.artist.experience]
+                            {[application.artist.style, application.artist.crew, application.artist.city, formatExperience(application.artist.experience)]
                               .filter(Boolean)
                               .join(" · ")}
                           </p>

@@ -2,12 +2,7 @@ import Link from "next/link";
 import { EventStatus, EventType } from "@/generated/prisma/enums";
 import { StatusBadge } from "@/components/status-badge";
 import { formatDateShort } from "@/lib/format";
-
-const EVENT_TYPE_LABELS: Record<EventType, string> = {
-  UNDERGROUND_BATTLE: "Underground battle",
-  DANCE_COMPETITION: "Dance competition",
-  MUSIC_COMPETITION: "Music competition",
-};
+import { EVENT_TYPE_LABELS, isWorkshopType } from "@/lib/event-types";
 
 type EventCardData = {
   id: string;
@@ -15,6 +10,7 @@ type EventCardData = {
   slug: string;
   venue: string | null;
   city: string | null;
+  state?: string | null;
   startsAt: Date;
   status: EventStatus;
   eventType?: string | null;
@@ -48,11 +44,9 @@ export function EventCard({ event }: { event: EventCardData }) {
           <h2 className="font-display text-title-md uppercase leading-tight transition-colors group-hover:text-accent">
             {event.title}
           </h2>
-          {(event.city || event.venue) && (
+          {(event.city || event.state || event.venue) && (
             <p className="mt-xs text-body-sm text-ink-muted">
-              {event.city ?? ""}
-              {event.city && event.venue ? " / " : ""}
-              {event.venue ?? ""}
+              {[event.city, event.state, event.venue].filter(Boolean).join(" / ")}
             </p>
           )}
           {event.categories && event.categories.length > 0 && (
@@ -81,7 +75,7 @@ export function EventCard({ event }: { event: EventCardData }) {
           href={`/events/${event.slug}/register`}
           className="block border-t border-line px-md py-sm text-center font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-accent transition-colors hover:bg-accent hover:text-paper"
         >
-          Register for this event
+          {isWorkshopType(event.eventType) ? "Join this workshop" : "Register for this event"}
         </Link>
       )}
       {event.status === EventStatus.LIVE && (

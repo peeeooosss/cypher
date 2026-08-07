@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { formatDate } from "@/lib/format";
 import { SKILLS, SKILL_LABELS } from "@/lib/skills";
 
@@ -36,9 +37,13 @@ type Application = {
 export function GigsMarketplace({
   gigs,
   applications,
+  gigWorkEnabled,
+  gigWorkStatus = "NONE",
 }: {
   gigs: Gig[];
   applications: Application[];
+  gigWorkEnabled: boolean;
+  gigWorkStatus?: "NONE" | "PENDING" | "VERIFIED";
 }) {
   const router = useRouter();
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
@@ -110,6 +115,39 @@ export function GigsMarketplace({
       </div>
 
       {notice ? <p className="mt-md text-body-sm text-accent">{notice}</p> : null}
+
+      {!gigWorkEnabled && gigWorkStatus === "PENDING" ? (
+        <div className="mt-lg flex flex-wrap items-center justify-between gap-md border border-accent bg-accent/10 p-lg">
+          <div>
+            <p className="font-display text-title-sm uppercase">Gig Work — payment under review</p>
+            <p className="mt-xs text-body-sm text-ink-muted">
+              We received your ₹49 payment and are verifying it. You&apos;ll be able to
+              apply as soon as it&apos;s confirmed.
+            </p>
+          </div>
+          <Link
+            href="/artist/gig-bill"
+            className="border border-accent px-md py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-accent hover:bg-accent hover:text-paper"
+          >
+            View bill
+          </Link>
+        </div>
+      ) : !gigWorkEnabled ? (
+        <div className="mt-lg flex flex-wrap items-center justify-between gap-md border border-accent bg-accent/10 p-lg">
+          <div>
+            <p className="font-display text-title-sm uppercase">Enable Gig Work</p>
+            <p className="mt-xs text-body-sm text-ink-muted">
+              Pay ₹49 for 3 months to apply to gigs on the marketplace.
+            </p>
+          </div>
+          <Link
+            href="/artist/gig-bill"
+            className="border border-accent bg-accent px-md py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper"
+          >
+            Enable — ₹49 / 3 mo
+          </Link>
+        </div>
+      ) : null}
 
       {tab === "browse" ? (
         <>
@@ -203,6 +241,13 @@ export function GigsMarketplace({
                             </button>
                           </div>
                         </div>
+                      ) : !gigWorkEnabled ? (
+                        <Link
+                          href="/artist/gig-bill"
+                          className="block border border-line px-md py-sm text-center font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted hover:border-accent hover:text-accent"
+                        >
+                          Enable Gig Work to apply
+                        </Link>
                       ) : (
                         <button
                           type="button"

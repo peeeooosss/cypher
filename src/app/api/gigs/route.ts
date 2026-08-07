@@ -26,7 +26,7 @@ export async function GET(request: Request) {
 
   const where: Record<string, unknown> = organizerId
     ? { organizerId }
-    : { status: GigStatus.OPEN };
+    : { status: GigStatus.OPEN, feePaid: true };
 
   if (skills.length > 0) {
     where.skillsRequired = { hasSome: skills };

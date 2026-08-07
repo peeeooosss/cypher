@@ -1,7 +1,7 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { hash } from "bcryptjs";
 import { PrismaClient } from "../src/generated/prisma/client";
-import { UserRole, RoundType, Skill } from "../src/generated/prisma/enums";
+import { UserRole, RoundType, Skill, EventType } from "../src/generated/prisma/enums";
 
 const password = process.env.SEED_PASSWORD ?? "password";
 const connectionString = process.env.DATABASE_URL;
@@ -14,6 +14,13 @@ const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) })
 
 const passwordHash = await hash(password, 12);
 
+// ---- Admin ----
+await prisma.user.upsert({
+  where: { email: "admin@callout.local" },
+  update: { name: "CYPHR Admin", role: UserRole.ADMIN, passwordHash },
+  create: { email: "admin@callout.local", name: "CYPHR Admin", role: UserRole.ADMIN, passwordHash },
+});
+
 // ---- Organizer ----
 const organizer = await prisma.user.upsert({
   where: { email: "organizer@callout.local" },
@@ -24,6 +31,16 @@ const organizer = await prisma.user.upsert({
 // ---- Delete old demo event (cascade wipes categories, rounds, matches, judge slots, prize pools, registrations) ----
 try {
   await prisma.event.delete({ where: { slug: "summer-cypher-2026" } });
+} catch {
+  // event doesn't exist yet — that's fine
+}
+try {
+  await prisma.event.delete({ where: { slug: "house-groove-workshop-2026" } });
+} catch {
+  // event doesn't exist yet — that's fine
+}
+try {
+  await prisma.event.delete({ where: { slug: "national-dance-championship-2026" } });
 } catch {
   // event doesn't exist yet — that's fine
 }
@@ -140,9 +157,16 @@ const event = await prisma.event.create({
     eventType: "UNDERGROUND_BATTLE",
     venue: "The Underground",
     city: "Brooklyn",
-    status: "LIVE",
+    status: "PUBLISHED",
     startsAt,
     organizerId: organizer.id,
+    categoryCount: 3,
+    flatFee: 99,
+    flatFeePaid: true,
+    flatFeePaidAt: now,
+    flatFeePaymentStatus: "VERIFIED",
+    flatFeePaymentMethod: "UPI",
+    flatFeePaymentSentAt: now,
   },
 });
 
@@ -364,6 +388,8 @@ for (const def of gigDefs) {
       currency: "INR",
       startsAt: def.startsAt,
       status: def.status,
+      feePaid: true,
+      feePaidAt: now,
     },
   });
   gigs.push(gig);
@@ -429,6 +455,159 @@ for (const def of applicationDefs) {
   });
 }
 
-console.log("Seed complete: 1 organizer, 30 artists, 1 event, 3 categories, 9 judge slots, 30 registrations, 3 prize pools, 10 feedback templates, 6 gigs, 8 achievements, 3 gig applications");
+// ---- Workshop event (organizer gives workshops, artists join sessions) ----
+const workshop = await prisma.event.create({
+  data: {
+    title: "House Groove Workshop",
+    slug: "house-groove-workshop-2026",
+    description:
+      "A full-day house dance workshop for all levels. Learn the foundations of house — jacking, footwork, hustle — then open the floor for a guided cypher session.",
+    eventType: EventType.WORKSHOP,
+    venue: "Flow State Studio",
+    city: "Mumbai",
+    state: "Maharashtra",
+    status: "PUBLISHED",
+    startsAt: future(12),
+    organizerId: organizer.id,
+    categoryCount: 3,
+    flatFee: 99,
+    flatFeePaid: true,
+    flatFeePaidAt: now,
+    flatFeePaymentStatus: "VERIFIED",
+    flatFeePaymentMethod: "UPI",
+    flatFeePaymentSentAt: now,
+  },
+});
+
+const workshopSessions = [
+  { name: "House Foundations", maxCompetitors: 20, entryFee: 400 },
+  { name: "Footwork & Hustle", maxCompetitors: 20, entryFee: 400 },
+  { name: "Open Groove Cypher", maxCompetitors: 30, entryFee: 200 },
+];
+
+const sessionIds = [];
+for (const session of workshopSessions) {
+  const cat = await prisma.category.create({
+    data: {
+      eventId: workshop.id,
+      name: session.name,
+      maxCompetitors: session.maxCompetitors,
+      entryFee: session.entryFee,
+      entryCurrency: "INR",
+    },
+  });
+  sessionIds.push(cat.id);
+}
+
+// A few artists join the workshop sessions (paid)
+const workshopJoins: Array<[number, number]> = [
+  [0, 0], [2, 0], [5, 1], [8, 1], [11, 2], [14, 2], [17, 0], [20, 2],
+];
+let wsSeed = 1;
+for (const [artistIndex, sessionIndex] of workshopJoins) {
+  await prisma.registration.create({
+    data: {
+      userId: artists[artistIndex].id,
+      categoryId: sessionIds[sessionIndex],
+      status: "CONFIRMED",
+      entryFee: workshopSessions[sessionIndex].entryFee,
+      entryCurrency: "INR",
+      paid: true,
+      paidAt: now,
+      seed: wsSeed,
+      style: artists[artistIndex].style,
+      crew: artists[artistIndex].crew,
+      city: artists[artistIndex].city,
+      country: "India",
+      experience: artists[artistIndex].experience,
+      socialHandle: artists[artistIndex].socialHandle,
+      referral: artists[artistIndex].referral,
+    },
+  });
+  wsSeed++;
+}
+
+// ---- Dance competition event (single-point scoring, auto Qualifiers + Finals) ----
+const championship = await prisma.event.create({
+  data: {
+    title: "National Dance Championship 2026",
+    slug: "national-dance-championship-2026",
+    description:
+      "A judged solo and group dance competition. Performers are scored 0-10 by a live panel with feedback — no eliminations in prelims, top scorers advance to finals.",
+    eventType: EventType.DANCE_COMPETITION,
+    venue: "Rabindra Bhawan",
+    city: "Guwahati",
+    state: "Assam",
+    status: "PUBLISHED",
+    startsAt: future(25),
+    organizerId: organizer.id,
+    categoryCount: 2,
+    flatFee: 99,
+    flatFeePaid: true,
+    flatFeePaidAt: now,
+    flatFeePaymentStatus: "VERIFIED",
+    flatFeePaymentMethod: "UPI",
+    flatFeePaymentSentAt: now,
+  },
+});
+
+const competitionCategories = [];
+const competitionDefs = [
+  { name: "Solo Dance", maxCompetitors: 24, entryFee: 800 },
+  { name: "Group Performance", maxCompetitors: 16, entryFee: 1500 },
+];
+for (let ci = 0; ci < competitionDefs.length; ci++) {
+  const def = competitionDefs[ci];
+  const cat = await prisma.category.create({
+    data: {
+      eventId: championship.id,
+      name: def.name,
+      maxCompetitors: def.maxCompetitors,
+      entryFee: def.entryFee,
+      entryCurrency: "INR",
+    },
+  });
+  await prisma.roundFormat.createMany({
+    data: [
+      { categoryId: cat.id, order: 1, type: RoundType.QUALIFIER, label: "Qualifiers", phaseStatus: "PENDING" },
+      { categoryId: cat.id, order: 2, type: RoundType.QUALIFIER, label: "Finals", phaseStatus: "PENDING" },
+    ],
+  });
+  await prisma.judgeSlot.create({
+    data: { code: ci === 0 ? "DNC001" : "DNC002", name: "Panel Judge", eventId: championship.id, categoryId: cat.id, isActive: true },
+  });
+  competitionCategories.push(cat);
+}
+
+// A few artists enter the competition (paid)
+const competitionEntries: Array<[number, number]> = [
+  [1, 0], [3, 0], [4, 0], [7, 0], [9, 0], [12, 0], [18, 0], [22, 0], [25, 0], [28, 0],
+  [0, 1], [6, 1], [13, 1], [21, 1], [26, 1],
+];
+let compSeed = 1;
+for (const [artistIndex, catIndex] of competitionEntries) {
+  await prisma.registration.create({
+    data: {
+      userId: artists[artistIndex].id,
+      categoryId: competitionCategories[catIndex].id,
+      status: "CONFIRMED",
+      entryFee: competitionDefs[catIndex].entryFee,
+      entryCurrency: "INR",
+      paid: true,
+      paidAt: now,
+      seed: compSeed,
+      style: artists[artistIndex].style,
+      crew: artists[artistIndex].crew,
+      city: artists[artistIndex].city,
+      country: "India",
+      experience: artists[artistIndex].experience,
+      socialHandle: artists[artistIndex].socialHandle,
+      referral: artists[artistIndex].referral,
+    },
+  });
+  compSeed++;
+}
+
+console.log("Seed complete: 1 organizer, 30 artists, 3 events (battle/workshop/competition), 8 workshop sessions+competition categories, 12 judge slots, 53 registrations, 3 prize pools, 10 feedback templates, 6 gigs, 8 achievements, 3 gig applications");
 
 await prisma.$disconnect();

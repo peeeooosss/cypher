@@ -1,7 +1,14 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { signIn } from "next-auth/react";
+import { getSession, signIn } from "next-auth/react";
+
+const ROLE_HOME: Record<string, string> = {
+  ADMIN: "/admin",
+  ORGANIZER: "/organizer",
+  ARTIST: "/artist",
+  JUDGE: "/judge",
+};
 
 export default function LoginPage() {
   const [error, setError] = useState("");
@@ -29,7 +36,9 @@ export default function LoginPage() {
       return;
     }
 
-    window.location.assign(result.url ?? "/");
+    const session = await getSession();
+    const role = session?.user?.role;
+    window.location.assign(role ? (ROLE_HOME[role] ?? "/") : "/");
   }
 
   return (
