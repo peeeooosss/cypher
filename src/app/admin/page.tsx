@@ -28,15 +28,16 @@ export default async function AdminDashboardPage() {
       <div className="grid gap-md sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Total users" value={String(stats.userTotal)} sub={Object.entries(stats.users).map(([role, count]) => `${roleLabels[role] ?? role}: ${count}`).join(" · ")} />
         <StatCard label="Total events" value={String(stats.eventTotal)} sub={Object.entries(stats.events).map(([status, count]) => `${statusLabels[status] ?? status}: ${count}`).join(" · ")} />
-        <StatCard label="Registrations" value={String(stats.registrations)} />
+        <StatCard label="Entries" value={String(stats.registrations)} sub={`${stats.teamEntries} team entries`} />
         <StatCard label="Competitions" value={String(stats.categoryCount)} sub="Total categories" />
       </div>
 
-      <div className="grid gap-md sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-md sm:grid-cols-2 lg:grid-cols-5">
         <StatCard label="Artists" value={String(stats.users.ARTIST ?? 0)} />
         <StatCard label="Organizations" value={String(stats.users.ORGANIZER ?? 0)} />
         <StatCard label="Gigs" value={String(stats.gigCount)} sub={`${stats.gigsOpen} open`} />
         <StatCard label="Pending flat fees" value={String(stats.flatFeePending)} sub={`${stats.gigWorkPending} gig-work pending`} />
+        <StatCard label="Team members" value={String(stats.teamMembers)} sub={`${stats.pendingInvitations} invitations pending`} />
       </div>
 
       <div className="grid gap-md sm:grid-cols-2 lg:grid-cols-4">

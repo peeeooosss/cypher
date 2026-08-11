@@ -22,7 +22,7 @@ export default async function AdminArtistsPage() {
                 <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">Style</th>
                 <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">Crew</th>
                 <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">City</th>
-                <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">Battles</th>
+                 <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">Entries / teams</th>
                 <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">Gig work</th>
                 <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">Status</th>
               </tr>
@@ -41,7 +41,7 @@ export default async function AdminArtistsPage() {
                     <td className="px-md py-sm">{artist.style ?? "—"}</td>
                     <td className="px-md py-sm">{artist.crew ?? "—"}</td>
                     <td className="px-md py-sm">{artist.city ?? "—"}</td>
-                    <td className="px-md py-sm">{artist._count.registrations}</td>
+                     <td className="px-md py-sm">{artist._count.registrations} / {artist._count.teamMemberships}</td>
                     <td className="px-md py-sm">
                       {artist.gigWorkEnabledAt ? (
                         <span className="font-mono text-[0.7rem] uppercase text-accent">

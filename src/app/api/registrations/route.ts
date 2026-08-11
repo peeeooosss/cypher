@@ -1,30 +1,40 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { EventStatus, RegistrationStatus } from "@/generated/prisma/enums";
+import { CategoryFormat, EventStatus, RegistrationMemberRole, RegistrationMemberStatus, RegistrationStatus } from "@/generated/prisma/enums";
 import { badRequest, conflict, forbidden, isUniqueConstraintError, notFound, serverError, unauthorized } from "@/lib/api";
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
+import { defaultRosterSize } from "@/lib/event-types";
 
-const registrationSchema = z
-  .object({
-    categoryId: z.string().cuid().optional(),
-    categoryIds: z.array(z.string().cuid()).min(1).optional(),
-  })
-  .refine((data) => data.categoryId !== undefined || data.categoryIds !== undefined, {
-    message: "Category is required",
-  });
+const registrationSchema = z.object({
+  categoryId: z.string().cuid().optional(),
+  categoryIds: z.array(z.string().cuid()).min(1).optional(),
+  teamName: z.string().trim().max(120).optional(),
+  memberIds: z.array(z.string().cuid()).max(20).optional(),
+}).refine((data) => data.categoryId !== undefined || data.categoryIds !== undefined, {
+  message: "Category is required",
+});
+
+function resolvedFormat(format: CategoryFormat | null, eventType: string | null) {
+  if (format) return format;
+  return eventType === "UNDERGROUND_BATTLE" ? CategoryFormat.BATTLE_1V1 : CategoryFormat.SOLO;
+}
 
 export async function GET() {
   const user = await getCurrentUser();
 
-  if (!user) {
-    return unauthorized();
-  }
+  if (!user) return unauthorized();
 
   const registrations = await prisma.registration.findMany({
-    where: { userId: user.id },
+    where: {
+      OR: [
+        { userId: user.id },
+        { members: { some: { userId: user.id, status: RegistrationMemberStatus.ACCEPTED } } },
+      ],
+    },
     include: {
       category: { include: { event: { select: { id: true, title: true, startsAt: true, status: true } } } },
+      members: { include: { user: { select: { id: true, name: true, username: true } } } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -35,90 +45,120 @@ export async function GET() {
 export async function POST(request: Request) {
   const user = await getCurrentUser();
 
-  if (!user) {
-    return unauthorized();
-  }
-
-  if (user.role !== "ARTIST") {
-    return forbidden();
-  }
+  if (!user) return unauthorized();
+  if (user.role !== "ARTIST") return forbidden();
 
   const parsed = registrationSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return badRequest(parsed.error.issues[0]?.message ?? "Invalid registration data");
 
-  if (!parsed.success) {
-    return badRequest(parsed.error.issues[0]?.message ?? "Invalid registration data");
-  }
+  const categoryIds = [...new Set(parsed.data.categoryIds ?? (parsed.data.categoryId ? [parsed.data.categoryId] : []))];
+  const requestedMemberIds = [...new Set(parsed.data.memberIds ?? [])].filter((id) => id !== user.id);
+  const memberIds = [user.id, ...requestedMemberIds];
 
-  const categoryIds = parsed.data.categoryIds ?? (parsed.data.categoryId ? [parsed.data.categoryId] : []);
-
-  const [categories, profile] = await Promise.all([
+  const [categories, profile, members] = await Promise.all([
     prisma.category.findMany({
       where: { id: { in: categoryIds } },
-      include: { event: { select: { id: true, status: true } } },
+      include: { event: { select: { id: true, status: true, eventType: true } } },
     }),
     prisma.user.findUnique({
       where: { id: user.id },
-      select: {
-        style: true,
-        crew: true,
-        city: true,
-        country: true,
-        experience: true,
-        socialHandle: true,
-        referral: true,
-      },
+      select: { name: true, style: true, crew: true, city: true, country: true, experience: true, socialHandle: true, referral: true },
+    }),
+    prisma.user.findMany({
+      where: { id: { in: requestedMemberIds }, role: "ARTIST", isSuspended: false },
+      select: { id: true },
     }),
   ]);
 
-  if (categories.length !== categoryIds.length) {
-    return notFound("Category");
+  if (categories.length !== categoryIds.length) return notFound("Category");
+  if (members.length !== requestedMemberIds.length) return badRequest("Every team member must be an active artist account");
+  if (new Set(categories.map((category) => category.event.id)).size !== 1) {
+    return badRequest("Team entries must be created within one event");
   }
-
-  if (categories.some((category) => category.event.status === EventStatus.COMPLETED || category.event.status === EventStatus.CANCELLED)) {
+  if (categories.some((category) => category.event.status !== EventStatus.PUBLISHED && category.event.status !== EventStatus.LIVE)) {
     return conflict("Registration is closed for this event");
   }
 
+  const firstFormat = resolvedFormat(categories[0].format, categories[0].event.eventType);
+  if (categories.some((category) => resolvedFormat(category.format, category.event.eventType) !== firstFormat)) {
+    return badRequest("Select categories with the same entry format");
+  }
+
+  const roster = defaultRosterSize(firstFormat);
+  const invalidRosterCategory = categories.find((category) => {
+    const minMembers = Math.max(roster.min, category.minMembers);
+    const maxMembers = Math.min(roster.max, category.maxMembers);
+    return memberIds.length < minMembers || memberIds.length > maxMembers;
+  });
+  if (invalidRosterCategory) {
+    const minMembers = Math.max(roster.min, invalidRosterCategory.minMembers);
+    const maxMembers = Math.min(roster.max, invalidRosterCategory.maxMembers);
+    return badRequest(`${invalidRosterCategory.name} requires ${minMembers === maxMembers ? minMembers : `${minMembers}–${maxMembers}`} members`);
+  }
+  if (firstFormat !== CategoryFormat.SOLO && !parsed.data.teamName) {
+    return badRequest("Team or crew name is required");
+  }
+
+  const activeStatuses = { notIn: [RegistrationStatus.WITHDRAWN] };
   try {
-    const profileFields = {
-      style: profile?.style ?? null,
-      crew: profile?.crew ?? null,
-      city: profile?.city ?? null,
-      country: profile?.country ?? null,
-      experience: profile?.experience ?? null,
-      socialHandle: profile?.socialHandle ?? null,
-      referral: profile?.referral ?? null,
-    };
+    const registrations = await prisma.$transaction(async (transaction) => {
+      const created = [];
+      for (const category of categories) {
+        const existingCount = await transaction.registration.count({ where: { categoryId: category.id, status: activeStatuses } });
+        if (category.maxCompetitors != null && existingCount >= category.maxCompetitors) {
+          throw new Error("CATEGORY_FULL");
+        }
 
-    const existing = await prisma.registration.findMany({
-      where: { userId: user.id, categoryId: { in: categoryIds }, status: { not: RegistrationStatus.WITHDRAWN } },
-      select: { categoryId: true },
-    });
+        const conflicts = await transaction.registration.findMany({
+          where: {
+            categoryId: category.id,
+            status: activeStatuses,
+            OR: [
+              { userId: { in: memberIds } },
+              { members: { some: { userId: { in: memberIds }, status: { in: [RegistrationMemberStatus.PENDING, RegistrationMemberStatus.ACCEPTED] } } } },
+            ],
+          },
+          select: { id: true },
+        });
+        if (conflicts.length > 0) throw new Error("MEMBER_ALREADY_REGISTERED");
 
-    if (existing.length > 0) {
-      return conflict("You are already registered for one of these categories");
-    }
-
-    const registrations = await prisma.$transaction(
-      categories.map((category) =>
-        prisma.registration.create({
+        const registration = await transaction.registration.create({
           data: {
-            user: { connect: { id: user.id } },
-            category: { connect: { id: category.id } },
+            userId: user.id,
+            categoryId: category.id,
+            format: firstFormat,
+            teamName: parsed.data.teamName ?? null,
             entryFee: category.entryFee,
             entryCurrency: category.entryCurrency,
-            ...profileFields,
+            style: profile?.style ?? null,
+            crew: profile?.crew ?? null,
+            city: profile?.city ?? null,
+            country: profile?.country ?? null,
+            experience: profile?.experience ?? null,
+            socialHandle: profile?.socialHandle ?? null,
+            referral: profile?.referral ?? null,
+            members: {
+              create: memberIds.map((memberId) => ({
+                categoryId: category.id,
+                userId: memberId,
+                role: memberId === user.id ? RegistrationMemberRole.CAPTAIN : RegistrationMemberRole.MEMBER,
+                status: memberId === user.id ? RegistrationMemberStatus.ACCEPTED : RegistrationMemberStatus.PENDING,
+                acceptedAt: memberId === user.id ? new Date() : null,
+              })),
+            },
           },
-          include: { category: true },
-        }),
-      ),
-    );
+          include: { category: true, members: { include: { user: { select: { id: true, name: true, username: true } } } } },
+        });
+        created.push(registration);
+      }
+      return created;
+    });
 
     return NextResponse.json(registrations, { status: 201 });
   } catch (error) {
-    if (isUniqueConstraintError(error)) {
-      return conflict("You are already registered for one of these categories");
-    }
-
+    if (error instanceof Error && error.message === "CATEGORY_FULL") return conflict("This category is full");
+    if (error instanceof Error && error.message === "MEMBER_ALREADY_REGISTERED") return conflict("One of these artists is already in this category");
+    if (isUniqueConstraintError(error)) return conflict("One of these artists is already registered for this category");
     console.error(error);
     return serverError();
   }

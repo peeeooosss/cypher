@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { RegistrationStatus } from "@/generated/prisma/enums";
+import { RegistrationMemberStatus, RegistrationStatus } from "@/generated/prisma/enums";
 import { badRequest, forbidden, notFound, unauthorized } from "@/lib/api";
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
@@ -31,7 +31,10 @@ export async function PATCH(request: Request, { params }: RegistrationRouteConte
 
   const registration = await prisma.registration.findUnique({
     where: { id: registrationId },
-    include: { category: { include: { event: { select: { organizerId: true } } } } },
+    include: {
+      category: { include: { event: { select: { organizerId: true } } } },
+      members: true,
+    },
   });
 
   if (!registration) {
@@ -67,11 +70,15 @@ export async function PATCH(request: Request, { params }: RegistrationRouteConte
 
   const updateData: Record<string, unknown> = {};
   if (parsed.data.status) updateData.status = parsed.data.status;
-  if (isEventOrganizer) {
+    if (isEventOrganizer) {
     if (parsed.data.seed !== undefined) updateData.seed = parsed.data.seed;
-    if (parsed.data.paid !== undefined) {
-      updateData.paid = parsed.data.paid;
-      updateData.paidAt = parsed.data.paid ? new Date() : null;
+      if (parsed.data.paid !== undefined) {
+        if (parsed.data.paid && registration.members.length > 0 && registration.members.some((member) => member.status !== RegistrationMemberStatus.ACCEPTED)) {
+          return badRequest("Every invited team member must accept before payment can be confirmed");
+        }
+        updateData.paid = parsed.data.paid;
+        updateData.paidAt = parsed.data.paid ? new Date() : null;
+        updateData.rosterLockedAt = parsed.data.paid ? new Date() : null;
       if (parsed.data.paid) updateData.status = RegistrationStatus.CONFIRMED;
     }
   }
@@ -79,6 +86,9 @@ export async function PATCH(request: Request, { params }: RegistrationRouteConte
     if (parsed.data[field] !== undefined) updateData[field] = parsed.data[field];
   }
   if (isOwner && parsed.data.paidClaimed !== undefined) {
+    if (registration.members.length > 0 && registration.members.some((member) => member.status !== RegistrationMemberStatus.ACCEPTED)) {
+      return badRequest("Every invited team member must accept before payment can be reported");
+    }
     updateData.paidClaimedAt = new Date();
   }
 

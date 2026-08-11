@@ -61,10 +61,25 @@ export default async function AdminArtistDetailPage({ params }: PageProps) {
         </div>
       </div>
 
-      <div className="grid gap-md sm:grid-cols-3">
-        <Stat label="Battles" value={String(artist._count.registrations)} />
+      <div className="grid gap-md sm:grid-cols-4">
+        <Stat label="Captain entries" value={String(artist._count.registrations)} />
+        <Stat label="Team memberships" value={String(artist._count.teamMemberships)} />
         <Stat label="Achievements" value={String(artist._count.achievements)} />
         <Stat label="Gig applications" value={String(artist._count.gigApplications)} />
+      </div>
+
+      <div>
+        <h3 className="font-display text-title-md uppercase">Accepted team memberships ({artist.memberships.length})</h3>
+        {artist.memberships.length === 0 ? <p className="mt-md border border-line p-lg text-ink-muted">No team memberships.</p> : (
+          <div className="mt-md space-y-sm">
+            {artist.memberships.map((membership) => (
+              <div className="border border-line bg-paper-soft p-md" key={membership.id}>
+                <p className="font-bold uppercase">{membership.registration.teamName ?? membership.registration.category.name}</p>
+                <p className="mt-xs text-body-sm text-ink-muted">{membership.registration.category.event.title} · {membership.registration.category.name}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div>

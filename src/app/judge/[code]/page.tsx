@@ -32,10 +32,11 @@ export default async function JudgeCodePage({ params }: PageParams) {
               phaseStatus: true,
             },
           },
-          registrations: {
+            registrations: {
             where: { status: "CONFIRMED" },
             include: {
               user: { select: { name: true, email: true, avatarUrl: true } },
+              members: { where: { status: "ACCEPTED" }, select: { user: { select: { name: true, username: true } } } },
               dancerScores: {
                 select: { roundFormatId: true, score: true, judgeSlotId: true },
               },
@@ -45,10 +46,10 @@ export default async function JudgeCodePage({ params }: PageParams) {
           matches: {
             include: {
               competitorA: {
-                include: { user: { select: { name: true, avatarUrl: true } } },
+                include: { user: { select: { name: true, avatarUrl: true } }, members: { where: { status: "ACCEPTED" }, select: { user: { select: { name: true, username: true } } } } },
               },
               competitorB: {
-                include: { user: { select: { name: true, avatarUrl: true } } },
+                include: { user: { select: { name: true, avatarUrl: true } }, members: { where: { status: "ACCEPTED" }, select: { user: { select: { name: true, username: true } } } } },
               },
               scores: { include: { judgeSlot: { select: { name: true } } } },
             },
@@ -91,17 +92,19 @@ export default async function JudgeCodePage({ params }: PageParams) {
         position: liveMatch.position,
         red: {
           id: liveMatch.competitorAId ?? "",
-          name: liveMatch.competitorA?.user.name ?? "TBD",
+          name: liveMatch.competitorA?.teamName ?? liveMatch.competitorA?.user.name ?? "TBD",
           crew: liveMatch.competitorA?.crew ?? null,
           seed: liveMatch.competitorA?.seed ?? null,
           avatar: liveMatch.competitorA?.user.avatarUrl ?? null,
+          members: liveMatch.competitorA?.members.map((member) => member.user.name ?? member.user.username ?? "Unnamed"),
         },
         blue: {
           id: liveMatch.competitorBId ?? "",
-          name: liveMatch.competitorB?.user.name ?? "TBD",
+          name: liveMatch.competitorB?.teamName ?? liveMatch.competitorB?.user.name ?? "TBD",
           crew: liveMatch.competitorB?.crew ?? null,
           seed: liveMatch.competitorB?.seed ?? null,
           avatar: liveMatch.competitorB?.user.avatarUrl ?? null,
+          members: liveMatch.competitorB?.members.map((member) => member.user.name ?? member.user.username ?? "Unnamed"),
         },
         timeLimitMs: 60000,
         status: "LIVE",

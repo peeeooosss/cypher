@@ -4,7 +4,8 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { flatFeeForCategoryCount, formatInr } from "@/lib/pricing";
 import { PosterUpload } from "@/components/poster-upload";
-import { EVENT_TYPE_LABELS, EVENT_TYPE_LIST } from "@/lib/event-types";
+import { BATTLE_FORMATS, CATEGORY_FORMAT_LABELS, COMPETITION_FORMATS, EVENT_TYPE_LABELS, EVENT_TYPE_LIST, isCompetitionType, isWorkshopType } from "@/lib/event-types";
+import { CategoryFormat } from "@/generated/prisma/enums";
 import { INDIAN_STATES } from "@/lib/states";
 
 export function EventForm() {
@@ -118,7 +119,7 @@ export function EventForm() {
   );
 }
 
-export function CategoryForm({ eventId }: { eventId: string }) {
+export function CategoryForm({ eventId, eventType }: { eventId: string; eventType?: string | null }) {
   const router = useRouter();
   const [error, setError] = useState("");
 
@@ -131,7 +132,10 @@ export function CategoryForm({ eventId }: { eventId: string }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: formData.get("name"),
+        format: formData.get("format"),
         maxCompetitors: formData.get("maxCompetitors") ? Number(formData.get("maxCompetitors")) : null,
+        minMembers: formData.get("minMembers") ? Number(formData.get("minMembers")) : undefined,
+        maxMembers: formData.get("maxMembers") ? Number(formData.get("maxMembers")) : undefined,
         entryFee: formData.get("entryFee") ? Number(formData.get("entryFee")) : null,
       }),
     });
@@ -149,7 +153,14 @@ export function CategoryForm({ eventId }: { eventId: string }) {
   return (
     <form className="mt-md flex flex-wrap gap-sm" onSubmit={handleSubmit}>
       <input required className="min-w-48 border border-line bg-paper px-sm py-xs" name="name" placeholder="1v1 Popping" />
+      <select className="border border-line bg-paper px-sm py-xs" defaultValue={isCompetitionType(eventType) || isWorkshopType(eventType) ? CategoryFormat.SOLO : CategoryFormat.BATTLE_1V1} name="format">
+        {(isCompetitionType(eventType) ? COMPETITION_FORMATS : isWorkshopType(eventType) ? [CategoryFormat.SOLO] : BATTLE_FORMATS).map((format) => (
+          <option key={format} value={format}>{CATEGORY_FORMAT_LABELS[format]}</option>
+        ))}
+      </select>
       <input className="w-32 border border-line bg-paper px-sm py-xs" min="2" name="maxCompetitors" placeholder="Max" type="number" />
+      <input className="w-28 border border-line bg-paper px-sm py-xs" min="1" name="minMembers" placeholder="Min members" type="number" />
+      <input className="w-28 border border-line bg-paper px-sm py-xs" min="1" name="maxMembers" placeholder="Max members" type="number" />
       <input className="w-32 border border-line bg-paper px-sm py-xs" min="0" name="entryFee" placeholder="Entry fee (₹)" type="number" />
       <button className="border border-line px-md py-xs text-body-sm font-bold uppercase hover:border-accent" type="submit">Add category</button>
       {error ? <p className="basis-full text-body-sm text-accent">{error}</p> : null}

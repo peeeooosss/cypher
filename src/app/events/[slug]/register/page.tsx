@@ -41,7 +41,13 @@ export default async function RegisterPage({ params }: RegisterPageContext) {
 
   const [existing, profileUser] = await Promise.all([
     prisma.registration.findMany({
-      where: { userId: user.id, categoryId: { in: event.categories.map((c) => c.id) } },
+      where: {
+        categoryId: { in: event.categories.map((c) => c.id) },
+        OR: [
+          { userId: user.id },
+          { members: { some: { userId: user.id, status: { in: ["PENDING", "ACCEPTED"] } } } },
+        ],
+      },
       select: { categoryId: true, paid: true },
     }),
     prisma.user.findUnique({
@@ -115,6 +121,9 @@ export default async function RegisterPage({ params }: RegisterPageContext) {
               entryCurrency: category.entryCurrency,
               maxCompetitors: category.maxCompetitors,
               registeredCount: category._count.registrations,
+              format: category.format,
+              minMembers: category.minMembers,
+              maxMembers: category.maxMembers,
             }))}
             registeredCategoryIds={registeredCategoryIds}
             paidCategoryIds={paidCategoryIds}

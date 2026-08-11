@@ -44,6 +44,9 @@ export default function SignupPage() {
       role,
     };
 
+    const username = String(formData.get("username") ?? "").trim().toLowerCase();
+    if (username) body.username = username;
+
     if (role === "ARTIST") {
       for (const field of ARTIST_PROFILE_FIELDS) {
         const value = String(formData.get(field.name) ?? "").trim();
@@ -125,6 +128,18 @@ export default function SignupPage() {
               name="name"
               placeholder={role === "ORGANIZER" ? "Your crew or company name" : "Your stage name"}
             />
+          </label>
+          <label className="block w-full text-body-sm font-bold uppercase">
+            Username
+            <input
+              required={role === "ARTIST"}
+              autoComplete="username"
+              className="mt-sm block w-full border border-line bg-paper px-md py-md text-body-md outline-none focus:border-accent"
+              name="username"
+              pattern="[a-zA-Z0-9_]{3,30}"
+              placeholder="e.g. alexmoves"
+            />
+            <span className="mt-xs block text-[0.65rem] font-normal normal-case text-ink-muted">Artists use this to invite you to team entries.</span>
           </label>
           <label className="block w-full text-body-sm font-bold uppercase">
             Email

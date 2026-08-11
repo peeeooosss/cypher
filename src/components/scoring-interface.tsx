@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { io } from "socket.io-client";
 
-type Competitor = { user: { name: string | null } } | null;
+type Competitor = { teamName?: string | null; user: { name: string | null }; members?: { user: { name: string | null; username: string | null } }[] } | null;
 
 type MatchDisplay = {
   id: string;
@@ -21,6 +21,8 @@ type RegistrationDisplay = {
   id: string;
   seed: number | null;
   crew: string | null;
+  teamName?: string | null;
+  members?: { user: { name: string | null; username: string | null } }[];
   city: string | null;
   status: string;
   user: { name: string | null; email: string };
@@ -268,7 +270,7 @@ export function ScoringInterface({
               {activeRound!.type === "CYPHER" ? "Cypher scoring" : "Qualifier scoring"}
             </p>
             <p className="mt-xs text-body-sm text-ink-muted">
-              Score each dancer 0&ndash;10 as they perform. Scores are averaged across judges.
+              Score each entry 0&ndash;10 as they perform. Scores are averaged across judges.
             </p>
           </div>
           <div className="grid gap-md lg:grid-cols-2">
@@ -287,7 +289,8 @@ export function ScoringInterface({
                           {String(index + 1).padStart(2, "0")}
                         </p>
                         <h3 className="mt-xs font-display text-title-md uppercase">
-                          {reg.user.name ?? "Unnamed"}
+                           {reg.teamName ?? reg.user.name ?? "Unnamed"}
+                           {reg.members && reg.members.length > 1 ? <span className="ml-sm text-xs text-ink-muted">{reg.members.map((member) => member.user.name ?? member.user.username ?? "Unnamed").join(" · ")}</span> : null}
                         </h3>
                         <p className="mt-xs text-body-sm text-ink-muted">
                           Seed #{reg.seed ?? "—"}
@@ -357,7 +360,7 @@ export function ScoringInterface({
           </div>
           {registrations.some((r) => r.status === "WITHDRAWN") && (
             <p className="mt-md text-body-sm text-ink-muted">
-              {registrations.filter((r) => r.status === "WITHDRAWN").length} dancer(s) eliminated.
+              {registrations.filter((r) => r.status === "WITHDRAWN").length} entr{registrations.filter((r) => r.status === "WITHDRAWN").length === 1 ? "y" : "ies"} eliminated.
             </p>
           )}
         </div>
@@ -374,8 +377,8 @@ export function ScoringInterface({
               matchScore.scoreA !== null && matchScore.scoreB !== null;
             const isSubmitting = submitting[match.id] ?? false;
 
-            const nameA = match.competitorA?.user.name ?? "TBD";
-            const nameB = match.competitorB?.user.name ?? "TBD";
+             const nameA = match.competitorA?.teamName ?? match.competitorA?.user.name ?? "TBD";
+             const nameB = match.competitorB?.teamName ?? match.competitorB?.user.name ?? "TBD";
 
             return (
               <article

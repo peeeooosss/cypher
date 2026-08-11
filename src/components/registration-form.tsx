@@ -3,14 +3,26 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatFee } from "@/lib/format";
+import { formatLabel } from "@/lib/event-types";
 
 type CategoryOption = {
   id: string;
   name: string;
+  format: string | null;
+  minMembers: number;
+  maxMembers: number;
   entryFee: number | null;
   entryCurrency: string;
   maxCompetitors: number | null;
   registeredCount: number;
+};
+
+type ArtistResult = {
+  id: string;
+  username: string | null;
+  name: string | null;
+  style: string | null;
+  crew: string | null;
 };
 
 export function RegistrationForm({
@@ -26,36 +38,67 @@ export function RegistrationForm({
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [teamName, setTeamName] = useState("");
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<ArtistResult[]>([]);
+  const [members, setMembers] = useState<ArtistResult[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [searching, setSearching] = useState(false);
   const [error, setError] = useState("");
 
-  const total = [...selected].reduce((sum, id) => {
-    const category = categories.find((c) => c.id === id);
-    return sum + (category?.entryFee ?? 0);
-  }, 0);
+  const selectedCategories = categories.filter((category) => selected.has(category.id));
+  const selectedCategory = selectedCategories[0];
+  const isTeam = selectedCategory ? !["SOLO", "BATTLE_1V1"].includes(selectedCategory.format ?? "SOLO") : false;
+  const requiredMin = selectedCategory?.minMembers ?? 1;
+  const requiredMax = selectedCategory?.maxMembers ?? 1;
+  const rosterCount = members.length + 1;
+  const total = selectedCategories.reduce((sum, category) => sum + (category.entryFee ?? 0), 0);
 
-  function toggle(id: string) {
+  function toggleCategory(id: string) {
     const next = new Set(selected);
     if (next.has(id)) next.delete(id);
     else next.add(id);
     setSelected(next);
+    setError("");
   }
 
-  function isDisabled(category: CategoryOption) {
-    if (registeredCategoryIds.has(category.id)) return true;
-    if (category.maxCompetitors != null && category.registeredCount >= category.maxCompetitors) return true;
-    return false;
+  async function searchArtists() {
+    if (query.trim().length < 2) return;
+    setSearching(true);
+    const response = await fetch(`/api/users/search?q=${encodeURIComponent(query.trim())}`);
+    const data = await response.json().catch(() => []);
+    setResults(response.ok && Array.isArray(data) ? data : []);
+    setSearching(false);
+  }
+
+  function addMember(artist: ArtistResult) {
+    if (!members.some((member) => member.id === artist.id)) setMembers((current) => [...current, artist]);
+    setResults((current) => current.filter((member) => member.id !== artist.id));
+    setQuery("");
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
-    setSubmitting(true);
+    if (selectedCategories.length === 0) return;
+    if (isTeam && !teamName.trim()) {
+      setError("Add a team or crew name.");
+      return;
+    }
+    if (isTeam && (rosterCount < requiredMin || rosterCount > requiredMax)) {
+      setError(`This entry needs ${requiredMin === requiredMax ? requiredMin : `${requiredMin}–${requiredMax}`} members.`);
+      return;
+    }
 
+    setSubmitting(true);
     const response = await fetch("/api/registrations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ categoryIds: [...selected] }),
+      body: JSON.stringify({
+        categoryIds: [...selected],
+        teamName: teamName.trim() || undefined,
+        memberIds: members.map((member) => member.id),
+      }),
     });
 
     if (!response.ok) {
@@ -66,8 +109,7 @@ export function RegistrationForm({
     }
 
     const created = (await response.json()) as { id: string }[];
-    const ids = created.map((r) => r.id).join(",");
-    router.push(`/cart?event=${eventId}&ids=${ids}`);
+    router.push(`/cart?event=${eventId}&ids=${created.map((registration) => registration.id).join(",")}`);
   }
 
   return (
@@ -75,76 +117,61 @@ export function RegistrationForm({
       <div className="border border-line">
         <div className="border-b border-line bg-paper-soft px-lg py-md">
           <p className="font-display text-title-md uppercase">Choose your categories</p>
+          <p className="mt-xs text-body-sm text-ink-muted">Each category is one entry. The captain pays one combined fee per entry.</p>
         </div>
         <ul className="divide-y divide-line">
           {categories.map((category) => {
-            const disabled = isDisabled(category);
+            const disabled = registeredCategoryIds.has(category.id) || (category.maxCompetitors != null && category.registeredCount >= category.maxCompetitors);
             const isRegistered = registeredCategoryIds.has(category.id);
             const isPaid = paidCategoryIds.has(category.id);
-            const isFull =
-              category.maxCompetitors != null && category.registeredCount >= category.maxCompetitors;
+            const isFull = category.maxCompetitors != null && category.registeredCount >= category.maxCompetitors;
             return (
               <li key={category.id} className="flex items-center gap-md px-lg py-md">
-                <input
-                  type="checkbox"
-                  checked={selected.has(category.id)}
-                  disabled={disabled}
-                  onChange={() => toggle(category.id)}
-                  className="h-4 w-4 shrink-0 border border-line bg-paper accent-current"
-                />
-                <div className="flex-1">
+                <input type="checkbox" checked={selected.has(category.id)} disabled={disabled} onChange={() => toggleCategory(category.id)} className="h-4 w-4 shrink-0 border border-line bg-paper accent-current" />
+                <div className="min-w-0 flex-1">
                   <p className="font-display text-title-md uppercase">{category.name}</p>
+                  <p className="mt-xs font-mono text-[0.65rem] uppercase tracking-[0.1em] text-accent">
+                    {formatLabel(category.format)} · {category.minMembers === category.maxMembers ? category.minMembers : `${category.minMembers}–${category.maxMembers}`} members
+                  </p>
                   <p className="mt-xs font-mono text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">
-                    {category.registeredCount} registered
-                    {category.maxCompetitors != null ? ` / max ${category.maxCompetitors}` : ""}
+                    {category.registeredCount} entries{category.maxCompetitors != null ? ` / max ${category.maxCompetitors}` : ""}
                   </p>
                 </div>
-                <span className="font-mono text-body-sm uppercase text-accent">
-                  {formatFee(category.entryFee, category.entryCurrency)}
-                </span>
-                <span className="w-28 text-right font-mono text-[0.65rem] uppercase text-ink-muted">
-                  {isRegistered ? (isPaid ? "Confirmed" : "Registered") : isFull ? "Full" : ""}
-                </span>
+                <span className="font-mono text-body-sm uppercase text-accent">{formatFee(category.entryFee, category.entryCurrency)}</span>
+                <span className="w-28 text-right font-mono text-[0.65rem] uppercase text-ink-muted">{isRegistered ? (isPaid ? "Confirmed" : "Registered") : isFull ? "Full" : ""}</span>
               </li>
             );
           })}
         </ul>
         <div className="flex flex-wrap items-center justify-between gap-sm border-t border-line bg-paper-soft px-lg py-md">
-          <span className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">
-            Total entry
-          </span>
-          <span className="font-display text-display-lg uppercase text-accent">
-            {formatFee(total, "INR")}
-          </span>
+          <span className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">Total entry</span>
+          <span className="font-display text-display-lg uppercase text-accent">{formatFee(total, "INR")}</span>
         </div>
       </div>
 
-      <div className="mt-section border border-line">
-        <div className="flex flex-wrap items-center justify-between gap-sm border-b border-line bg-paper-soft px-lg py-md">
-          <p className="font-display text-title-md uppercase">Your details</p>
-          <p className="text-body-sm text-ink-muted">
-            Used from your artist profile
-          </p>
+      {isTeam ? (
+        <div className="mt-section border border-line">
+          <div className="border-b border-line bg-paper-soft px-lg py-md">
+            <p className="font-display text-title-md uppercase">Build your roster</p>
+            <p className="mt-xs text-body-sm text-ink-muted">You are the captain. Add CYPHR artists by username. They must accept before you can pay.</p>
+          </div>
+          <div className="space-y-md p-lg">
+            <input className="w-full border border-line bg-paper px-md py-sm text-body-sm" value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="Team or crew name" />
+            <div className="flex gap-sm">
+              <input className="min-w-0 flex-1 border border-line bg-paper px-md py-sm text-body-sm" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void searchArtists(); } }} placeholder="Search username" />
+              <button className="border border-line px-md py-sm font-mono text-[0.7rem] font-bold uppercase hover:border-accent" type="button" onClick={() => void searchArtists()} disabled={searching}>{searching ? "..." : "Search"}</button>
+            </div>
+            {results.length > 0 ? <div className="border border-line">{results.map((artist) => <button key={artist.id} className="flex w-full items-center justify-between border-b border-line px-md py-sm text-left last:border-b-0 hover:bg-paper-soft" type="button" onClick={() => addMember(artist)}><span><span className="font-bold">{artist.name ?? "Unnamed"}</span><span className="ml-sm font-mono text-[0.7rem] text-accent">@{artist.username ?? "no-username"}</span></span><span className="text-body-sm text-ink-muted">Add</span></button>)}</div> : null}
+            <div className="border-t border-line pt-md">
+              <p className="font-mono text-[0.7rem] uppercase text-ink-muted">Roster: {rosterCount} / {requiredMax}</p>
+              <div className="mt-sm space-y-xs"><div className="flex items-center justify-between text-body-sm"><span>{members.length > 0 ? "Captain + you" : "You — captain"}</span><span className="font-mono text-[0.65rem] uppercase text-accent">Accepted</span></div>{members.map((member) => <div key={member.id} className="flex items-center justify-between text-body-sm"><span>{member.name ?? "Unnamed"} <span className="font-mono text-[0.65rem] text-ink-muted">@{member.username ?? "—"}</span></span><button className="font-mono text-[0.65rem] uppercase text-ink-muted hover:text-accent" type="button" onClick={() => setMembers((current) => current.filter((item) => item.id !== member.id))}>Remove</button></div>)}</div>
+            </div>
+          </div>
         </div>
-        <p className="px-lg py-md text-body-sm text-ink-muted">
-          Style, crew, city, country, experience and social handle come from your battle
-          profile — update them anytime from your artist dashboard.
-        </p>
-      </div>
+      ) : null}
 
       {error ? <p className="mt-md text-body-sm text-accent">{error}</p> : null}
-
-      <button
-        className="mt-xl w-full border border-accent bg-accent px-lg py-md text-button-md font-bold uppercase text-paper disabled:cursor-not-allowed disabled:opacity-60"
-        type="submit"
-        disabled={submitting || selected.size === 0}
-      >
-        {submitting
-          ? "Registering..."
-          : selected.size === 0
-            ? "Select at least one category"
-            : `Register ${selected.size} categor${selected.size > 1 ? "ies" : "y"} — ${formatFee(total, "INR")}`}
-      </button>
+      <button className="mt-xl w-full border border-accent bg-accent px-lg py-md text-button-md font-bold uppercase text-paper disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={submitting || selected.size === 0}>{submitting ? "Registering..." : selected.size === 0 ? "Select at least one category" : `Create ${isTeam ? "team entry" : "entry"} — ${formatFee(total, "INR")}`}</button>
     </form>
   );
 }

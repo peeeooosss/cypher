@@ -6,9 +6,9 @@ import Link from "next/link";
 import { LiveLeaderboard } from "@/components/live-leaderboard";
 import { PosterUpload } from "@/components/poster-upload";
 import { formatInr, isEventFlatFeePaid } from "@/lib/pricing";
-import { EVENT_TYPE_LABELS, EVENT_TYPE_LIST, isCompetitionType, isWorkshopType, SINGLE_POINT_ROUND_TYPES } from "@/lib/event-types";
+import { BATTLE_FORMATS, CATEGORY_FORMAT_LABELS, COMPETITION_FORMATS, EVENT_TYPE_LABELS, EVENT_TYPE_LIST, formatLabel, isCompetitionType, isWorkshopType, SINGLE_POINT_ROUND_TYPES } from "@/lib/event-types";
 import { INDIAN_STATES } from "@/lib/states";
-import type { EventStatus, RoundType, RegistrationStatus, PaymentStatus } from "@/generated/prisma/enums";
+import type { CategoryFormat, EventStatus, RoundType, RegistrationStatus, PaymentStatus } from "@/generated/prisma/enums";
 
 type Round = {
   id: string;
@@ -47,12 +47,15 @@ type Category = {
   id: string;
   eventId: string;
   name: string;
+  format: CategoryFormat | null;
+  minMembers: number;
+  maxMembers: number;
   entryFee: number | null;
   entryCurrency: string;
   rounds: Round[];
   judgeSlots: JudgeSlot[];
   prizePool: PrizePool | null;
-  _count: { registrations: number };
+  _count: { registrations: number; registrationMembers: number };
   currentPhaseOrder: number | null;
 };
 
@@ -96,6 +99,9 @@ type RegistrationRow = {
   paidAt: Date | null;
   paidClaimedAt: Date | null;
   user: { name: string | null; email: string };
+  teamName?: string | null;
+  format?: CategoryFormat | null;
+  members?: Array<{ id: string; userId: string; role: string; status: string; user: { id: string; name: string | null; username: string | null } }>;
 };
 
 const TABS = ["Overview", "Categories", "Judges", "Registrations", "Prizes", "Leaderboard", "Control Room"] as const;
@@ -109,6 +115,7 @@ const ROUND_TYPES: RoundType[] = [
   "BATTLE_2V2",
   "BATTLE_3V3",
   "BATTLE_4V4",
+  "CREW_VS_CREW",
   "SEVEN_TO_SMOKE",
   "FINAL",
 ];
@@ -298,8 +305,8 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
                       {["CYPHER", "QUALIFIER"].includes(category.rounds.find(r => r.order === category.currentPhaseOrder)!.type) && (
                         <span className="text-body-sm text-ink-muted">
                           {category.rounds.find(r => r.order === category.currentPhaseOrder)!.type === "CYPHER"
-                            ? "Cypher round — no battles. Pick the dancers who advance below."
-                            : "Qualifier round — pick the dancers who advance below."}
+                             ? "Cypher round — no battles. Pick the entries who advance below."
+                             : "Qualifier round — pick the entries who advance below."}
                         </span>
                       )}
                     </>
@@ -312,7 +319,7 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
 
                 {category.currentPhaseOrder != null && (() => {
                   const currentPhase = category.rounds.find(r => r.order === category.currentPhaseOrder && r.phaseStatus === "ACTIVE");
-                  if (!currentPhase || !["BATTLE_1V1","BATTLE_2V2","BATTLE_3V3","BATTLE_4V4","FINAL"].includes(currentPhase.type)) return null;
+                   if (!currentPhase || !["BATTLE_1V1","BATTLE_2V2","BATTLE_3V3","BATTLE_4V4","CREW_VS_CREW","FINAL"].includes(currentPhase.type)) return null;
                   return <BracketView key={`${category.id}-${controlRoomKey}`} categoryId={category.id} eventId={event.id} />;
                 })()}
               </div>
@@ -402,6 +409,7 @@ function OverviewTab({
     (s, c) => s + c._count.registrations,
     0,
   );
+  const totalMembers = event.categories.reduce((sum, category) => sum + category._count.registrationMembers, 0);
   const totalJudgeSlots = event.judgeSlots.length;
 
   return (
@@ -575,7 +583,11 @@ function OverviewTab({
             </div>
             <div className="flex justify-between text-body-sm">
               <span>Registrations</span>
-              <span className="font-mono text-accent">{totalRegistrations}</span>
+               <span className="font-mono text-accent">{totalRegistrations} entries</span>
+             </div>
+             <div className="flex justify-between text-body-sm">
+               <span>Dancers / members</span>
+               <span className="font-mono text-accent">{totalMembers}</span>
             </div>
             <div className="flex justify-between text-body-sm">
               <span>Judge slots</span>
@@ -676,10 +688,10 @@ function CategoriesTab({
                 {category.name}
               </p>
               <p className="mt-xs text-body-sm text-ink-muted">
-                {category._count.registrations} registered
+                {category._count.registrations} entries · {formatLabel(category.format ?? (isCompetitionType(event.eventType) ? "SOLO" : "BATTLE_1V1"))} · {category.minMembers === category.maxMembers ? category.minMembers : `${category.minMembers}–${category.maxMembers}`} members
               </p>
             </div>
-            <CategoryFeeEditor category={category} refresh={refresh} />
+             <CategoryFeeEditor category={category} eventType={event.eventType} refresh={refresh} />
           </div>
 
           {category.rounds.length > 0 && (
@@ -726,21 +738,26 @@ function CategoriesTab({
         </div>
       ))}
 
-      <AddCategoryForm eventId={event.id} refresh={refresh} />
+      <AddCategoryForm eventId={event.id} eventType={event.eventType} refresh={refresh} />
     </div>
   );
 }
 
 function CategoryFeeEditor({
   category,
+  eventType,
   refresh,
 }: {
   category: Category;
+  eventType: string | null;
   refresh: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [fee, setFee] = useState(category.entryFee?.toString() ?? "");
   const [currency, setCurrency] = useState(category.entryCurrency);
+  const [format, setFormat] = useState<string>(category.format ?? (isCompetitionType(eventType) || isWorkshopType(eventType) ? "SOLO" : "BATTLE_1V1"));
+  const [minMembers, setMinMembers] = useState(String(category.minMembers));
+  const [maxMembers, setMaxMembers] = useState(String(category.maxMembers));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -753,6 +770,9 @@ function CategoryFeeEditor({
       body: JSON.stringify({
         entryFee: fee ? Number(fee) : null,
         entryCurrency: currency || "INR",
+        format,
+        minMembers: Number(minMembers),
+        maxMembers: Number(maxMembers),
       }),
     });
     if (!res.ok) {
@@ -779,6 +799,9 @@ function CategoryFeeEditor({
           onClick={() => {
             setFee(category.entryFee?.toString() ?? "");
             setCurrency(category.entryCurrency);
+            setFormat(category.format ?? (isCompetitionType(eventType) || isWorkshopType(eventType) ? "SOLO" : "BATTLE_1V1"));
+            setMinMembers(String(category.minMembers));
+            setMaxMembers(String(category.maxMembers));
             setEditing(true);
           }}
           type="button"
@@ -795,7 +818,7 @@ function CategoryFeeEditor({
         Entry price point
       </p>
       <div className="mt-sm flex flex-wrap items-center gap-sm">
-        <input
+         <input
           className="w-28 border border-line bg-paper px-sm py-xs text-body-sm"
           type="number"
           min={0}
@@ -808,8 +831,13 @@ function CategoryFeeEditor({
           value={currency}
           onChange={(e) => setCurrency(e.target.value)}
           placeholder="INR"
-          maxLength={8}
-        />
+           maxLength={8}
+         />
+        <select className="border border-line bg-paper px-sm py-xs text-body-sm" value={format} onChange={(e) => setFormat(e.target.value)}>
+          {(isCompetitionType(eventType) ? COMPETITION_FORMATS : isWorkshopType(eventType) ? ["SOLO"] : BATTLE_FORMATS).map((option) => <option key={option} value={option}>{CATEGORY_FORMAT_LABELS[option as keyof typeof CATEGORY_FORMAT_LABELS]}</option>)}
+        </select>
+        <input className="w-24 border border-line bg-paper px-sm py-xs text-body-sm" min={1} type="number" value={minMembers} onChange={(e) => setMinMembers(e.target.value)} placeholder="Min" />
+        <input className="w-24 border border-line bg-paper px-sm py-xs text-body-sm" min={1} type="number" value={maxMembers} onChange={(e) => setMaxMembers(e.target.value)} placeholder="Max" />
         <button
           className="border border-accent bg-accent px-md py-xs text-[0.7rem] font-bold uppercase text-paper disabled:opacity-60"
           disabled={saving}
@@ -982,9 +1010,11 @@ function AddRoundForm({
 
 function AddCategoryForm({
   eventId,
+  eventType,
   refresh,
 }: {
   eventId: string;
+  eventType: string | null;
   refresh: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -1001,9 +1031,12 @@ function AddCategoryForm({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: form.get("name"),
+        format: form.get("format"),
         maxCompetitors: form.get("maxCompetitors")
           ? Number(form.get("maxCompetitors"))
           : null,
+        minMembers: form.get("minMembers") ? Number(form.get("minMembers")) : undefined,
+        maxMembers: form.get("maxMembers") ? Number(form.get("maxMembers")) : undefined,
         entryFee: form.get("entryFee") ? Number(form.get("entryFee")) : null,
         prizeAmount: form.get("prizeAmount")
           ? Number(form.get("prizeAmount"))
@@ -1043,12 +1076,35 @@ function AddCategoryForm({
           required
           placeholder="Category name"
         />
+        <select
+          className="border border-line bg-paper px-md py-sm text-body-sm"
+          defaultValue={isCompetitionType(eventType) ? "SOLO" : "BATTLE_1V1"}
+          name="format"
+        >
+          {(isCompetitionType(eventType) ? COMPETITION_FORMATS : BATTLE_FORMATS).map((format) => (
+            <option key={format} value={format}>{CATEGORY_FORMAT_LABELS[format]}</option>
+          ))}
+        </select>
         <input
           className="w-32 border border-line bg-paper px-md py-sm text-body-sm"
           name="maxCompetitors"
           type="number"
           min={2}
           placeholder="Max"
+        />
+        <input
+          className="w-32 border border-line bg-paper px-md py-sm text-body-sm"
+          name="minMembers"
+          type="number"
+          min={1}
+          placeholder="Min members"
+        />
+        <input
+          className="w-32 border border-line bg-paper px-md py-sm text-body-sm"
+          name="maxMembers"
+          type="number"
+          min={1}
+          placeholder="Max members"
         />
         <input
           className="w-32 border border-line bg-paper px-md py-sm text-body-sm"
@@ -1235,7 +1291,7 @@ function JudgeSlotRow({
 
 function CypherDancerPicker({ eventId, categoryId, onResult }: { eventId: string; categoryId: string; onResult: (ok: boolean) => void }) {
   const router = useRouter();
-  const [regs, setRegs] = useState<Array<{ id: string; user: { name: string | null }; crew: string | null; seed: number | null; dancerScores: Array<{ score: number }> }>>([]);
+  const [regs, setRegs] = useState<Array<{ id: string; user: { name: string | null }; teamName?: string | null; crew: string | null; seed: number | null; dancerScores: Array<{ score: number }>; members?: Array<{ status: string; user: { name: string | null; username: string | null } }> }>>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
 
@@ -1279,9 +1335,9 @@ function CypherDancerPicker({ eventId, categoryId, onResult }: { eventId: string
 
   return (
     <div className="mt-lg border-t border-line pt-md">
-      <p className="font-mono text-[0.7rem] uppercase text-ink-muted mb-xs">Select dancers to advance</p>
+       <p className="font-mono text-[0.7rem] uppercase text-ink-muted mb-xs">Select entries to advance</p>
       <p className="mb-md text-body-sm text-ink-muted">
-        Tick the dancers who move to the next round, then confirm.
+         Tick complete entries that move to the next round, then confirm.
       </p>
       {[...regs]
         .sort((a, b) => {
@@ -1296,7 +1352,7 @@ function CypherDancerPicker({ eventId, categoryId, onResult }: { eventId: string
           <label key={reg.id} className="flex items-center gap-sm py-xs text-body-sm">
             <input type="checkbox" checked={selected.has(reg.id)} onChange={() => toggle(reg.id)} className="border border-line bg-paper" />
             <span className="w-10 font-mono text-xs text-ink-muted">#{reg.seed ?? "-"}</span>
-            <span className="flex-1">{reg.user.name} {reg.crew ? `(${reg.crew})` : ''}</span>
+             <span className="flex-1">{reg.teamName ?? reg.user.name} {reg.members && reg.members.length > 1 ? <span className="ml-sm text-xs text-ink-muted">({reg.members.filter((member) => member.status === "ACCEPTED").map((member) => member.user.name ?? member.user.username).join(" · ")})</span> : reg.crew ? `(${reg.crew})` : ''}</span>
             <span className="font-mono text-sm text-accent">{judgeCount > 0 ? total : "—"}</span>
             <span className="w-20 text-right text-xs text-ink-muted">{judgeCount > 0 ? `${judgeCount} judge${judgeCount > 1 ? "s" : ""}` : "no score"}</span>
           </label>
@@ -1307,7 +1363,7 @@ function CypherDancerPicker({ eventId, categoryId, onResult }: { eventId: string
         onClick={() => void advance()}
         disabled={busy || selected.size === 0}
       >
-        Advance {selected.size} dancer(s)
+         Advance {selected.size} entr{selected.size === 1 ? "y" : "ies"}
       </button>
     </div>
   );
@@ -1402,10 +1458,7 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
             <thead>
               <tr className="border-b border-line bg-paper-soft text-left">
                 <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
-                  Name
-                </th>
-                <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
-                  Email
+                  Entry / roster
                 </th>
                 <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
                   Crew
@@ -1499,8 +1552,14 @@ function RegistrationRow({
 
   return (
     <tr className="border-b border-line hover:bg-paper-soft">
-      <td className="px-md py-sm">{registration.user.name ?? "—"}</td>
-      <td className="px-md py-sm text-ink-muted">{registration.user.email}</td>
+       <td className="px-md py-sm">
+         <p className="font-bold uppercase">{registration.teamName ?? registration.user.name ?? "—"}</p>
+         {registration.members && registration.members.length > 0 ? (
+           <p className="mt-xs max-w-64 text-[0.7rem] text-ink-muted">
+             {registration.members.map((member) => `${member.user.name ?? member.user.username ?? "Unnamed"} (${member.status.toLowerCase()})`).join(" · ")}
+           </p>
+         ) : <p className="mt-xs text-[0.7rem] text-ink-muted">{registration.user.email}</p>}
+       </td>
       <td className="px-md py-sm">{registration.crew ?? "—"}</td>
       <td className="px-md py-sm">{registration.style ?? "—"}</td>
       <td className="px-md py-sm">{registration.experience ?? "—"}</td>
@@ -1792,8 +1851,8 @@ type BracketMatch = {
   round: number;
   position: number;
   status: string;
-  competitorA: { user: { name: string | null } } | null;
-  competitorB: { user: { name: string | null } } | null;
+  competitorA: { teamName: string | null; user: { name: string | null }; members: { user: { name: string | null; username: string | null } }[] } | null;
+  competitorB: { teamName: string | null; user: { name: string | null }; members: { user: { name: string | null; username: string | null } }[] } | null;
   competitorAId: string | null;
   competitorBId: string | null;
   winnerId: string | null;
@@ -1890,11 +1949,11 @@ function BracketView({ categoryId, eventId }: { categoryId: string; eventId: str
               </div>
             </div>
             <div className="mt-sm grid grid-cols-[1fr_auto_auto_auto_1fr] items-center gap-sm text-body-sm">
-              <span className="text-right">{match.competitorA?.user.name ?? "TBD"}</span>
+               <span className="text-right">{match.competitorA?.teamName ?? match.competitorA?.user.name ?? "TBD"}</span>
               <span className="font-mono text-[0.7rem] text-ink-muted">{match.scoreA}</span>
               <span className="border border-line px-sm py-xs font-mono text-[0.6rem] uppercase text-ink-muted">vs</span>
               <span className="font-mono text-[0.7rem] text-ink-muted">{match.scoreB}</span>
-              <span>{match.competitorB?.user.name ?? "TBD"}</span>
+               <span>{match.competitorB?.teamName ?? match.competitorB?.user.name ?? "TBD"}</span>
             </div>
             {!complete && ready && (
               <div className="mt-sm flex flex-wrap items-center justify-center gap-sm">
@@ -1904,7 +1963,7 @@ function BracketView({ categoryId, eventId }: { categoryId: string; eventId: str
                   disabled={busy === match.id}
                   onClick={() => void run(match.id, `/api/matches/${match.id}/complete`, { winnerId: match.competitorAId })}
                 >
-                  Winner: {match.competitorA?.user.name ?? "A"}
+                   Winner: {match.competitorA?.teamName ?? match.competitorA?.user.name ?? "A"}
                 </button>
                 <button
                   type="button"
@@ -1912,7 +1971,7 @@ function BracketView({ categoryId, eventId }: { categoryId: string; eventId: str
                   disabled={busy === match.id}
                   onClick={() => void run(match.id, `/api/matches/${match.id}/complete`, { winnerId: match.competitorBId })}
                 >
-                  Winner: {match.competitorB?.user.name ?? "B"}
+                   Winner: {match.competitorB?.teamName ?? match.competitorB?.user.name ?? "B"}
                 </button>
               </div>
             )}

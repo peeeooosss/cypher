@@ -41,7 +41,8 @@ export async function GET(request: Request, { params }: EventRegistrationsContex
     },
     include: {
       user: { select: { id: true, name: true, email: true } },
-      category: { select: { id: true, name: true, entryFee: true, entryCurrency: true } },
+      category: { select: { id: true, name: true, format: true, minMembers: true, maxMembers: true, entryFee: true, entryCurrency: true } },
+      members: { include: { user: { select: { id: true, name: true, username: true } } } },
       dancerScores: { select: { score: true } },
     },
     orderBy: [{ category: { name: "asc" } }, { createdAt: "asc" }],

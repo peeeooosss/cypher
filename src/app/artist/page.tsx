@@ -7,6 +7,9 @@ import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { formatFee } from "@/lib/format";
 import { Pagination } from "@/components/pagination";
+import { formatLabel } from "@/lib/event-types";
+import { TeamInvitations } from "@/components/team-invitations";
+import { TeamEntries } from "@/components/team-entries";
 
 export const dynamic = "force-dynamic";
 
@@ -17,28 +20,30 @@ type PageProps = { searchParams: Promise<{ page?: string }> };
 export default async function ArtistPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const user = await requireRole("ARTIST");
-  const [events, registrations, battleResults, profile, achievements] = await Promise.all([
+  const [events, registrations, battleResults, profile, achievements, invitations] = await Promise.all([
     prisma.event.findMany({
       where: { status: { in: ["PUBLISHED", "LIVE"] } },
       include: { categories: { include: { _count: { select: { registrations: true } } } } },
       orderBy: { startsAt: "asc" },
     }),
-    prisma.registration.findMany({ where: { userId: user.id }, select: { categoryId: true, paid: true } }),
+    prisma.registration.findMany({ where: { OR: [{ userId: user.id }, { members: { some: { userId: user.id, status: { in: ["PENDING", "ACCEPTED"] } } } }] }, select: { categoryId: true, paid: true } }),
     prisma.registration.findMany({
-      where: { userId: user.id },
+      where: { OR: [{ userId: user.id }, { members: { some: { userId: user.id, status: "ACCEPTED" } } }] },
       include: {
         category: {
           select: {
-            id: true,
-            name: true,
+             id: true,
+             name: true,
+             format: true,
             event: { select: { id: true, title: true } },
             prizePool: { select: { distribution: true, isPaid: true } },
           },
         },
+        members: { include: { user: { select: { name: true, username: true } } } },
         matchesAsA: {
           include: {
             competitorB: { include: { user: { select: { name: true } } } },
-            winner: { select: { userId: true } },
+             winner: { select: { id: true, userId: true } },
             scores: { select: { feedback: true, scoreA: true, scoreB: true } },
           },
           orderBy: { round: "asc" },
@@ -46,7 +51,7 @@ export default async function ArtistPage({ searchParams }: PageProps) {
         matchesAsB: {
           include: {
             competitorA: { include: { user: { select: { name: true } } } },
-            winner: { select: { userId: true } },
+             winner: { select: { id: true, userId: true } },
             scores: { select: { feedback: true, scoreA: true, scoreB: true } },
           },
           orderBy: { round: "asc" },
@@ -74,6 +79,20 @@ export default async function ArtistPage({ searchParams }: PageProps) {
       where: { userId: user.id },
       orderBy: [{ year: "desc" }, { createdAt: "desc" }],
     }),
+    prisma.registrationMember.findMany({
+      where: { userId: user.id, status: "PENDING" },
+      include: {
+        registration: {
+          select: {
+            id: true,
+            teamName: true,
+            category: { select: { name: true, format: true, event: { select: { title: true, slug: true, startsAt: true } } } },
+            user: { select: { name: true, username: true } },
+          },
+        },
+      },
+      orderBy: { invitedAt: "desc" },
+    }),
   ]);
   const registeredCategoryIds = new Set(registrations.map((registration) => registration.categoryId));
   const paidCategoryIds = new Set(registrations.filter((registration) => registration.paid).map((registration) => registration.categoryId));
@@ -82,8 +101,8 @@ export default async function ArtistPage({ searchParams }: PageProps) {
   const totalWins = battleResults.reduce(
     (sum, r) =>
       sum +
-      r.matchesAsA.filter((m) => m.winner?.userId === user.id).length +
-      r.matchesAsB.filter((m) => m.winner?.userId === user.id).length,
+       r.matchesAsA.filter((m) => m.winner?.id === r.id).length +
+       r.matchesAsB.filter((m) => m.winner?.id === r.id).length,
     0,
   );
   const prizesPending = battleResults.filter((r) => r.matchesWon.length > 0 && r.category.prizePool && !r.category.prizePool.isPaid).length;
@@ -93,6 +112,8 @@ export default async function ArtistPage({ searchParams }: PageProps) {
   const requestedPage = Math.max(1, Number(params.page) || 1);
   const currentPage = Math.min(requestedPage, totalPages);
   const pageResults = battleResults.slice((currentPage - 1) * RESULTS_PER_PAGE, currentPage * RESULTS_PER_PAGE);
+  const teamEntries = battleResults.filter((registration) => registration.userId === user.id && registration.members.length > 1);
+  const gigWorkActive = profile?.gigWorkExpiresAt != null && profile.gigWorkExpiresAt > new Date();
 
   return (
     <main className="min-h-screen bg-paper px-md py-section md:px-xl">
@@ -116,6 +137,9 @@ export default async function ArtistPage({ searchParams }: PageProps) {
       <section className="mt-section">
         <ArtistProfileForm profile={profile as ArtistProfile} />
       </section>
+
+      <TeamInvitations initialInvitations={invitations} />
+      <TeamEntries entries={teamEntries} />
 
       <section className="mt-section border border-line bg-paper-soft p-lg">
         <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-ink-muted">Battle stats</p>
@@ -146,7 +170,7 @@ export default async function ArtistPage({ searchParams }: PageProps) {
         </div>
       </section>
 
-      <GigWorkCard expiresAt={profile?.gigWorkExpiresAt ?? null} />
+      <GigWorkCard expiresAt={profile?.gigWorkExpiresAt ?? null} active={gigWorkActive} />
 
       <section className="mt-section grid gap-md lg:grid-cols-2">
         {events.length === 0 ? <p className="border border-line p-lg text-ink-muted">No open events right now.</p> : null}
@@ -195,7 +219,7 @@ export default async function ArtistPage({ searchParams }: PageProps) {
               return (
                 <article className="border border-line bg-paper-soft p-lg" key={reg.id}>
                   <h3 className="font-display text-title-md uppercase">{reg.category.event.title}</h3>
-                  <p className="mt-xs text-body-sm text-ink-muted">{reg.category.name}</p>
+                   <p className="mt-xs text-body-sm text-ink-muted">{reg.category.name} · {formatLabel(reg.category.format)}</p>
                   <p className={`mt-xs font-mono text-[0.7rem] uppercase tracking-[0.1em] ${reg.paid ? "text-accent" : "text-ink-muted"}`}>
                     {reg.entryFee && reg.entryFee > 0
                       ? `${reg.entryCurrency === "INR" ? "₹" : `${reg.entryCurrency} `}${reg.entryFee} — ${reg.paid ? "Paid & confirmed" : "Payment pending"}`

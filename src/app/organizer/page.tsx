@@ -4,6 +4,7 @@ import { UpiForm } from "@/components/upi-form";
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
+import { formatLabel } from "@/lib/event-types";
 
 export const dynamic = "force-dynamic";
 
@@ -76,12 +77,12 @@ export default async function OrganizerPage() {
                 <ul className="mt-sm space-y-xs text-body-sm">
                   {event.categories.map((category) => (
                     <li className="flex justify-between" key={category.id}>
-                      <span>{category.name}</span>
+                       <span>{category.name} <span className="font-mono text-[0.65rem] uppercase text-accent">· {formatLabel(category.format)}</span></span>
                       <span className="text-ink-muted">{category._count.registrations} registered</span>
                     </li>
                   ))}
                 </ul>
-                <CategoryForm eventId={event.id} />
+                <CategoryForm eventId={event.id} eventType={event.eventType} />
               </div>
               <a className="mt-md block border border-accent px-md py-sm text-center text-body-sm font-bold uppercase text-accent hover:bg-accent hover:text-paper" href={`/organizer/${event.id}`}>
                 Manage event

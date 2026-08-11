@@ -9,13 +9,17 @@ export async function generateBracket(categoryId: string, organizerId: string) {
       registrations: {
         where: { status: "CONFIRMED" },
         orderBy: [{ seed: "asc" }, { createdAt: "asc" }],
-        select: { id: true },
+        include: { members: { where: { status: "ACCEPTED" }, select: { id: true } } },
       },
     },
   });
 
   if (!category) {
     throw new BracketError("Category not found");
+  }
+
+  if (category.registrations.some((registration) => registration.members.length < category.minMembers || registration.members.length > category.maxMembers)) {
+    throw new BracketError("Every confirmed entry must have a complete roster");
   }
 
   if (category.registrations.length < 2) {

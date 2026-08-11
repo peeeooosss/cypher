@@ -36,7 +36,7 @@ export async function POST(_request: Request, { params }: Context) {
     await prisma.roundFormat.update({ where: { id: nextPhase.id }, data: { phaseStatus: "ACTIVE" } });
 
     let matches: unknown[] = [];
-    if (["BATTLE_1V1", "BATTLE_2V2", "BATTLE_3V3", "BATTLE_4V4", "FINAL"].includes(nextPhase.type)) {
+    if (["BATTLE_1V1", "BATTLE_2V2", "BATTLE_3V3", "BATTLE_4V4", "CREW_VS_CREW", "FINAL"].includes(nextPhase.type)) {
       const existingMatches = await prisma.battleMatch.count({ where: { categoryId } });
       if (existingMatches === 0) {
         try {

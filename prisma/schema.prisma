@@ -85,14 +85,38 @@ enum RoundType {
   BATTLE_2V2
   BATTLE_3V3
   BATTLE_4V4
+  CREW_VS_CREW
   SEVEN_TO_SMOKE
   FINAL
+}
+
+enum CategoryFormat {
+  SOLO
+  DUO
+  GROUP
+  BATTLE_1V1
+  BATTLE_2V2
+  BATTLE_3V3
+  CREW_VS_CREW
+}
+
+enum RegistrationMemberRole {
+  CAPTAIN
+  MEMBER
+}
+
+enum RegistrationMemberStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  REMOVED
 }
 
 model User {
   id              String            @id @default(cuid())
   email           String            @unique
   name            String?
+  username        String?           @unique
   passwordHash    String?
   role            UserRole          @default(ARTIST)
   avatarUrl       String?
@@ -107,6 +131,7 @@ model User {
   skills          Skill[]           @default([])
   organizedEvents Event[]           @relation("EventOrganizer")
   registrations   Registration[]
+  teamMemberships RegistrationMember[] @relation("RegistrationMemberUser")
   feedbackTemplates FeedbackTemplate[]
   gigs            Gig[]             @relation("OrganizerGigs")
   gigApplications GigApplication[]  @relation("ArtistGigApplications")
@@ -166,12 +191,16 @@ model Category {
   id             String         @id @default(cuid())
   eventId        String
   name           String
+  format         CategoryFormat?
+  minMembers     Int              @default(1)
+  maxMembers     Int              @default(1)
   maxCompetitors Int?
   entryFee       Int?           @default(0)
   entryCurrency  String         @default("INR")
   event          Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
   rounds         RoundFormat[]
   registrations  Registration[]
+  registrationMembers RegistrationMember[]
   matches        BattleMatch[]
   judgeSlots     JudgeSlot[]
   prizePool      PrizePool?
@@ -206,6 +235,9 @@ model Registration {
   id           String             @id @default(cuid())
   userId       String
   categoryId   String
+  format       CategoryFormat?
+  teamName     String?
+  rosterLockedAt DateTime?
   status       RegistrationStatus @default(PENDING)
   entryFee     Int?
   entryCurrency String?
@@ -222,6 +254,7 @@ model Registration {
   referral     String?
   user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   category     Category           @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  members      RegistrationMember[]
   matchesAsA   BattleMatch[]      @relation("CompetitorA")
   matchesAsB   BattleMatch[]      @relation("CompetitorB")
   matchesWon   BattleMatch[]      @relation("MatchWinner")
@@ -231,6 +264,24 @@ model Registration {
 
   @@unique([userId, categoryId])
   @@index([categoryId, status])
+}
+
+model RegistrationMember {
+  id               String                    @id @default(cuid())
+  registrationId   String
+  categoryId       String
+  userId           String
+  role             RegistrationMemberRole    @default(MEMBER)
+  status           RegistrationMemberStatus @default(PENDING)
+  invitedAt        DateTime                  @default(now())
+  acceptedAt       DateTime?
+  registration     Registration              @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  category         Category                  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  user             User                      @relation("RegistrationMemberUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([registrationId, userId])
+  @@unique([categoryId, userId])
+  @@index([userId, status])
 }
 
 model BattleMatch {

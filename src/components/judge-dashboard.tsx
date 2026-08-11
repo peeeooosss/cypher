@@ -211,6 +211,7 @@ export function JudgeDashboard({
               Seed #{liveMatch.red.seed ?? "—"}
               {liveMatch.red.crew ? ` / ${liveMatch.red.crew}` : ""}
             </p>
+            {liveMatch.red.members && liveMatch.red.members.length > 0 ? <p className="max-w-xs text-xs uppercase text-ink-muted">{liveMatch.red.members.join(" · ")}</p> : null}
             <p className="font-display text-display-lg uppercase text-accent">
               {aggregate?.scoreRed ?? 0}
               <span className="font-mono text-body-sm uppercase text-ink-muted"> votes</span>
@@ -254,6 +255,7 @@ export function JudgeDashboard({
               Seed #{liveMatch.blue.seed ?? "—"}
               {liveMatch.blue.crew ? ` / ${liveMatch.blue.crew}` : ""}
             </p>
+            {liveMatch.blue.members && liveMatch.blue.members.length > 0 ? <p className="max-w-xs text-xs uppercase text-ink-muted">{liveMatch.blue.members.join(" · ")}</p> : null}
             <p className="font-display text-display-lg uppercase text-[#2980FF]">
               {aggregate?.scoreBlue ?? 0}
               <span className="font-mono text-body-sm uppercase text-ink-muted"> votes</span>
@@ -288,7 +290,7 @@ export function JudgeDashboard({
             </span>
             {feedback.custom || feedback.templateId ? (
               <span className="block font-mono text-[0.7rem] normal-case text-ink-muted">
-                Feedback for {defeatedName ?? "defeated dancer"} recorded.
+                 Feedback for {defeatedName ?? "defeated entry"} recorded.
               </span>
             ) : null}
           </div>

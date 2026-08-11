@@ -54,6 +54,7 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
                 name: true,
                 entryFee: true,
                 entryCurrency: true,
+                format: true,
                 event: {
                   select: {
                     id: true,
@@ -63,6 +64,7 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
                 },
               },
             },
+            members: { include: { user: { select: { name: true, username: true } } } },
           },
           orderBy: { createdAt: "asc" },
         })
@@ -89,6 +91,7 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
 
   const event = registrations[0].category.event;
   const total = registrations.reduce((sum, registration) => sum + (registration.category.entryFee ?? 0), 0);
+  const rosterPending = registrations.some((registration) => registration.members.some((member) => member.status !== "ACCEPTED"));
   const organizer = event.organizer;
 
   let qrDataUrl: string | null = null;
@@ -120,6 +123,10 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
                 name: registration.category.name,
                 entryFee: registration.category.entryFee,
                 entryCurrency: registration.category.entryCurrency,
+                format: registration.category.format,
+                teamName: registration.teamName,
+                members: registration.members.map((member) => ({ name: member.user.name, username: member.user.username, status: member.status })),
+                allMembersAccepted: registration.members.every((member) => member.status === "ACCEPTED"),
                 paid: registration.paid,
                 paidClaimedAt: registration.paidClaimedAt?.toISOString() ?? null,
               }))}
@@ -163,11 +170,11 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
                   Open UPI app
                 </a>
                 <p className="mt-lg text-body-sm leading-relaxed text-ink-muted">
-                  Pay the exact amount above, tap{" "}
+                {rosterPending ? "Wait for every invited team member to accept before reporting payment." : <>Pay the exact amount above, tap{" "}
                   <span className="font-bold uppercase text-ink">I have paid</span> for each
                   category, then send your payment screenshot to{" "}
                   <span className="font-bold uppercase text-ink">{organizer.name ?? "the organizer"}</span>.
-                  The organizer approves your entry.
+                  The organizer approves your entry.</>}
                 </p>
               </>
             ) : (

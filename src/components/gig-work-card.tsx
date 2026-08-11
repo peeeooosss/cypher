@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 
-export function GigWorkCard({ expiresAt }: { expiresAt: Date | null }) {
-  const active = expiresAt != null && expiresAt.getTime() > Date.now();
+export function GigWorkCard({ expiresAt, active }: { expiresAt: Date | null; active: boolean }) {
 
   return (
     <section className="mt-section border border-line bg-paper-soft p-lg">
@@ -14,7 +13,7 @@ export function GigWorkCard({ expiresAt }: { expiresAt: Date | null }) {
           </p>
           <p className="mt-sm text-body-sm text-ink-muted">
             {active
-              ? `Active until ${expiresAt.toLocaleDateString()} — apply to freelance gigs on the marketplace.`
+               ? `Active until ${expiresAt?.toLocaleDateString() ?? "later"} — apply to freelance gigs on the marketplace.`
               : "Pay ₹49 for 3 months to apply to freelance gigs on the marketplace."}
           </p>
         </div>

@@ -18,7 +18,7 @@ export async function POST(request: Request, { params }: Context) {
 
   const category = await prisma.category.findUnique({
     where: { id: categoryId },
-    include: { event: { select: { organizerId: true } }, rounds: { orderBy: { order: "asc" } } },
+    include: { event: { select: { organizerId: true } }, rounds: { orderBy: { order: "asc" } }, registrations: { where: { status: "CONFIRMED" }, include: { members: { where: { status: "ACCEPTED" }, select: { id: true } } } } },
   });
 
   if (!category) return notFound("Category");
@@ -33,10 +33,11 @@ export async function POST(request: Request, { params }: Context) {
 
   const { registrationIds } = parsed.data;
 
-  const registrations = await prisma.registration.findMany({
-    where: { categoryId, status: "CONFIRMED" },
-    select: { id: true },
-  });
+  const registrations = category.registrations;
+
+  if (registrations.some((registration) => registration.members.length < category.minMembers || registration.members.length > category.maxMembers)) {
+    return badRequest("Every entry must have a complete accepted roster before advancing");
+  }
 
   const confirmedIds = new Set(registrations.map((r) => r.id));
   const advancedIds = new Set(registrationIds);

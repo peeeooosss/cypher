@@ -2,7 +2,7 @@ import Link from "next/link";
 import { EventStatus, EventType } from "@/generated/prisma/enums";
 import { StatusBadge } from "@/components/status-badge";
 import { formatDateShort } from "@/lib/format";
-import { EVENT_TYPE_LABELS, isWorkshopType } from "@/lib/event-types";
+import { EVENT_TYPE_LABELS, formatLabel, isWorkshopType } from "@/lib/event-types";
 
 type EventCardData = {
   id: string;
@@ -16,7 +16,7 @@ type EventCardData = {
   eventType?: string | null;
   posterUrl?: string | null;
   _count?: { categories: number };
-  categories?: { id: string; name: string }[];
+  categories?: { id: string; name: string; format?: string | null }[];
 };
 
 export function EventCard({ event }: { event: EventCardData }) {
@@ -53,7 +53,7 @@ export function EventCard({ event }: { event: EventCardData }) {
             <div className="mt-md flex flex-wrap gap-xs">
               {event.categories.slice(0, 3).map((cat) => (
                 <span key={cat.id} className="border border-line px-sm py-xs font-mono text-[0.6rem] uppercase tracking-[0.1em] text-ink-muted">
-                  {cat.name}
+                   {cat.name}{cat.format ? ` · ${formatLabel(cat.format)}` : ""}
                 </span>
               ))}
               {event.categories.length > 3 && (

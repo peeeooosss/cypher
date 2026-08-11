@@ -37,8 +37,9 @@ export default async function ArtistGigsPage() {
     }),
   ]);
 
+  const now = new Date();
   const gigWorkEnabled =
-    me?.gigWorkExpiresAt != null && me.gigWorkExpiresAt.getTime() > Date.now();
+    me?.gigWorkExpiresAt != null && me.gigWorkExpiresAt.getTime() > now.getTime();
   const gigWorkStatus = (me?.gigWorkPaymentStatus ?? "NONE") as "NONE" | "PENDING" | "VERIFIED";
 
   return (

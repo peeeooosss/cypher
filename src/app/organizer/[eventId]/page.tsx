@@ -23,7 +23,7 @@ export default async function OrganizerEventPage({ params }: PageProps) {
           rounds: { orderBy: { order: "asc" } },
           judgeSlots: { select: { id: true, code: true, name: true, isActive: true } },
           prizePool: true,
-          _count: { select: { registrations: true } },
+           _count: { select: { registrations: true, registrationMembers: true } },
         },
         orderBy: { name: "asc" },
       },

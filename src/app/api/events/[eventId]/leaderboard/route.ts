@@ -15,8 +15,11 @@ export async function GET(_: Request, { params }: Context) {
       status: true,
       categories: {
         select: {
-          id: true,
-          name: true,
+           id: true,
+           name: true,
+           format: true,
+           minMembers: true,
+           maxMembers: true,
           currentPhaseOrder: true,
           rounds: {
             select: {
@@ -33,8 +36,10 @@ export async function GET(_: Request, { params }: Context) {
             select: {
               id: true,
               seed: true,
-              crew: true,
-              user: { select: { name: true } },
+               crew: true,
+               teamName: true,
+               user: { select: { name: true } },
+               members: { where: { status: "ACCEPTED" }, select: { user: { select: { id: true, name: true, username: true } }, role: true } },
               dancerScores: { select: { score: true, roundFormatId: true } },
             },
           },
@@ -45,9 +50,9 @@ export async function GET(_: Request, { params }: Context) {
               position: true,
               status: true,
               winnerId: true,
-              competitorA: { select: { id: true, user: { select: { name: true } } } },
-              competitorB: { select: { id: true, user: { select: { name: true } } } },
-              winner: { select: { id: true, user: { select: { name: true } } } },
+              competitorA: { select: { id: true, teamName: true, user: { select: { name: true } }, members: { where: { status: "ACCEPTED" }, select: { user: { select: { name: true, username: true } } } } } },
+              competitorB: { select: { id: true, teamName: true, user: { select: { name: true } }, members: { where: { status: "ACCEPTED" }, select: { user: { select: { name: true, username: true } } } } } },
+              winner: { select: { id: true, teamName: true, user: { select: { name: true } }, members: { where: { status: "ACCEPTED" }, select: { user: { select: { name: true, username: true } } } } } },
               scores: {
                 select: {
                   winnerCorner: true,
@@ -71,7 +76,10 @@ export async function GET(_: Request, { params }: Context) {
     status: event.status,
     categories: event.categories.map((category) => ({
       categoryId: category.id,
-      name: category.name,
+       name: category.name,
+       format: category.format,
+       minMembers: category.minMembers,
+       maxMembers: category.maxMembers,
       currentPhaseOrder: category.currentPhaseOrder,
       rounds: category.rounds.map((r) => ({
         id: r.id,
@@ -83,8 +91,10 @@ export async function GET(_: Request, { params }: Context) {
       registrations: category.registrations.map((reg) => ({
         id: reg.id,
         seed: reg.seed,
-        crew: reg.crew,
-        name: reg.user.name ?? "Unnamed",
+         crew: reg.crew,
+         teamName: reg.teamName,
+         name: reg.teamName ?? reg.user.name ?? "Unnamed",
+         members: reg.members.map((member) => ({ id: member.user.id, name: member.user.name ?? member.user.username ?? "Unnamed", role: member.role })),
         dancerScores: reg.dancerScores.map((d) => ({
           score: d.score,
           roundFormatId: d.roundFormatId,
@@ -95,10 +105,12 @@ export async function GET(_: Request, { params }: Context) {
         round: m.round,
         position: m.position,
         status: m.status,
-        redName: m.competitorA?.user.name ?? "TBD",
-        blueName: m.competitorB?.user.name ?? "TBD",
-        winnerId: m.winnerId,
-        winnerName: m.winner?.user.name ?? null,
+         redName: m.competitorA?.teamName ?? m.competitorA?.user.name ?? "TBD",
+         blueName: m.competitorB?.teamName ?? m.competitorB?.user.name ?? "TBD",
+         redMembers: m.competitorA?.members.map((member) => member.user.name ?? member.user.username ?? "Unnamed") ?? [],
+         blueMembers: m.competitorB?.members.map((member) => member.user.name ?? member.user.username ?? "Unnamed") ?? [],
+         winnerId: m.winnerId,
+         winnerName: m.winner?.teamName ?? m.winner?.user.name ?? null,
         scores: m.scores.map((s) => ({
           judgeName: s.judgeSlot.name ?? s.judgeSlot.code,
           winnerCorner: s.winnerCorner,

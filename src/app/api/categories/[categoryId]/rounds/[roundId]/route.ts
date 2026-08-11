@@ -15,6 +15,7 @@ const updateRoundSchema = z.object({
       BATTLE_2V2: "BATTLE_2V2",
       BATTLE_3V3: "BATTLE_3V3",
       BATTLE_4V4: "BATTLE_4V4",
+      CREW_VS_CREW: "CREW_VS_CREW",
       SEVEN_TO_SMOKE: "SEVEN_TO_SMOKE",
       FINAL: "FINAL",
     } as const,

@@ -108,6 +108,7 @@ for (let i = 0; i < artistDefs.length; i++) {
     where: { email },
     update: {
       name,
+      username: `artist${i + 1}`,
       role: UserRole.ARTIST,
       passwordHash,
       style: styles[i % styles.length],
@@ -122,6 +123,7 @@ for (let i = 0; i < artistDefs.length; i++) {
     create: {
       email,
       name,
+      username: `artist${i + 1}`,
       role: UserRole.ARTIST,
       passwordHash,
       style: styles[i % styles.length],
@@ -171,9 +173,9 @@ const event = await prisma.event.create({
 });
 
 // ---- Categories ----
-const breaking = await prisma.category.create({ data: { eventId: event.id, name: "Breaking", maxCompetitors: 32, entryFee: 500, entryCurrency: "INR" } });
-const popping = await prisma.category.create({ data: { eventId: event.id, name: "Popping", maxCompetitors: 32, entryFee: 500, entryCurrency: "INR" } });
-const hiphop = await prisma.category.create({ data: { eventId: event.id, name: "Hip-Hop", maxCompetitors: 16, entryFee: 500, entryCurrency: "INR" } });
+const breaking = await prisma.category.create({ data: { eventId: event.id, name: "Breaking", format: "BATTLE_1V1", minMembers: 1, maxMembers: 1, maxCompetitors: 32, entryFee: 500, entryCurrency: "INR" } });
+const popping = await prisma.category.create({ data: { eventId: event.id, name: "Popping", format: "BATTLE_1V1", minMembers: 1, maxMembers: 1, maxCompetitors: 32, entryFee: 500, entryCurrency: "INR" } });
+const hiphop = await prisma.category.create({ data: { eventId: event.id, name: "Hip-Hop", format: "BATTLE_1V1", minMembers: 1, maxMembers: 1, maxCompetitors: 16, entryFee: 500, entryCurrency: "INR" } });
 
 // ---- Round phases ----
 const phaseDefs: Record<string, Array<{ order: number; type: RoundType; label: string; roundCount: number; roundDuration: number; advanceCount?: number }>> = {
@@ -260,6 +262,9 @@ for (const plan of regPlan) {
         experience: experiences[i % experiences.length],
         socialHandle: `@${artist.name?.toLowerCase().replace(/\s+/g, "")}`,
         referral: referrals[i % referrals.length],
+        members: {
+          create: [{ categoryId: plan.category.id, userId: artist.id, role: "CAPTAIN", status: "ACCEPTED", acceptedAt: now }],
+        },
       },
     });
     seedNum++;
@@ -491,6 +496,9 @@ for (const session of workshopSessions) {
     data: {
       eventId: workshop.id,
       name: session.name,
+      format: "SOLO",
+      minMembers: 1,
+      maxMembers: 1,
       maxCompetitors: session.maxCompetitors,
       entryFee: session.entryFee,
       entryCurrency: "INR",
@@ -522,6 +530,9 @@ for (const [artistIndex, sessionIndex] of workshopJoins) {
       experience: artists[artistIndex].experience,
       socialHandle: artists[artistIndex].socialHandle,
       referral: artists[artistIndex].referral,
+      members: {
+        create: [{ categoryId: sessionIds[sessionIndex], userId: artists[artistIndex].id, role: "CAPTAIN", status: "ACCEPTED", acceptedAt: now }],
+      },
     },
   });
   wsSeed++;
@@ -541,7 +552,7 @@ const championship = await prisma.event.create({
     status: "PUBLISHED",
     startsAt: future(25),
     organizerId: organizer.id,
-    categoryCount: 2,
+    categoryCount: 3,
     flatFee: 99,
     flatFeePaid: true,
     flatFeePaidAt: now,
@@ -553,8 +564,9 @@ const championship = await prisma.event.create({
 
 const competitionCategories = [];
 const competitionDefs = [
-  { name: "Solo Dance", maxCompetitors: 24, entryFee: 800 },
-  { name: "Group Performance", maxCompetitors: 16, entryFee: 1500 },
+  { name: "Solo Dance", format: "SOLO" as const, minMembers: 1, maxMembers: 1, maxCompetitors: 24, entryFee: 800 },
+  { name: "Duo Performance", format: "DUO" as const, minMembers: 2, maxMembers: 2, maxCompetitors: 16, entryFee: 1200 },
+  { name: "Group Performance", format: "GROUP" as const, minMembers: 4, maxMembers: 12, maxCompetitors: 12, entryFee: 1500 },
 ];
 for (let ci = 0; ci < competitionDefs.length; ci++) {
   const def = competitionDefs[ci];
@@ -562,6 +574,9 @@ for (let ci = 0; ci < competitionDefs.length; ci++) {
     data: {
       eventId: championship.id,
       name: def.name,
+      format: def.format,
+      minMembers: def.minMembers,
+      maxMembers: def.maxMembers,
       maxCompetitors: def.maxCompetitors,
       entryFee: def.entryFee,
       entryCurrency: "INR",
@@ -574,7 +589,7 @@ for (let ci = 0; ci < competitionDefs.length; ci++) {
     ],
   });
   await prisma.judgeSlot.create({
-    data: { code: ci === 0 ? "DNC001" : "DNC002", name: "Panel Judge", eventId: championship.id, categoryId: cat.id, isActive: true },
+      data: { code: `DNC00${ci + 1}`, name: "Panel Judge", eventId: championship.id, categoryId: cat.id, isActive: true },
   });
   competitionCategories.push(cat);
 }
@@ -587,7 +602,7 @@ const competitionEntries: Array<[number, number]> = [
 let compSeed = 1;
 for (const [artistIndex, catIndex] of competitionEntries) {
   await prisma.registration.create({
-    data: {
+      data: {
       userId: artists[artistIndex].id,
       categoryId: competitionCategories[catIndex].id,
       status: "CONFIRMED",
@@ -602,7 +617,15 @@ for (const [artistIndex, catIndex] of competitionEntries) {
       country: "India",
       experience: artists[artistIndex].experience,
       socialHandle: artists[artistIndex].socialHandle,
-      referral: artists[artistIndex].referral,
+        referral: artists[artistIndex].referral,
+        format: competitionDefs[catIndex].format,
+        teamName: catIndex === 1 ? `${artists[artistIndex].name ?? "Duo"} Pair` : null,
+        members: {
+          create: [
+            { categoryId: competitionCategories[catIndex].id, userId: artists[artistIndex].id, role: "CAPTAIN", status: "ACCEPTED", acceptedAt: now },
+            ...(catIndex === 1 ? [{ categoryId: competitionCategories[catIndex].id, userId: artists[(artistIndex + 1) % artists.length].id, role: "MEMBER" as const, status: "ACCEPTED" as const, acceptedAt: now }] : []),
+          ],
+        },
     },
   });
   compSeed++;

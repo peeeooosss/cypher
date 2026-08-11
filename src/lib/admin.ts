@@ -18,7 +18,7 @@ export async function requireAdmin() {
 }
 
 export async function getAdminStats() {
-  const [users, events, registrations, flatFeePending, flatFeeRevenue, commissionRevenue, commissionDue, gigCount, gigsOpen, gigWorkVerified, gigWorkPending, categoryCount] =
+  const [users, events, registrations, teamEntries, teamMembers, pendingInvitations, flatFeePending, flatFeeRevenue, commissionRevenue, commissionDue, gigCount, gigsOpen, gigWorkVerified, gigWorkPending, categoryCount] =
     await Promise.all([
       prisma.user.groupBy({
         by: ["role"],
@@ -29,6 +29,9 @@ export async function getAdminStats() {
         _count: { _all: true },
       }),
       prisma.registration.count(),
+      prisma.registration.count({ where: { format: { in: ["DUO", "GROUP", "BATTLE_2V2", "BATTLE_3V3", "CREW_VS_CREW"] } } }),
+      prisma.registrationMember.count({ where: { status: "ACCEPTED" } }),
+      prisma.registrationMember.count({ where: { status: "PENDING" } }),
       prisma.event.count({ where: { flatFeePaid: false, flatFeePaymentStatus: "PENDING" } }),
       prisma.event.aggregate({
         _sum: { flatFee: true },
@@ -61,6 +64,9 @@ export async function getAdminStats() {
     }, {}),
     eventTotal: events.reduce((sum, row) => sum + row._count._all, 0),
     registrations,
+    teamEntries,
+    teamMembers,
+    pendingInvitations,
     flatFeePending,
     flatFeeRevenue: flatFeeRevenue._sum.flatFee ?? 0,
     commissionRevenue: commissionRevenue._sum.commissionDue ?? 0,
@@ -194,7 +200,7 @@ export async function getAdminArtists() {
       gigWorkExpiresAt: true,
       createdAt: true,
       skills: true,
-      _count: { select: { registrations: true, achievements: true, gigApplications: true } },
+      _count: { select: { registrations: true, teamMemberships: true, achievements: true, gigApplications: true } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -220,13 +226,13 @@ export async function getAdminArtist(userId: string) {
       gigWorkExpiresAt: true,
       createdAt: true,
       updatedAt: true,
-      _count: { select: { registrations: true, achievements: true, gigApplications: true } },
+       _count: { select: { registrations: true, teamMemberships: true, achievements: true, gigApplications: true } },
     },
   });
 
   if (!artist) return null;
 
-  const [achievements, registrations] = await Promise.all([
+  const [achievements, registrations, memberships] = await Promise.all([
     prisma.artistAchievement.findMany({
       where: { userId },
       orderBy: { year: "desc" },
@@ -238,9 +244,14 @@ export async function getAdminArtist(userId: string) {
       },
       orderBy: { createdAt: "desc" },
     }),
+    prisma.registrationMember.findMany({
+      where: { userId, status: "ACCEPTED" },
+      include: { registration: { include: { category: { select: { name: true, event: { select: { id: true, title: true } } } } } } },
+      orderBy: { acceptedAt: "desc" },
+    }),
   ]);
 
-  return { ...artist, achievements, registrations };
+  return { ...artist, achievements, registrations, memberships };
 }
 
 export async function getAdminAnalytics() {

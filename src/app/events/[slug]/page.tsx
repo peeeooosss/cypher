@@ -6,7 +6,7 @@ import { formatDate } from "@/lib/format";
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { EventStatus, EventType } from "@/generated/prisma/enums";
-import { EVENT_TYPE_LABELS, isWorkshopType } from "@/lib/event-types";
+import { EVENT_TYPE_LABELS, formatLabel, isWorkshopType } from "@/lib/event-types";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +34,10 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
   const isArtist = user?.role === "ARTIST";
   const registrations = isArtist
     ? await prisma.registration.findMany({
-        where: { userId: user.id, categoryId: { in: event.categories.map((c) => c.id) } },
+        where: {
+          categoryId: { in: event.categories.map((c) => c.id) },
+          OR: [{ userId: user.id }, { members: { some: { userId: user.id, status: { in: ["PENDING", "ACCEPTED"] } } } }],
+        },
         select: { categoryId: true, paid: true },
       })
     : [];
@@ -127,7 +130,8 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
                       key={category.id}
                       className="border border-line bg-paper-soft p-lg"
                     >
-                      <h3 className="font-display text-title-md uppercase">{category.name}</h3>
+                       <h3 className="font-display text-title-md uppercase">{category.name}</h3>
+                       <p className="mt-xs font-mono text-[0.65rem] uppercase tracking-[0.1em] text-accent">{formatLabel(category.format)} · {category.minMembers === category.maxMembers ? category.minMembers : `${category.minMembers}–${category.maxMembers}`} members</p>
                       <p className="mt-sm font-mono text-body-sm uppercase tracking-[0.1em] text-accent">
                         {formatFee(category)}
                       </p>

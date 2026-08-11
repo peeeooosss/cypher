@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
 
 type EventOption = { id: string; title: string; status: string };
-type Competitor = { user: { name: string | null } } | null;
+type Competitor = { teamName?: string | null; user: { name: string | null } } | null;
 type Match = {
   id: string;
   round: number;
@@ -72,8 +72,8 @@ export function JudgePortal({ events }: { events: EventOption[] }) {
           <article className="border border-line bg-paper-soft p-lg" key={match.id}>
             <p className="font-mono text-[0.7rem] uppercase text-ink-muted">Round {match.round} / Match {match.position} / {match.status}</p>
             <div className="mt-lg grid grid-cols-[1fr_auto] gap-sm text-title-md font-bold uppercase">
-              <span>{match.competitorA?.user.name ?? "Waiting"}</span><span>{match.scoreA}</span>
-              <span>{match.competitorB?.user.name ?? "Waiting"}</span><span>{match.scoreB}</span>
+              <span>{match.competitorA?.teamName ?? match.competitorA?.user.name ?? "Waiting"}</span><span>{match.scoreA}</span>
+              <span>{match.competitorB?.teamName ?? match.competitorB?.user.name ?? "Waiting"}</span><span>{match.scoreB}</span>
             </div>
             {match.competitorA && match.competitorB ? (
               <div className="mt-lg flex gap-sm">

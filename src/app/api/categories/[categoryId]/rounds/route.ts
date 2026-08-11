@@ -11,6 +11,7 @@ const BATTLE_ROUND_TYPES: RoundType[] = [
   RoundType.BATTLE_2V2,
   RoundType.BATTLE_3V3,
   RoundType.BATTLE_4V4,
+  RoundType.CREW_VS_CREW,
   RoundType.FINAL,
 ];
 

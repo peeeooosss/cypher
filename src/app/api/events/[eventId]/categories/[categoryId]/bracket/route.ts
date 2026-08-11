@@ -12,9 +12,9 @@ export async function GET(_: Request, { params }: BracketRouteContext) {
   const matches = await prisma.battleMatch.findMany({
     where: { eventId, categoryId },
     include: {
-      competitorA: { include: { user: { select: { id: true, name: true } } } },
-      competitorB: { include: { user: { select: { id: true, name: true } } } },
-      winner: { include: { user: { select: { id: true, name: true } } } },
+       competitorA: { include: { user: { select: { id: true, name: true } }, members: { where: { status: "ACCEPTED" }, select: { user: { select: { name: true, username: true } } } } } },
+       competitorB: { include: { user: { select: { id: true, name: true } }, members: { where: { status: "ACCEPTED" }, select: { user: { select: { name: true, username: true } } } } } },
+       winner: { include: { user: { select: { id: true, name: true } }, members: { where: { status: "ACCEPTED" }, select: { user: { select: { name: true, username: true } } } } } },
       scores: true,
     },
     orderBy: [{ round: "asc" }, { position: "asc" }],

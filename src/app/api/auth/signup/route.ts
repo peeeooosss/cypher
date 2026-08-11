@@ -12,6 +12,7 @@ const signupSchema = z
     email: z.string().trim().email(),
     password: z.string().min(8, "Password must be at least 8 characters"),
     name: z.string().trim().min(2, "Name must be at least 2 characters").max(120),
+    username: z.string().trim().toLowerCase().regex(/^[a-z0-9_]{3,30}$/, "Username must use 3–30 letters, numbers, or underscores").optional(),
     role: z.enum([UserRole.ORGANIZER, UserRole.ARTIST]),
     style: z.string().trim().min(1, "Style is required").max(80).optional(),
     crew: z.string().trim().max(120).optional(),
@@ -38,13 +39,14 @@ export async function POST(request: Request) {
     return badRequest(parsed.error.issues[0]?.message ?? "Invalid signup data");
   }
 
-  const { email, password, name, role, ...profile } = parsed.data;
+   const { email, password, name, role, username, ...profile } = parsed.data;
 
   try {
     const user = await prisma.user.create({
       data: {
         email: email.toLowerCase(),
         name,
+        username: username ?? null,
         passwordHash: await hash(password, 12),
         role,
         style: profile.style ?? null,
@@ -60,8 +62,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json(user, { status: 201 });
   } catch (error) {
-    if (isUniqueConstraintError(error)) {
-      return conflict("An account with this email already exists");
+     if (isUniqueConstraintError(error)) {
+       return conflict("That email or username is already in use");
     }
 
     console.error(error);

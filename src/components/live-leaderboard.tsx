@@ -2,13 +2,16 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { io } from "socket.io-client";
+import { formatLabel } from "@/lib/event-types";
 
 type LeaderboardScore = { score: number; roundFormatId: string };
 type LeaderboardRegistration = {
   id: string;
   seed: number | null;
   crew: string | null;
+  teamName: string | null;
   name: string;
+  members: { id: string; name: string; role: string }[];
   dancerScores: LeaderboardScore[];
 };
 type LeaderboardRound = {
@@ -27,11 +30,16 @@ type LeaderboardMatch = {
   blueName: string;
   winnerId: string | null;
   winnerName: string | null;
+  redMembers: string[];
+  blueMembers: string[];
   scores: { judgeName: string; winnerCorner: string | null; feedback: string | null }[];
 };
 type LeaderboardCategory = {
   categoryId: string;
   name: string;
+  format: string | null;
+  minMembers: number;
+  maxMembers: number;
   currentPhaseOrder: number | null;
   rounds: LeaderboardRound[];
   registrations: LeaderboardRegistration[];
@@ -58,6 +66,7 @@ export function LiveLeaderboard({
   const [data, setData] = useState<LeaderboardData | null>(null);
   const [categoryId, setCategoryId] = useState("");
   const [phaseId, setPhaseId] = useState("");
+  const [formatFilter, setFormatFilter] = useState("");
   const [connectionStatus, setConnectionStatus] = useState("offline");
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -84,6 +93,7 @@ export function LiveLeaderboard({
           if (json.categories.length > 0) {
             const first = json.categories[0];
             setCategoryId(first.categoryId);
+            setFormatFilter(first.format ?? "SOLO");
             const active = first.rounds.find((r) => r.phaseStatus === "ACTIVE") ?? first.rounds[0];
             setPhaseId(active?.id ?? "");
           }
@@ -173,6 +183,7 @@ export function LiveLeaderboard({
   const matchRounds = selectedCategory
     ? [...new Set(selectedCategory.matches.map((m) => m.round))].sort((a, b) => a - b)
     : [];
+  const availableFormats = [...new Set(data.categories.map((category) => category.format ?? "SOLO"))];
 
   return (
     <section className="mt-section">
@@ -201,21 +212,39 @@ export function LiveLeaderboard({
 
       <div className="mt-md flex flex-wrap gap-md">
         <label className="flex flex-col gap-xs">
+          <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Format</span>
+          <select
+            className="border border-line bg-paper px-md py-sm text-body-sm"
+            value={formatFilter}
+            onChange={(e) => {
+              const format = e.target.value;
+              const category = data.categories.find((item) => (item.format ?? "SOLO") === format);
+              setFormatFilter(format);
+              setCategoryId(category?.categoryId ?? "");
+              const active = category?.rounds.find((r) => r.phaseStatus === "ACTIVE") ?? category?.rounds[0];
+              setPhaseId(active?.id ?? "");
+            }}
+          >
+            {availableFormats.map((format) => <option key={format} value={format}>{formatLabel(format)}</option>)}
+          </select>
+        </label>
+        <label className="flex flex-col gap-xs">
           <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Category</span>
           <select
             className="border border-line bg-paper px-md py-sm text-body-sm"
             value={categoryId}
             onChange={(e) => {
-              const id = e.target.value;
-              const cat = data.categories.find((c) => c.categoryId === id);
-              setCategoryId(id);
+               const id = e.target.value;
+               const cat = data.categories.find((c) => c.categoryId === id);
+               setCategoryId(id);
+               setFormatFilter(cat?.format ?? "SOLO");
               const active = cat?.rounds.find((r) => r.phaseStatus === "ACTIVE") ?? cat?.rounds[0];
               setPhaseId(active?.id ?? "");
             }}
           >
             {data.categories.map((c) => (
               <option key={c.categoryId} value={c.categoryId}>
-                {c.name}
+                {c.name} · {formatLabel(c.format)}
               </option>
             ))}
           </select>
@@ -270,8 +299,8 @@ export function LiveLeaderboard({
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-body-md font-bold uppercase">{row.reg.name}</p>
-                    <p className="text-[0.7rem] uppercase text-ink-muted">
-                      {row.reg.crew ?? "Solo"}
+                     <p className="text-[0.7rem] uppercase text-ink-muted">
+                       {row.reg.members.length > 1 ? row.reg.members.map((member) => member.name).join(" · ") : (row.reg.crew ?? formatLabel(selectedCategory?.format))}
                       {row.reg.seed != null ? ` / Seed #${row.reg.seed}` : ""}
                     </p>
                   </div>
@@ -322,10 +351,10 @@ export function LiveLeaderboard({
                           <span className="w-10 font-mono text-xs uppercase text-ink-muted">
                             M{m.position}
                           </span>
-                          <span className="flex-1">
+                           <span className="flex-1">
                             <span className="font-display text-title-sm uppercase text-accent">
                               {m.redName}
-                            </span>
+                           </span>
                             <span className="mx-sm text-ink-muted">vs</span>
                             <span className="font-display text-title-sm uppercase text-[#2980FF]">
                               {m.blueName}
@@ -345,7 +374,10 @@ export function LiveLeaderboard({
                           >
                             {decided ? `Winner: ${m.winnerName}` : m.status.toLowerCase()}
                           </span>
-                        </div>
+                         </div>
+                         {(m.redMembers.length > 0 || m.blueMembers.length > 0) && (
+                           <p className="mt-xs pl-10 text-[0.7rem] uppercase text-ink-muted">{m.redMembers.join(" · ") || "TBD"} vs {m.blueMembers.join(" · ") || "TBD"}</p>
+                         )}
                         {feedback.length > 0 && (
                           <ul className="mt-md space-y-xs pl-10">
                             {feedback.map((s, i) => {

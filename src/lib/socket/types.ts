@@ -46,6 +46,7 @@ export const MatchLivePayload = z.object({
     crew: z.string().nullable(),
     seed: z.number().nullable(),
     avatar: z.string().nullable(),
+    members: z.array(z.string()).optional(),
   }),
   blue: z.object({
     id: z.string(),
@@ -53,6 +54,7 @@ export const MatchLivePayload = z.object({
     crew: z.string().nullable(),
     seed: z.number().nullable(),
     avatar: z.string().nullable(),
+    members: z.array(z.string()).optional(),
   }),
   timeLimitMs: z.number(),
   status: z.literal("LIVE"),

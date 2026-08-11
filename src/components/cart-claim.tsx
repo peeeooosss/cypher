@@ -6,6 +6,10 @@ import { formatFee } from "@/lib/format";
 export type CartRegistration = {
   id: string;
   name: string;
+  format: string | null;
+  teamName: string | null;
+  members: Array<{ name: string | null; username: string | null; status: string }>;
+  allMembersAccepted: boolean;
   entryFee: number | null;
   entryCurrency: string;
   paid: boolean;
@@ -42,8 +46,10 @@ export function CartCategoryList({ registrations }: { registrations: CartRegistr
           >
             <div>
               <p className="font-display text-title-md uppercase">
-                {registration.name}
+                {registration.teamName ?? registration.name}
               </p>
+              <p className="mt-xs text-[0.65rem] uppercase text-ink-muted">{registration.format ?? "SOLO"} · {registration.members.length} member{registration.members.length === 1 ? "" : "s"}</p>
+              {registration.members.length > 1 ? <p className="mt-xs text-[0.7rem] text-ink-muted">{registration.members.map((member) => member.name ?? member.username ?? "Unnamed").join(" · ")}</p> : null}
               <p
                 className={`mt-xs font-mono text-[0.65rem] uppercase ${
                   registration.paid || isClaimed ? "text-accent" : "text-ink-muted"
@@ -63,11 +69,11 @@ export function CartCategoryList({ registrations }: { registrations: CartRegistr
               {!registration.paid && (
                 <button
                   className="border border-accent px-md py-xs text-[0.7rem] font-bold uppercase text-accent hover:bg-accent hover:text-paper disabled:cursor-wait disabled:opacity-60"
-                  disabled={updating !== null || isClaimed}
+                  disabled={updating !== null || isClaimed || !registration.allMembersAccepted}
                   onClick={() => void handleClaim(registration.id)}
                   type="button"
                 >
-                  {isClaimed ? "Reported" : "I have paid"}
+                  {isClaimed ? "Reported" : registration.allMembersAccepted ? "I have paid" : "Awaiting roster"}
                 </button>
               )}
             </div>

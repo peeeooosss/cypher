@@ -105,6 +105,7 @@ export function LiveSpectator({
             Seed #{liveMatch.red.seed ?? "—"}
             {liveMatch.red.crew ? ` / ${liveMatch.red.crew}` : ""}
           </p>
+          {liveMatch.red.members && liveMatch.red.members.length > 0 ? <p className="max-w-xs text-xs uppercase text-ink-muted">{liveMatch.red.members.join(" · ")}</p> : null}
           <p className="font-display text-display-xl uppercase text-accent">{scores.red}</p>
           <p className="font-mono text-[0.7rem] uppercase text-ink-muted">
             {judgeCount > 0 ? `${scores.red} judge vote${scores.red === 1 ? "" : "s"}` : "no votes"}
@@ -119,6 +120,7 @@ export function LiveSpectator({
             Seed #{liveMatch.blue.seed ?? "—"}
             {liveMatch.blue.crew ? ` / ${liveMatch.blue.crew}` : ""}
           </p>
+          {liveMatch.blue.members && liveMatch.blue.members.length > 0 ? <p className="max-w-xs text-xs uppercase text-ink-muted">{liveMatch.blue.members.join(" · ")}</p> : null}
           <p className="font-display text-display-xl uppercase text-[#2980FF]">{scores.blue}</p>
           <p className="font-mono text-[0.7rem] uppercase text-ink-muted">
             {judgeCount > 0 ? `${scores.blue} judge vote${scores.blue === 1 ? "" : "s"}` : "no votes"}
