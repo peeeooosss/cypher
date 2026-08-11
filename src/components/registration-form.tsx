@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatFee } from "@/lib/format";
-import { formatLabel } from "@/lib/event-types";
+import { formatLabel, isTeamFormat } from "@/lib/event-types";
 
 type CategoryOption = {
   id: string;
@@ -30,11 +30,13 @@ export function RegistrationForm({
   categories,
   registeredCategoryIds,
   paidCategoryIds,
+  currentUser,
 }: {
   eventId: string;
   categories: CategoryOption[];
   registeredCategoryIds: Set<string>;
   paidCategoryIds: Set<string>;
+  currentUser: { name: string | null; username: string | null };
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -48,11 +50,13 @@ export function RegistrationForm({
 
   const selectedCategories = categories.filter((category) => selected.has(category.id));
   const selectedCategory = selectedCategories[0];
-  const isTeam = selectedCategory ? !["SOLO", "BATTLE_1V1"].includes(selectedCategory.format ?? "SOLO") : false;
+  const isTeam = selectedCategory ? isTeamFormat(selectedCategory.format) : false;
   const requiredMin = selectedCategory?.minMembers ?? 1;
   const requiredMax = selectedCategory?.maxMembers ?? 1;
   const rosterCount = members.length + 1;
+  const rosterFull = members.length + 1 >= requiredMax;
   const total = selectedCategories.reduce((sum, category) => sum + (category.entryFee ?? 0), 0);
+  const selfLabel = currentUser.username ? `@${currentUser.username}` : currentUser.name ?? "you";
 
   function toggleCategory(id: string) {
     const next = new Set(selected);
@@ -72,6 +76,7 @@ export function RegistrationForm({
   }
 
   function addMember(artist: ArtistResult) {
+    if (members.length + 1 >= requiredMax) return;
     if (!members.some((member) => member.id === artist.id)) setMembers((current) => [...current, artist]);
     setResults((current) => current.filter((member) => member.id !== artist.id));
     setQuery("");
@@ -149,6 +154,13 @@ export function RegistrationForm({
         </div>
       </div>
 
+      {!isTeam && selectedCategory ? (
+        <div className="mt-section border border-line bg-paper-soft px-lg py-md">
+          <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">Entering as</p>
+          <p className="mt-xs font-display text-title-md uppercase text-accent">{selfLabel}</p>
+        </div>
+      ) : null}
+
       {isTeam ? (
         <div className="mt-section border border-line">
           <div className="border-b border-line bg-paper-soft px-lg py-md">
@@ -158,13 +170,14 @@ export function RegistrationForm({
           <div className="space-y-md p-lg">
             <input className="w-full border border-line bg-paper px-md py-sm text-body-sm" value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="Team or crew name" />
             <div className="flex gap-sm">
-              <input className="min-w-0 flex-1 border border-line bg-paper px-md py-sm text-body-sm" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void searchArtists(); } }} placeholder="Search username" />
-              <button className="border border-line px-md py-sm font-mono text-[0.7rem] font-bold uppercase hover:border-accent" type="button" onClick={() => void searchArtists()} disabled={searching}>{searching ? "..." : "Search"}</button>
+              <input className="min-w-0 flex-1 border border-line bg-paper px-md py-sm text-body-sm" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void searchArtists(); } }} placeholder="Search username" disabled={rosterFull} />
+              <button className="border border-line px-md py-sm font-mono text-[0.7rem] font-bold uppercase hover:border-accent disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={() => void searchArtists()} disabled={searching || rosterFull}>{searching ? "..." : "Search"}</button>
             </div>
-            {results.length > 0 ? <div className="border border-line">{results.map((artist) => <button key={artist.id} className="flex w-full items-center justify-between border-b border-line px-md py-sm text-left last:border-b-0 hover:bg-paper-soft" type="button" onClick={() => addMember(artist)}><span><span className="font-bold">{artist.name ?? "Unnamed"}</span><span className="ml-sm font-mono text-[0.7rem] text-accent">@{artist.username ?? "no-username"}</span></span><span className="text-body-sm text-ink-muted">Add</span></button>)}</div> : null}
+            {rosterFull ? <p className="font-mono text-[0.65rem] uppercase tracking-[0.15em] text-ink-muted">Roster full — this category allows {requiredMax} member{requiredMax === 1 ? "" : "s"}.</p> : null}
+            {results.length > 0 ? <div className="border border-line">{results.map((artist) => <button key={artist.id} className="flex w-full items-center justify-between border-b border-line px-md py-sm text-left last:border-b-0 hover:bg-paper-soft disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={() => addMember(artist)} disabled={rosterFull}><span><span className="font-bold">{artist.name ?? "Unnamed"}</span><span className="ml-sm font-mono text-[0.7rem] text-accent">@{artist.username ?? "no-username"}</span></span><span className="text-body-sm text-ink-muted">Add</span></button>)}</div> : null}
             <div className="border-t border-line pt-md">
               <p className="font-mono text-[0.7rem] uppercase text-ink-muted">Roster: {rosterCount} / {requiredMax}</p>
-              <div className="mt-sm space-y-xs"><div className="flex items-center justify-between text-body-sm"><span>{members.length > 0 ? "Captain + you" : "You — captain"}</span><span className="font-mono text-[0.65rem] uppercase text-accent">Accepted</span></div>{members.map((member) => <div key={member.id} className="flex items-center justify-between text-body-sm"><span>{member.name ?? "Unnamed"} <span className="font-mono text-[0.65rem] text-ink-muted">@{member.username ?? "—"}</span></span><button className="font-mono text-[0.65rem] uppercase text-ink-muted hover:text-accent" type="button" onClick={() => setMembers((current) => current.filter((item) => item.id !== member.id))}>Remove</button></div>)}</div>
+              <div className="mt-sm space-y-xs"><div className="flex items-center justify-between text-body-sm"><span>You — captain · {selfLabel}</span><span className="font-mono text-[0.65rem] uppercase text-accent">Accepted</span></div>{members.map((member) => <div key={member.id} className="flex items-center justify-between text-body-sm"><span>{member.name ?? "Unnamed"} <span className="font-mono text-[0.65rem] text-ink-muted">@{member.username ?? "—"}</span></span><button className="font-mono text-[0.65rem] uppercase text-ink-muted hover:text-accent" type="button" onClick={() => setMembers((current) => current.filter((item) => item.id !== member.id))}>Remove</button></div>)}</div>
             </div>
           </div>
         </div>

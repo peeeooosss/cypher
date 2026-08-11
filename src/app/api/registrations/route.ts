@@ -4,7 +4,7 @@ import { CategoryFormat, EventStatus, RegistrationMemberRole, RegistrationMember
 import { badRequest, conflict, forbidden, isUniqueConstraintError, notFound, serverError, unauthorized } from "@/lib/api";
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
-import { defaultRosterSize } from "@/lib/event-types";
+import { defaultRosterSize, isTeamFormat } from "@/lib/event-types";
 
 const registrationSchema = z.object({
   categoryId: z.string().cuid().optional(),
@@ -95,7 +95,7 @@ export async function POST(request: Request) {
     const maxMembers = Math.min(roster.max, invalidRosterCategory.maxMembers);
     return badRequest(`${invalidRosterCategory.name} requires ${minMembers === maxMembers ? minMembers : `${minMembers}–${maxMembers}`} members`);
   }
-  if (firstFormat !== CategoryFormat.SOLO && !parsed.data.teamName) {
+  if (isTeamFormat(firstFormat) && !parsed.data.teamName) {
     return badRequest("Team or crew name is required");
   }
 

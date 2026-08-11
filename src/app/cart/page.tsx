@@ -73,7 +73,7 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
   if (registrations.length === 0) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-paper px-sm py-section">
-        <div className="w-full max-w-lg border border-line bg-paper-soft p-xl text-center">
+        <div className="w-full max-w-2xl border border-line bg-paper-soft p-xl text-center">
           <p className="font-display text-title-md uppercase">Nothing to pay yet</p>
           <p className="mt-sm text-body-sm text-ink-muted">
             No pending registrations found for your account.

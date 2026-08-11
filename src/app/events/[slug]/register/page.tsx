@@ -53,6 +53,8 @@ export default async function RegisterPage({ params }: RegisterPageContext) {
     prisma.user.findUnique({
       where: { id: user.id },
       select: {
+        name: true,
+        username: true,
         style: true,
         city: true,
         country: true,
@@ -127,6 +129,10 @@ export default async function RegisterPage({ params }: RegisterPageContext) {
             }))}
             registeredCategoryIds={registeredCategoryIds}
             paidCategoryIds={paidCategoryIds}
+            currentUser={{
+              name: profileUser?.name ?? null,
+              username: profileUser?.username ?? null,
+            }}
           />
         )}
       </div>

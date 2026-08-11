@@ -261,6 +261,14 @@ export default async function ArtistPage({ searchParams }: PageProps) {
                       })
                     )}
                   </div>
+                  {!reg.paid && reg.userId === user.id ? (
+                    <Link
+                      href={`/cart?event=${reg.category.event.id}&ids=${reg.id}`}
+                      className="mt-md inline-block border border-accent bg-accent px-md py-sm font-mono text-[0.65rem] font-bold uppercase tracking-[0.15em] text-paper transition-opacity hover:opacity-80"
+                    >
+                      {reg.members.length > 1 ? "Check roster & pay" : "Complete payment"}
+                    </Link>
+                  ) : null}
                   {wins > 0 && reg.category.prizePool?.distribution ? (
                     <div className="mt-md border-t border-line pt-md font-mono text-[0.7rem] uppercase text-accent">
                       {wins} wins — {reg.category.prizePool.isPaid ? "Prize paid" : "Prize pending"}
