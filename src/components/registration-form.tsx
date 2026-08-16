@@ -30,12 +30,14 @@ export function RegistrationForm({
   categories,
   registeredCategoryIds,
   paidCategoryIds,
+  claimedCategoryIds,
   currentUser,
 }: {
   eventId: string;
   categories: CategoryOption[];
   registeredCategoryIds: Set<string>;
   paidCategoryIds: Set<string>;
+  claimedCategoryIds: Set<string>;
   currentUser: { name: string | null; username: string | null };
 }) {
   const router = useRouter();
@@ -143,7 +145,7 @@ export function RegistrationForm({
                   </p>
                 </div>
                 <span className="font-mono text-body-sm uppercase text-accent">{formatFee(category.entryFee, category.entryCurrency)}</span>
-                <span className="w-28 text-right font-mono text-[0.65rem] uppercase text-ink-muted">{isRegistered ? (isPaid ? "Confirmed" : "Registered") : isFull ? "Full" : ""}</span>
+                <span className="w-28 text-right font-mono text-[0.65rem] uppercase text-ink-muted">{isPaid ? "Confirmed" : claimedCategoryIds.has(category.id) ? "Registered" : isRegistered ? "Wait for verification" : isFull ? "Full" : ""}</span>
               </li>
             );
           })}

@@ -58,6 +58,7 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
                 event: {
                   select: {
                     id: true,
+                    slug: true,
                     title: true,
                     organizer: { select: { name: true, email: true, upiId: true } },
                   },
@@ -109,7 +110,13 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
   return (
     <main className="min-h-screen bg-paper">
       <div className="mx-auto max-w-5xl px-md py-section md:px-xl">
-        <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-accent">Checkout</p>
+        <Link
+          href={`/events/${event.slug}/register`}
+          className="font-mono text-body-sm uppercase text-ink-muted hover:text-accent"
+        >
+          &larr; Go back
+        </Link>
+        <p className="mt-lg font-mono text-body-sm uppercase tracking-[0.18em] text-accent">Checkout</p>
         <h1 className="mt-sm font-display text-display-xl uppercase">Pay your entry</h1>
 
         <div className="mt-section grid gap-section lg:grid-cols-[1fr_0.8fr]">

@@ -5,7 +5,6 @@ import { ArtistAchievements, type Achievement } from "@/components/artist-achiev
 import { GigWorkCard } from "@/components/gig-work-card";
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
-import { formatFee } from "@/lib/format";
 import { Pagination } from "@/components/pagination";
 import { formatLabel } from "@/lib/event-types";
 import { TeamInvitations } from "@/components/team-invitations";
@@ -20,13 +19,7 @@ type PageProps = { searchParams: Promise<{ page?: string }> };
 export default async function ArtistPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const user = await requireRole("ARTIST");
-  const [events, registrations, battleResults, profile, achievements, invitations] = await Promise.all([
-    prisma.event.findMany({
-      where: { status: { in: ["PUBLISHED", "LIVE"] } },
-      include: { categories: { include: { _count: { select: { registrations: true } } } } },
-      orderBy: { startsAt: "asc" },
-    }),
-    prisma.registration.findMany({ where: { OR: [{ userId: user.id }, { members: { some: { userId: user.id, status: { in: ["PENDING", "ACCEPTED"] } } } }] }, select: { categoryId: true, paid: true } }),
+  const [battleResults, profile, achievements, invitations] = await Promise.all([
     prisma.registration.findMany({
       where: { OR: [{ userId: user.id }, { members: { some: { userId: user.id, status: "ACCEPTED" } } }] },
       include: {
@@ -35,7 +28,7 @@ export default async function ArtistPage({ searchParams }: PageProps) {
              id: true,
              name: true,
              format: true,
-            event: { select: { id: true, title: true } },
+            event: { select: { id: true, title: true, slug: true, status: true } },
             prizePool: { select: { distribution: true, isPaid: true } },
           },
         },
@@ -94,9 +87,6 @@ export default async function ArtistPage({ searchParams }: PageProps) {
       orderBy: { invitedAt: "desc" },
     }),
   ]);
-  const registeredCategoryIds = new Set(registrations.map((registration) => registration.categoryId));
-  const paidCategoryIds = new Set(registrations.filter((registration) => registration.paid).map((registration) => registration.categoryId));
-
   const totalMatches = battleResults.reduce((sum, r) => sum + r.matchesAsA.length + r.matchesAsB.length, 0);
   const totalWins = battleResults.reduce(
     (sum, r) =>
@@ -125,8 +115,14 @@ export default async function ArtistPage({ searchParams }: PageProps) {
         </div>
         <div className="flex flex-wrap gap-sm">
           <Link
-            href="/artist/gigs"
+            href="/events"
             className="border border-accent bg-accent px-md py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper transition-opacity hover:opacity-80"
+          >
+            Go to event and participate
+          </Link>
+          <Link
+            href="/artist/gigs"
+            className="border border-accent px-md py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-accent transition-opacity hover:opacity-80"
           >
             Marketplace / Gigs
           </Link>
@@ -172,57 +168,31 @@ export default async function ArtistPage({ searchParams }: PageProps) {
 
       <GigWorkCard expiresAt={profile?.gigWorkExpiresAt ?? null} active={gigWorkActive} />
 
-      <section className="mt-section grid gap-md lg:grid-cols-2">
-        {events.length === 0 ? <p className="border border-line p-lg text-ink-muted">No open events right now.</p> : null}
-        {events.map((event) => (
-          <article className="border border-line bg-paper-soft p-lg" key={event.id}>
-            <p className="font-mono text-[0.7rem] uppercase text-accent">{event.status}</p>
-            <h2 className="mt-sm font-display text-title-md uppercase">{event.title}</h2>
-            <p className="mt-xs text-body-sm text-ink-muted">{event.startsAt.toLocaleString()} / {event.city ?? "Location TBA"}</p>
-            <ul className="mt-lg space-y-sm border-t border-line pt-md">
-              {event.categories.map((category) => {
-                const isReg = registeredCategoryIds.has(category.id);
-                const isPaid = paidCategoryIds.has(category.id);
-                return (
-                  <li className="flex items-center justify-between gap-md" key={category.id}>
-                    <span className="text-body-sm">
-                      {category.name}{" "}
-                      <span className="text-ink-muted">({category._count.registrations})</span>
-                    </span>
-                    <span className="font-mono text-[0.65rem] uppercase text-accent">
-                      {formatFee(category.entryFee, category.entryCurrency)}
-                    </span>
-                    <span className="w-28 text-right font-mono text-[0.65rem] uppercase text-ink-muted">
-                      {isReg ? (isPaid ? "Confirmed" : "Registered") : ""}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-            <Link
-              href={`/events/${event.slug}/register`}
-              className="mt-lg block border border-accent bg-accent px-md py-sm text-center font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper transition-opacity hover:opacity-80"
-            >
-              Register for this event
-            </Link>
-          </article>
-        ))}
-      </section>
-
       {battleResults.length > 0 ? (
         <section className="mt-section">
-          <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-ink-muted">My Results</p>
+          <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-ink-muted">My enrolled events</p>
           <div className="mt-lg grid gap-md lg:grid-cols-2">
             {pageResults.map((reg) => {
               const allMatches = [...reg.matchesAsA, ...reg.matchesAsB].sort((a, b) => a.round - b.round || a.position - b.position);
               const wins = allMatches.filter((m) => m.winner?.userId === user.id).length;
+              const isLive = reg.category.event.status === "LIVE";
               return (
                 <article className="border border-line bg-paper-soft p-lg" key={reg.id}>
-                  <h3 className="font-display text-title-md uppercase">{reg.category.event.title}</h3>
-                   <p className="mt-xs text-body-sm text-ink-muted">{reg.category.name} · {formatLabel(reg.category.format)}</p>
+                  <div className="flex flex-wrap items-start justify-between gap-sm">
+                    <div>
+                      <h3 className="font-display text-title-md uppercase">{reg.category.event.title}</h3>
+                      <p className="mt-xs text-body-sm text-ink-muted">{reg.category.name} · {formatLabel(reg.category.format)}</p>
+                    </div>
+                    <Link
+                      href={`/events/${reg.category.event.slug}${isLive ? "/live" : ""}`}
+                      className="border border-accent px-sm py-xs font-mono text-[0.65rem] font-bold uppercase tracking-[0.15em] text-accent hover:bg-accent hover:text-paper"
+                    >
+                      {isLive ? "Go live" : "View updates"}
+                    </Link>
+                  </div>
                   <p className={`mt-xs font-mono text-[0.7rem] uppercase tracking-[0.1em] ${reg.paid ? "text-accent" : "text-ink-muted"}`}>
                     {reg.entryFee && reg.entryFee > 0
-                      ? `${reg.entryCurrency === "INR" ? "₹" : `${reg.entryCurrency} `}${reg.entryFee} — ${reg.paid ? "Paid & confirmed" : "Payment pending"}`
+                      ? `${reg.entryCurrency === "INR" ? "₹" : `${reg.entryCurrency} `}${reg.entryFee} — ${reg.paid ? "Paid & confirmed" : reg.paidClaimedAt ? "Registered" : "Wait for verification"}`
                       : "Free entry"}
                   </p>
                   <div className="mt-md space-y-sm border-t border-line pt-md">
@@ -261,7 +231,7 @@ export default async function ArtistPage({ searchParams }: PageProps) {
                       })
                     )}
                   </div>
-                  {!reg.paid && reg.userId === user.id ? (
+                  {!reg.paid && !reg.paidClaimedAt && reg.userId === user.id ? (
                     <Link
                       href={`/cart?event=${reg.category.event.id}&ids=${reg.id}`}
                       className="mt-md inline-block border border-accent bg-accent px-md py-sm font-mono text-[0.65rem] font-bold uppercase tracking-[0.15em] text-paper transition-opacity hover:opacity-80"

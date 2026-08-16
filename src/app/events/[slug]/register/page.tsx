@@ -48,7 +48,7 @@ export default async function RegisterPage({ params }: RegisterPageContext) {
           { members: { some: { userId: user.id, status: { in: ["PENDING", "ACCEPTED"] } } } },
         ],
       },
-      select: { categoryId: true, paid: true },
+      select: { categoryId: true, paid: true, paidClaimedAt: true },
     }),
     prisma.user.findUnique({
       where: { id: user.id },
@@ -65,6 +65,9 @@ export default async function RegisterPage({ params }: RegisterPageContext) {
   ]);
   const registeredCategoryIds = new Set(existing.map((r) => r.categoryId));
   const paidCategoryIds = new Set(existing.filter((r) => r.paid).map((r) => r.categoryId));
+  const claimedCategoryIds = new Set(
+    existing.filter((r) => r.paidClaimedAt != null).map((r) => r.categoryId),
+  );
 
   const profileComplete = REQUIRED_PROFILE_FIELDS.every((field) =>
     Boolean(profileUser?.[field]),
@@ -129,6 +132,7 @@ export default async function RegisterPage({ params }: RegisterPageContext) {
             }))}
             registeredCategoryIds={registeredCategoryIds}
             paidCategoryIds={paidCategoryIds}
+            claimedCategoryIds={claimedCategoryIds}
             currentUser={{
               name: profileUser?.name ?? null,
               username: profileUser?.username ?? null,

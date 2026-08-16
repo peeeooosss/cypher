@@ -7,6 +7,7 @@ type TeamEntry = {
   teamName: string | null;
   format: string | null;
   paid: boolean;
+  paidClaimedAt: Date | null;
   entryFee: number | null;
   entryCurrency: string | null;
   category: { name: string; event: { title: string } };
@@ -29,10 +30,10 @@ export function TeamEntries({ entries }: { entries: TeamEntry[] }) {
                   <p className="font-display text-title-md uppercase">{entry.teamName ?? entry.category.name}</p>
                   <p className="mt-xs text-body-sm text-ink-muted">{entry.category.event.title} · {entry.category.name} · {formatLabel(entry.format)}</p>
                 </div>
-                <span className="font-mono text-[0.65rem] uppercase text-accent">{entry.paid ? "Confirmed" : "Payment pending"}</span>
+                <span className="font-mono text-[0.65rem] uppercase text-accent">{entry.paid ? "Confirmed" : entry.paidClaimedAt ? "Registered" : "Wait for verification"}</span>
               </div>
               <p className="mt-md border-t border-line pt-md text-body-sm text-ink-muted">{entry.members.map((member) => `${member.user.name ?? member.user.username ?? "Unnamed"} — ${member.status.toLowerCase()}`).join(" · ")}</p>
-              {!entry.paid && !pending ? <Link href={`/cart?ids=${entry.id}`} className="mt-md inline-block border border-accent bg-accent px-md py-sm font-mono text-[0.65rem] font-bold uppercase text-paper">Pay {formatFee(entry.entryFee, entry.entryCurrency ?? "INR")}</Link> : null}
+              {!entry.paid && !entry.paidClaimedAt && !pending ? <Link href={`/cart?ids=${entry.id}`} className="mt-md inline-block border border-accent bg-accent px-md py-sm font-mono text-[0.65rem] font-bold uppercase text-paper">Pay {formatFee(entry.entryFee, entry.entryCurrency ?? "INR")}</Link> : null}
               {pending ? <p className="mt-md font-mono text-[0.65rem] uppercase text-accent">Waiting for all members to accept</p> : null}
             </article>
           );

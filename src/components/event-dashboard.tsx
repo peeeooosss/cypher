@@ -156,7 +156,7 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
 
   return (
     <div className="mt-section">
-      <div className="grid grid-cols-6 gap-sm mb-xl">
+      <div className="flex flex-wrap gap-sm mb-xl">
         {visibleTabs.map((tab) => (
           <button
             key={tab}

@@ -58,8 +58,8 @@ export function CartCategoryList({ registrations }: { registrations: CartRegistr
                 {registration.paid
                   ? "Confirmed"
                   : isClaimed
-                    ? "Payment reported"
-                    : "Pending payment"}
+                    ? "Registered"
+                    : "Wait for verification"}
               </p>
             </div>
             <div className="flex items-center gap-md">
