@@ -49,7 +49,6 @@ export function RegistrationForm({
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<ArtistResult[]>([]);
   const [members, setMembers] = useState<ArtistResult[]>([]);
-  const [submitting, setSubmitting] = useState(false);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState("");
 
@@ -100,26 +99,11 @@ export function RegistrationForm({
       return;
     }
 
-    setSubmitting(true);
-    const response = await fetch("/api/registrations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        categoryIds: [...selected],
-        teamName: teamName.trim() || undefined,
-        memberIds: members.map((member) => member.id),
-      }),
-    });
-
-    if (!response.ok) {
-      const body = await response.json().catch(() => null);
-      setError(body?.error ?? "Unable to register.");
-      setSubmitting(false);
-      return;
-    }
-
-    const created = (await response.json()) as { id: string }[];
-    router.push(`/cart?event=${eventId}&ids=${created.map((registration) => registration.id).join(",")}`);
+    const params = new URLSearchParams({ event: eventId, cats: [...selected].join(",") });
+    const trimmedTeamName = teamName.trim();
+    if (trimmedTeamName) params.set("team", trimmedTeamName);
+    if (members.length > 0) params.set("members", members.map((member) => member.id).join(","));
+    router.push(`/cart?${params.toString()}`);
   }
 
   return (
@@ -185,7 +169,7 @@ export function RegistrationForm({
         <div className="mt-section border border-line">
           <div className="border-b border-line bg-paper-soft px-lg py-md">
             <p className="font-display text-title-md uppercase">Build your roster</p>
-            <p className="mt-xs text-body-sm text-ink-muted">You are the captain. Add CYPHR artists by username. They must accept before you can pay.</p>
+            <p className="mt-xs text-body-sm text-ink-muted">You are the captain. Add CYPHR artists by username. They will be invited to confirm after you have paid.</p>
           </div>
           <div className="space-y-md p-lg">
             <input className="w-full border border-line bg-paper px-md py-sm text-body-sm" value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="Team or crew name" />
@@ -204,7 +188,7 @@ export function RegistrationForm({
       ) : null}
 
       {error ? <p className="mt-md text-body-sm text-accent">{error}</p> : null}
-      <button className="mt-xl w-full border border-accent bg-accent px-lg py-md text-button-md font-bold uppercase text-paper disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={submitting || selected.size === 0}>{submitting ? "Registering..." : selected.size === 0 ? "Select at least one category" : `Create ${isTeam ? "team entry" : "entry"} — ${formatFee(total, "INR")}`}</button>
+      <button className="mt-xl w-full border border-accent bg-accent px-lg py-md text-button-md font-bold uppercase text-paper disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={selected.size === 0}>{selected.size === 0 ? "Select at least one category" : `Continue to payment — ${formatFee(total, "INR")}`}</button>
     </form>
   );
 }

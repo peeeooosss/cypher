@@ -118,7 +118,7 @@ export default async function ArtistPage({ searchParams }: PageProps) {
             href="/events"
             className="border border-accent bg-accent px-md py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper transition-opacity hover:opacity-80"
           >
-            Go to event and participate
+            See events
           </Link>
           <Link
             href="/artist/gigs"

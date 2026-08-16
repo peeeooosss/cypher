@@ -11,6 +11,7 @@ const registrationSchema = z.object({
   categoryIds: z.array(z.string().cuid()).min(1).optional(),
   teamName: z.string().trim().max(120).optional(),
   memberIds: z.array(z.string().cuid()).max(20).optional(),
+  claim: z.literal(true).optional(),
 }).refine((data) => data.categoryId !== undefined || data.categoryIds !== undefined, {
   message: "Category is required",
 });
@@ -137,6 +138,7 @@ export async function POST(request: Request) {
             experience: profile?.experience ?? null,
             socialHandle: profile?.socialHandle ?? null,
             referral: profile?.referral ?? null,
+            paidClaimedAt: parsed.data.claim ? new Date() : null,
             members: {
               create: memberIds.map((memberId) => ({
                 categoryId: category.id,
