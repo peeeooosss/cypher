@@ -14,6 +14,19 @@ enum UserRole {
   ADMIN
 }
 
+enum FeedbackType {
+  FEEDBACK
+  DEMAND
+}
+
+enum FeedbackStatus {
+  NEW
+  READ
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
+}
+
 enum PaymentStatus {
   NONE
   PENDING
@@ -490,4 +503,21 @@ model ArtistAchievement {
   updatedAt   DateTime @updatedAt
 
   @@index([userId])
+}
+
+model Feedback {
+  id         String         @id @default(cuid())
+  name       String?
+  email      String?
+  type       FeedbackType
+  subject    String
+  message    String
+  status     FeedbackStatus @default(NEW)
+  resolvedBy String?
+  resolvedAt DateTime?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  @@index([status])
+  @@index([type])
 }

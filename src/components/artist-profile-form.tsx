@@ -53,6 +53,8 @@ export function ArtistProfileForm({ profile }: { profile: ArtistProfile }) {
     for (const field of PROFILE_FIELDS) {
       body[field.name] = String(form.get(field.name) ?? "").trim();
     }
+    body.style = String(form.get("style") ?? "").trim();
+    body.experience = String(form.get("experience") ?? "").trim();
     body.skills = skills;
 
     const res = await fetch("/api/users/me", {
@@ -123,13 +125,13 @@ export function ArtistProfileForm({ profile }: { profile: ArtistProfile }) {
           </div>
         </div>
         <label className="block">
-          <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Style — dance style</span>
+          <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Style — dance style (optional)</span>
           <select
             className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm"
             name="style"
             defaultValue={profile.style ?? ""}
           >
-            <option value="">Select a dance style</option>
+            <option value="">Not a dancer / skip</option>
             {profile.style && !isDanceStyle(profile.style) ? (
               <option value={profile.style}>{profile.style} (current)</option>
             ) : null}

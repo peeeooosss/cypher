@@ -10,6 +10,7 @@ const footerLinks = [
   { href: "/for-organizers", label: "For Organizers" },
   { href: "/for-artists", label: "For Artists" },
   { href: "/about", label: "About Us" },
+  { href: "/feedback", label: "Feedback" },
 ];
 
 export function Footer() {

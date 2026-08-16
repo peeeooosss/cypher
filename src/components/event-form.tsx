@@ -4,7 +4,7 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { flatFeeForCategoryCount, formatInr } from "@/lib/pricing";
 import { PosterUpload } from "@/components/poster-upload";
-import { BATTLE_FORMATS, CATEGORY_FORMAT_LABELS, COMPETITION_FORMATS, EVENT_TYPE_LABELS, EVENT_TYPE_LIST, isCompetitionType, isWorkshopType } from "@/lib/event-types";
+import { BATTLE_FORMATS, CATEGORY_FORMAT_LABELS, COMPETITION_FORMATS, EVENT_TYPE_LABELS, EVENT_TYPE_LIST, defaultRosterSize, isCompetitionType, isWorkshopType } from "@/lib/event-types";
 import { CategoryFormat } from "@/generated/prisma/enums";
 import { INDIAN_STATES } from "@/lib/states";
 
@@ -122,6 +122,12 @@ export function EventForm() {
 export function CategoryForm({ eventId, eventType }: { eventId: string; eventType?: string | null }) {
   const router = useRouter();
   const [error, setError] = useState("");
+  const [format, setFormat] = useState<CategoryFormat>(
+    isCompetitionType(eventType) || isWorkshopType(eventType) ? CategoryFormat.SOLO : CategoryFormat.BATTLE_1V1,
+  );
+
+  const roster = defaultRosterSize(format);
+  const fixedSize = roster.min === roster.max;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -132,10 +138,8 @@ export function CategoryForm({ eventId, eventType }: { eventId: string; eventTyp
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: formData.get("name"),
-        format: formData.get("format"),
+        format,
         maxCompetitors: formData.get("maxCompetitors") ? Number(formData.get("maxCompetitors")) : null,
-        minMembers: formData.get("minMembers") ? Number(formData.get("minMembers")) : undefined,
-        maxMembers: formData.get("maxMembers") ? Number(formData.get("maxMembers")) : undefined,
         entryFee: formData.get("entryFee") ? Number(formData.get("entryFee")) : null,
       }),
     });
@@ -151,17 +155,33 @@ export function CategoryForm({ eventId, eventType }: { eventId: string; eventTyp
   }
 
   return (
-    <form className="mt-md flex flex-wrap gap-sm" onSubmit={handleSubmit}>
-      <input required className="min-w-48 border border-line bg-paper px-sm py-xs" name="name" placeholder="1v1 Popping" />
-      <select className="border border-line bg-paper px-sm py-xs" defaultValue={isCompetitionType(eventType) || isWorkshopType(eventType) ? CategoryFormat.SOLO : CategoryFormat.BATTLE_1V1} name="format">
-        {(isCompetitionType(eventType) ? COMPETITION_FORMATS : isWorkshopType(eventType) ? [CategoryFormat.SOLO] : BATTLE_FORMATS).map((format) => (
-          <option key={format} value={format}>{CATEGORY_FORMAT_LABELS[format]}</option>
-        ))}
-      </select>
-      <input className="w-32 border border-line bg-paper px-sm py-xs" min="2" name="maxCompetitors" placeholder="Max" type="number" />
-      <input className="w-28 border border-line bg-paper px-sm py-xs" min="1" name="minMembers" placeholder="Min members" type="number" />
-      <input className="w-28 border border-line bg-paper px-sm py-xs" min="1" name="maxMembers" placeholder="Max members" type="number" />
-      <input className="w-32 border border-line bg-paper px-sm py-xs" min="0" name="entryFee" placeholder="Entry fee (₹)" type="number" />
+    <form className="mt-md flex flex-wrap items-end gap-sm" onSubmit={handleSubmit}>
+      <label className="block">
+        <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Name</span>
+        <input required className="mt-xs min-w-48 border border-line bg-paper px-sm py-xs" name="name" placeholder="1v1 Popping" />
+      </label>
+      <label className="block">
+        <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Format</span>
+        <select className="mt-xs border border-line bg-paper px-sm py-xs" value={format} onChange={(e) => setFormat(e.target.value as CategoryFormat)} name="format">
+          {(isCompetitionType(eventType) ? COMPETITION_FORMATS : isWorkshopType(eventType) ? [CategoryFormat.SOLO] : BATTLE_FORMATS).map((f) => (
+            <option key={f} value={f}>{CATEGORY_FORMAT_LABELS[f]}</option>
+          ))}
+        </select>
+      </label>
+      <label className="block">
+        <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Maximum participants</span>
+        <input className="mt-xs w-36 border border-line bg-paper px-sm py-xs" min="1" name="maxCompetitors" placeholder="e.g. 16" type="number" />
+        <span className="mt-xs block max-w-44 font-mono text-[0.6rem] uppercase tracking-[0.08em] text-ink-muted">
+          Max teams allowed. Leave blank for unlimited.
+        </span>
+      </label>
+      <span className="mb-xs border border-line px-sm py-xs font-mono text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">
+        {fixedSize ? `${roster.min} per entry` : `${roster.min}–${roster.max} per entry`}
+      </span>
+      <label className="block">
+        <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Entry fee (₹)</span>
+        <input className="mt-xs w-32 border border-line bg-paper px-sm py-xs" min="0" name="entryFee" placeholder="e.g. 500" type="number" />
+      </label>
       <button className="border border-line px-md py-xs text-body-sm font-bold uppercase hover:border-accent" type="submit">Add category</button>
       {error ? <p className="basis-full text-body-sm text-accent">{error}</p> : null}
     </form>

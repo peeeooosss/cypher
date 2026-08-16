@@ -52,6 +52,11 @@ export default function SignupPage() {
         const value = String(formData.get(field.name) ?? "").trim();
         if (value) body[field.name] = value;
       }
+
+      const style = String(formData.get("style") ?? "").trim();
+      if (style) body.style = style;
+      const experience = String(formData.get("experience") ?? "").trim();
+      if (experience) body.experience = experience;
     }
 
     const response = await fetch("/api/auth/signup", {
@@ -184,14 +189,14 @@ export default function SignupPage() {
               <div className="mt-lg grid gap-md sm:grid-cols-2">
                 <label className="block text-body-sm font-bold uppercase">
                   Style — dance style
+                  <span className="font-normal normal-case text-ink-muted"> (optional)</span>
                   <select
-                    required
                     autoComplete="off"
                     className="mt-sm block w-full border border-line bg-paper px-md py-md text-body-md outline-none focus:border-accent"
                     name="style"
                     defaultValue=""
                   >
-                    <option value="">Select a dance style</option>
+                    <option value="">Not a dancer / skip</option>
                     {DANCE_STYLES.map((style) => (
                       <option key={style} value={style}>
                         {style}

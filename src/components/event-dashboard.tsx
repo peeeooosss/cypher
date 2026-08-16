@@ -6,7 +6,7 @@ import Link from "next/link";
 import { LiveLeaderboard } from "@/components/live-leaderboard";
 import { PosterUpload } from "@/components/poster-upload";
 import { formatInr, isEventFlatFeePaid } from "@/lib/pricing";
-import { BATTLE_FORMATS, CATEGORY_FORMAT_LABELS, COMPETITION_FORMATS, EVENT_TYPE_LABELS, EVENT_TYPE_LIST, formatLabel, isCompetitionType, isWorkshopType, SINGLE_POINT_ROUND_TYPES } from "@/lib/event-types";
+import { BATTLE_FORMATS, CATEGORY_FORMAT_LABELS, COMPETITION_FORMATS, EVENT_TYPE_LABELS, EVENT_TYPE_LIST, defaultRosterSize, formatLabel, isCompetitionType, isWorkshopType, SINGLE_POINT_ROUND_TYPES } from "@/lib/event-types";
 import { INDIAN_STATES } from "@/lib/states";
 import type { CategoryFormat, EventStatus, RoundType, RegistrationStatus, PaymentStatus } from "@/generated/prisma/enums";
 
@@ -756,8 +756,6 @@ function CategoryFeeEditor({
   const [fee, setFee] = useState(category.entryFee?.toString() ?? "");
   const [currency, setCurrency] = useState(category.entryCurrency);
   const [format, setFormat] = useState<string>(category.format ?? (isCompetitionType(eventType) || isWorkshopType(eventType) ? "SOLO" : "BATTLE_1V1"));
-  const [minMembers, setMinMembers] = useState(String(category.minMembers));
-  const [maxMembers, setMaxMembers] = useState(String(category.maxMembers));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -771,8 +769,6 @@ function CategoryFeeEditor({
         entryFee: fee ? Number(fee) : null,
         entryCurrency: currency || "INR",
         format,
-        minMembers: Number(minMembers),
-        maxMembers: Number(maxMembers),
       }),
     });
     if (!res.ok) {
@@ -800,8 +796,6 @@ function CategoryFeeEditor({
             setFee(category.entryFee?.toString() ?? "");
             setCurrency(category.entryCurrency);
             setFormat(category.format ?? (isCompetitionType(eventType) || isWorkshopType(eventType) ? "SOLO" : "BATTLE_1V1"));
-            setMinMembers(String(category.minMembers));
-            setMaxMembers(String(category.maxMembers));
             setEditing(true);
           }}
           type="button"
@@ -836,8 +830,6 @@ function CategoryFeeEditor({
         <select className="border border-line bg-paper px-sm py-xs text-body-sm" value={format} onChange={(e) => setFormat(e.target.value)}>
           {(isCompetitionType(eventType) ? COMPETITION_FORMATS : isWorkshopType(eventType) ? ["SOLO"] : BATTLE_FORMATS).map((option) => <option key={option} value={option}>{CATEGORY_FORMAT_LABELS[option as keyof typeof CATEGORY_FORMAT_LABELS]}</option>)}
         </select>
-        <input className="w-24 border border-line bg-paper px-sm py-xs text-body-sm" min={1} type="number" value={minMembers} onChange={(e) => setMinMembers(e.target.value)} placeholder="Min" />
-        <input className="w-24 border border-line bg-paper px-sm py-xs text-body-sm" min={1} type="number" value={maxMembers} onChange={(e) => setMaxMembers(e.target.value)} placeholder="Max" />
         <button
           className="border border-accent bg-accent px-md py-xs text-[0.7rem] font-bold uppercase text-paper disabled:opacity-60"
           disabled={saving}
@@ -1020,6 +1012,12 @@ function AddCategoryForm({
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [format, setFormat] = useState(
+    isCompetitionType(eventType) ? "SOLO" : "BATTLE_1V1",
+  );
+
+  const roster = defaultRosterSize(format);
+  const fixedSize = roster.min === roster.max;
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -1031,12 +1029,10 @@ function AddCategoryForm({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: form.get("name"),
-        format: form.get("format"),
+        format,
         maxCompetitors: form.get("maxCompetitors")
           ? Number(form.get("maxCompetitors"))
           : null,
-        minMembers: form.get("minMembers") ? Number(form.get("minMembers")) : undefined,
-        maxMembers: form.get("maxMembers") ? Number(form.get("maxMembers")) : undefined,
         entryFee: form.get("entryFee") ? Number(form.get("entryFee")) : null,
         prizeAmount: form.get("prizeAmount")
           ? Number(form.get("prizeAmount"))
@@ -1078,48 +1074,50 @@ function AddCategoryForm({
         />
         <select
           className="border border-line bg-paper px-md py-sm text-body-sm"
-          defaultValue={isCompetitionType(eventType) ? "SOLO" : "BATTLE_1V1"}
+          value={format}
+          onChange={(e) => setFormat(e.target.value)}
           name="format"
         >
-          {(isCompetitionType(eventType) ? COMPETITION_FORMATS : BATTLE_FORMATS).map((format) => (
-            <option key={format} value={format}>{CATEGORY_FORMAT_LABELS[format]}</option>
+          {(isCompetitionType(eventType) ? COMPETITION_FORMATS : BATTLE_FORMATS).map((f) => (
+            <option key={f} value={f}>{CATEGORY_FORMAT_LABELS[f]}</option>
           ))}
         </select>
-        <input
-          className="w-32 border border-line bg-paper px-md py-sm text-body-sm"
-          name="maxCompetitors"
-          type="number"
-          min={2}
-          placeholder="Max"
-        />
-        <input
-          className="w-32 border border-line bg-paper px-md py-sm text-body-sm"
-          name="minMembers"
-          type="number"
-          min={1}
-          placeholder="Min members"
-        />
-        <input
-          className="w-32 border border-line bg-paper px-md py-sm text-body-sm"
-          name="maxMembers"
-          type="number"
-          min={1}
-          placeholder="Max members"
-        />
-        <input
-          className="w-32 border border-line bg-paper px-md py-sm text-body-sm"
-          name="entryFee"
-          type="number"
-          min={0}
-          placeholder="Entry fee (₹)"
-        />
-        <input
-          className="w-32 border border-line bg-paper px-md py-sm text-body-sm"
-          name="prizeAmount"
-          type="number"
-          min={0}
-          placeholder="Prize pool (₹)"
-        />
+        <label className="block">
+          <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Maximum participants</span>
+          <input
+            className="w-36 border border-line bg-paper px-md py-sm text-body-sm"
+            name="maxCompetitors"
+            type="number"
+            min={1}
+            placeholder="e.g. 16"
+          />
+          <span className="mt-xs block font-mono text-[0.6rem] uppercase tracking-[0.08em] text-ink-muted">
+            Max teams. Blank = unlimited.
+          </span>
+        </label>
+        <span className="mb-xs self-center border border-line px-sm py-xs font-mono text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">
+          {fixedSize ? `${roster.min} per entry` : `${roster.min}–${roster.max} per entry`}
+        </span>
+        <label className="block">
+          <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Entry fee (₹)</span>
+          <input
+            className="w-32 border border-line bg-paper px-md py-sm text-body-sm"
+            name="entryFee"
+            type="number"
+            min={0}
+            placeholder="e.g. 500"
+          />
+        </label>
+        <label className="block">
+          <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Prize pool (₹)</span>
+          <input
+            className="w-32 border border-line bg-paper px-md py-sm text-body-sm"
+            name="prizeAmount"
+            type="number"
+            min={0}
+            placeholder="e.g. 50000"
+          />
+        </label>
       </div>
       {error && <p className="mt-sm text-body-sm text-accent">{error}</p>}
       <div className="mt-md flex gap-sm">

@@ -5,7 +5,7 @@ import { UserRole } from "@/generated/prisma/enums";
 import { badRequest, conflict, isUniqueConstraintError, serverError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 
-const ARTIST_PROFILE_FIELDS = ["style", "city", "country", "experience", "socialHandle"] as const;
+const ARTIST_PROFILE_FIELDS = ["city", "country", "experience", "socialHandle"] as const;
 
 const signupSchema = z
   .object({
@@ -14,7 +14,7 @@ const signupSchema = z
     name: z.string().trim().min(2, "Name must be at least 2 characters").max(120),
     username: z.string().trim().toLowerCase().regex(/^[a-z0-9_]{3,30}$/, "Username must use 3–30 letters, numbers, or underscores").optional(),
     role: z.enum([UserRole.ORGANIZER, UserRole.ARTIST]),
-    style: z.string().trim().min(1, "Style is required").max(80).optional(),
+    style: z.string().trim().max(80).optional(),
     crew: z.string().trim().max(120).optional(),
     city: z.string().trim().min(1, "City is required").max(120).optional(),
     country: z.string().trim().min(1, "Country is required").max(120).optional(),

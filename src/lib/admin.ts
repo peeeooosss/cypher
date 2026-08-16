@@ -254,6 +254,30 @@ export async function getAdminArtist(userId: string) {
   return { ...artist, achievements, registrations, memberships };
 }
 
+export async function getAdminFeedback() {
+  const [feedback, byStatus, byType] = await Promise.all([
+    prisma.feedback.findMany({ orderBy: { createdAt: "desc" } }),
+    prisma.feedback.groupBy({ by: ["status"], _count: { _all: true } }),
+    prisma.feedback.groupBy({ by: ["type"], _count: { _all: true } }),
+  ]);
+
+  return {
+    feedback,
+    byStatus: byStatus.reduce<Record<string, number>>((acc, row) => {
+      acc[row.status] = row._count._all;
+      return acc;
+    }, {}),
+    byType: byType.reduce<Record<string, number>>((acc, row) => {
+      acc[row.type] = row._count._all;
+      return acc;
+    }, {}),
+  };
+}
+
+export async function getAdminFeedbackItem(id: string) {
+  return prisma.feedback.findUnique({ where: { id } });
+}
+
 export async function getAdminAnalytics() {
   const sixMonthsAgo = new Date();
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
