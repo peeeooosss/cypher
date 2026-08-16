@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { formatFee } from "@/lib/format";
 import { formatLabel, isTeamFormat } from "@/lib/event-types";
 
@@ -31,6 +32,7 @@ export function RegistrationForm({
   registeredCategoryIds,
   paidCategoryIds,
   claimedCategoryIds,
+  pendingRegistrationIds,
   currentUser,
 }: {
   eventId: string;
@@ -38,6 +40,7 @@ export function RegistrationForm({
   registeredCategoryIds: Set<string>;
   paidCategoryIds: Set<string>;
   claimedCategoryIds: Set<string>;
+  pendingRegistrationIds: Record<string, string>;
   currentUser: { name: string | null; username: string | null };
 }) {
   const router = useRouter();
@@ -145,7 +148,22 @@ export function RegistrationForm({
                   </p>
                 </div>
                 <span className="font-mono text-body-sm uppercase text-accent">{formatFee(category.entryFee, category.entryCurrency)}</span>
-                <span className="w-28 text-right font-mono text-[0.65rem] uppercase text-ink-muted">{isPaid ? "Confirmed" : claimedCategoryIds.has(category.id) ? "Registered" : isRegistered ? "Wait for verification" : isFull ? "Full" : ""}</span>
+                {isPaid ? (
+                  <span className="w-28 text-right font-mono text-[0.65rem] uppercase text-ink-muted">Confirmed</span>
+                ) : pendingRegistrationIds[category.id] ? (
+                  <Link
+                    href={`/cart?event=${eventId}&ids=${pendingRegistrationIds[category.id]}`}
+                    className="border border-accent px-sm py-xs font-mono text-[0.65rem] font-bold uppercase tracking-[0.1em] text-accent hover:bg-accent hover:text-paper"
+                  >
+                    Continue to payment &rarr;
+                  </Link>
+                ) : claimedCategoryIds.has(category.id) ? (
+                  <span className="w-28 text-right font-mono text-[0.65rem] uppercase text-ink-muted">Registered</span>
+                ) : isRegistered ? (
+                  <span className="w-28 text-right font-mono text-[0.65rem] uppercase text-ink-muted">Wait for verification</span>
+                ) : isFull ? (
+                  <span className="w-28 text-right font-mono text-[0.65rem] uppercase text-ink-muted">Full</span>
+                ) : null}
               </li>
             );
           })}
