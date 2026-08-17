@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getArtistProfile } from "@/lib/artists";
 import { formatDate, formatExperience, formatFee } from "@/lib/format";
 import { skillLabel } from "@/lib/skills";
+import { getCurrentUser } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,8 @@ type PageProps = { params: Promise<{ userId: string }> };
 
 export default async function PublicArtistProfilePage({ params }: PageProps) {
   const { userId } = await params;
-  const artist = await getArtistProfile(userId);
+  const viewer = await getCurrentUser();
+  const artist = await getArtistProfile(userId, viewer?.role);
 
   if (!artist) {
     notFound();
@@ -28,17 +30,31 @@ export default async function PublicArtistProfilePage({ params }: PageProps) {
       >
         &larr; Back to artist directory
       </Link>
-      <div className="mt-lg">
-        <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-accent">
-          Artist profile
-        </p>
-        <h1 className="font-display text-display-lg uppercase">{artist.name ?? "Unnamed artist"}</h1>
-        <p className="mt-sm text-body-sm text-ink-muted">
-          {[artist.style, artist.crew, artist.city, artist.country, formatExperience(artist.experience)].filter(Boolean).join(" · ")}
-        </p>
-        {artist.socialHandle ? (
-          <p className="mt-xs font-mono text-[0.7rem] text-accent">{artist.socialHandle}</p>
-        ) : null}
+      <div className="mt-lg flex items-start gap-lg">
+        {artist.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={artist.avatarUrl}
+            alt={`${artist.name ?? "Artist"} profile picture`}
+            className="h-28 w-28 shrink-0 rounded-full border border-line object-cover"
+          />
+        ) : (
+          <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-full border border-line bg-paper-soft font-display text-title-lg uppercase text-ink-muted">
+            {artist.name?.charAt(0) ?? "?"}
+          </div>
+        )}
+        <div>
+          <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-accent">
+            Artist profile
+          </p>
+          <h1 className="font-display text-display-lg uppercase">{artist.name ?? "Unnamed artist"}</h1>
+          <p className="mt-sm text-body-sm text-ink-muted">
+            {[artist.style, artist.crew, artist.city, artist.country, formatExperience(artist.experience)].filter(Boolean).join(" · ")}
+          </p>
+          {artist.socialHandle ? (
+            <p className="mt-xs font-mono text-[0.7rem] text-accent">{artist.socialHandle}</p>
+          ) : null}
+        </div>
       </div>
 
       {artist.skills.length > 0 && (

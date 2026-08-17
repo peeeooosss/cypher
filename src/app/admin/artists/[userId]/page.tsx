@@ -28,19 +28,36 @@ export default async function AdminArtistDetailPage({ params }: PageProps) {
       </Link>
 
       <div className="flex flex-wrap items-start justify-between gap-md border border-line bg-paper-soft p-lg">
-        <div>
-          <h2 className="font-display text-title-md uppercase">{artist.name ?? "Unnamed"}</h2>
-          <p className="mt-xs text-body-sm text-ink-muted">{artist.email}</p>
-          <p className="mt-xs text-body-sm text-ink-muted">
-            {[artist.style, artist.crew, artist.city, artist.country, formatExperience(artist.experience)].filter(Boolean).join(" · ") || "—"}
-          </p>
-          {artist.socialHandle ? (
-            <p className="mt-xs text-body-sm text-ink-muted">{artist.socialHandle} · {artist.referral ?? "no referral"}</p>
-          ) : null}
-          {artist.skills.length > 0 ? (
-            <p className="mt-xs text-body-sm text-ink-muted">Skills: {artist.skills.join(", ")}</p>
-          ) : null}
-          <p className="mt-xs text-body-sm text-ink-muted">Joined {artist.createdAt.toLocaleDateString()}</p>
+        <div className="flex items-start gap-md">
+          {artist.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={artist.avatarUrl}
+              alt={artist.name ?? "Artist"}
+              className="h-16 w-16 shrink-0 rounded-full border border-line object-cover"
+            />
+          ) : (
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-line bg-paper font-display text-lg uppercase text-ink-muted">
+              {artist.name?.charAt(0) ?? "?"}
+            </div>
+          )}
+          <div>
+            <h2 className="font-display text-title-md uppercase">{artist.name ?? "Unnamed"}</h2>
+            <p className="mt-xs text-body-sm text-ink-muted">{artist.email}</p>
+            <p className="mt-xs text-body-sm text-ink-muted">
+              {[artist.style, artist.crew, artist.city, artist.country, formatExperience(artist.experience)].filter(Boolean).join(" · ") || "—"}
+            </p>
+            {artist.socialHandle ? (
+              <p className="mt-xs text-body-sm text-ink-muted">{artist.socialHandle} · {artist.referral ?? "no referral"}</p>
+            ) : null}
+            {artist.skills.length > 0 ? (
+              <p className="mt-xs text-body-sm text-ink-muted">Skills: {artist.skills.join(", ")}</p>
+            ) : null}
+            <p className="mt-xs text-body-sm text-ink-muted">Joined {artist.createdAt.toLocaleDateString()}</p>
+            <p className="mt-xs font-mono text-[0.7rem] uppercase text-ink-muted">
+              Profile: {artist.isProfilePublic ? "Public" : "Private"}
+            </p>
+          </div>
         </div>
         <div className="flex flex-col items-end gap-sm">
           {artist.isSuspended ? (

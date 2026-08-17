@@ -8,6 +8,7 @@ import { formatExperience } from "@/lib/format";
 export type DirectoryArtist = {
   id: string;
   name: string | null;
+  avatarUrl: string | null;
   style: string | null;
   crew: string | null;
   city: string | null;
@@ -99,9 +100,23 @@ export function ArtistDirectory({
                   Public profile
                 </span>
               ) : null}
-              <h2 className="font-display text-title-md uppercase transition-colors group-hover:text-accent">
-                {artist.name ?? "Unnamed artist"}
-              </h2>
+              <div className="flex items-center gap-md">
+                {artist.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={artist.avatarUrl}
+                    alt={`${artist.name ?? "Artist"}`}
+                    className="h-14 w-14 shrink-0 rounded-full border border-line object-cover"
+                  />
+                ) : (
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-line bg-paper font-display text-lg uppercase text-ink-muted">
+                    {artist.name?.charAt(0) ?? "?"}
+                  </div>
+                )}
+                <h2 className="font-display text-title-md uppercase transition-colors group-hover:text-accent">
+                  {artist.name ?? "Unnamed artist"}
+                </h2>
+              </div>
               <p className="mt-xs text-body-sm text-ink-muted">
                 {[artist.style, artist.crew, artist.city, formatExperience(artist.experience)]
                   .filter(Boolean)

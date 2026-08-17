@@ -2,12 +2,23 @@ import type { DirectoryArtist } from "@/components/artist-directory";
 import { prisma } from "@/lib/prisma";
 import { UserRole } from "@/generated/prisma/enums";
 
-export async function getDirectoryArtists(): Promise<DirectoryArtist[]> {
+export function canViewPrivateProfiles(role?: UserRole | null): boolean {
+  return role === UserRole.ORGANIZER || role === UserRole.ARTIST || role === UserRole.ADMIN;
+}
+
+export async function getDirectoryArtists(viewerRole?: UserRole | null): Promise<DirectoryArtist[]> {
+  const privileged = canViewPrivateProfiles(viewerRole);
+
   const users = await prisma.user.findMany({
-    where: { role: UserRole.ARTIST },
+    where: {
+      role: UserRole.ARTIST,
+      isSuspended: false,
+      ...(privileged ? {} : { isProfilePublic: true }),
+    },
     select: {
       id: true,
       name: true,
+      avatarUrl: true,
       style: true,
       crew: true,
       city: true,
@@ -29,6 +40,7 @@ export async function getDirectoryArtists(): Promise<DirectoryArtist[]> {
   return users.map((u) => ({
     id: u.id,
     name: u.name,
+    avatarUrl: u.avatarUrl,
     style: u.style,
     crew: u.crew,
     city: u.city,
@@ -43,13 +55,20 @@ export async function getDirectoryArtists(): Promise<DirectoryArtist[]> {
   }));
 }
 
-export async function getArtistProfile(userId: string) {
-  return prisma.user.findUnique({
-    where: { id: userId },
+export async function getArtistProfile(userId: string, viewerRole?: UserRole | null) {
+  const privileged = canViewPrivateProfiles(viewerRole);
+
+  return prisma.user.findFirst({
+    where: {
+      id: userId,
+      role: UserRole.ARTIST,
+      isSuspended: false,
+      ...(privileged ? {} : { isProfilePublic: true }),
+    },
     select: {
       id: true,
       name: true,
-      email: true,
+      avatarUrl: true,
       style: true,
       crew: true,
       city: true,

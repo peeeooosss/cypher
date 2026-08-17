@@ -1,10 +1,12 @@
 import { ArtistDirectory } from "@/components/artist-directory";
 import { getDirectoryArtists } from "@/lib/artists";
+import { getCurrentUser } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
 export default async function PublicArtistDirectoryPage() {
-  const artists = await getDirectoryArtists();
+  const viewer = await getCurrentUser();
+  const artists = await getDirectoryArtists(viewer?.role);
 
   return (
     <main className="min-h-screen bg-paper px-md py-section md:px-xl">

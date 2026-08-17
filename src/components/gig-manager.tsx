@@ -16,6 +16,7 @@ type GigApplication = {
   artist: {
     id: string;
     name: string | null;
+    avatarUrl: string | null;
     style: string | null;
     crew: string | null;
     city: string | null;
@@ -229,12 +230,26 @@ export function GigManager({ gigs }: { gigs: Gig[] }) {
                     <div key={application.id} className="border border-line bg-paper p-md">
                       <div className="flex flex-wrap items-start justify-between gap-sm">
                         <div>
-                          <Link
-                            href={`/artist/directory/${application.artist.id}`}
-                            className="font-display text-title-sm uppercase hover:text-accent"
-                          >
-                            {application.artist.name ?? "Unnamed artist"}
-                          </Link>
+                          <div className="flex items-center gap-sm">
+                            {application.artist.avatarUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={application.artist.avatarUrl}
+                                alt={application.artist.name ?? "Artist"}
+                                className="h-10 w-10 rounded-full border border-line object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-10 w-10 items-center justify-center rounded-full border border-line bg-paper-soft font-display text-sm uppercase text-ink-muted">
+                                {application.artist.name?.charAt(0) ?? "?"}
+                              </div>
+                            )}
+                            <Link
+                              href={`/artist/directory/${application.artist.id}`}
+                              className="font-display text-title-sm uppercase hover:text-accent"
+                            >
+                              {application.artist.name ?? "Unnamed artist"}
+                            </Link>
+                          </div>
                           <p className="mt-xs text-body-sm text-ink-muted">
                             {[application.artist.style, application.artist.crew, application.artist.city, formatExperience(application.artist.experience)]
                               .filter(Boolean)

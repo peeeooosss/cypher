@@ -27,6 +27,7 @@ const updateMeSchema = z.object({
   skills: z.array(z.enum(Skill)).max(20).optional(),
   minJudgingPricePerDay: z.number().int().min(0).max(1000000).nullable().optional(),
   minWorkshopPricePerDay: z.number().int().min(0).max(1000000).nullable().optional(),
+  isProfilePublic: z.boolean().optional(),
 });
 
 export async function PATCH(request: Request) {
@@ -60,6 +61,8 @@ export async function PATCH(request: Request) {
       skills: true,
       minJudgingPricePerDay: true,
       minWorkshopPricePerDay: true,
+      avatarUrl: true,
+      isProfilePublic: true,
     },
   });
 

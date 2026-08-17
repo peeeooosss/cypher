@@ -49,6 +49,7 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           role: user.role,
+          avatarUrl: user.avatarUrl,
         };
       },
     }),
@@ -58,6 +59,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.role = user.role;
+        token.avatarUrl = user.avatarUrl;
       }
 
       return token;
@@ -70,6 +72,10 @@ export const authOptions: NextAuthOptions = {
 
         if (token.role) {
           session.user.role = token.role;
+        }
+
+        if (token.avatarUrl) {
+          session.user.avatarUrl = token.avatarUrl;
         }
       }
 

@@ -7,6 +7,8 @@ import { DANCE_STYLES, EXPERIENCE_OPTIONS, isDanceStyle } from "@/lib/styles";
 
 export type ArtistProfile = {
   name: string | null;
+  avatarUrl: string | null;
+  isProfilePublic: boolean;
   style: string | null;
   crew: string | null;
   city: string | null;
@@ -18,7 +20,7 @@ export type ArtistProfile = {
 };
 
 const PROFILE_FIELDS: Array<{
-  name: keyof Omit<ArtistProfile, "name" | "skills">;
+  name: keyof Omit<ArtistProfile, "name" | "skills" | "avatarUrl" | "isProfilePublic">;
   label: string;
   placeholder: string;
 }> = [
@@ -29,11 +31,19 @@ const PROFILE_FIELDS: Array<{
   { name: "referral", label: "How did you hear about us?", placeholder: "e.g. Instagram, Friend" },
 ];
 
+const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
+
 export function ArtistProfileForm({ profile }: { profile: ArtistProfile }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [skills, setSkills] = useState<string[]>(profile.skills ?? []);
+  const [isProfilePublic, setIsProfilePublic] = useState(profile.isProfilePublic ?? true);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(profile.avatarUrl ?? null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarState, setAvatarState] = useState<"idle" | "uploading" | "error">("idle");
 
   function toggleSkill(skill: string) {
     setSkills((prev) =>
@@ -41,11 +51,59 @@ export function ArtistProfileForm({ profile }: { profile: ArtistProfile }) {
     );
   }
 
+  async function handleAvatarFile(file: File | undefined) {
+    setAvatarState("idle");
+    if (!file) return;
+    if (!ALLOWED_TYPES.has(file.type)) {
+      setAvatarState("error");
+      return;
+    }
+    if (file.size > MAX_FILE_BYTES) {
+      setAvatarState("error");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setAvatarPreview(String(reader.result ?? ""));
+    };
+    reader.readAsDataURL(file);
+
+    setAvatarState("uploading");
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch("/api/users/me/avatar", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      setAvatarUrl(data.avatarUrl);
+      setAvatarPreview(null);
+      setAvatarState("idle");
+      router.refresh();
+    } else {
+      setAvatarState("error");
+    }
+  }
+
+  async function handleRemoveAvatar() {
+    setAvatarState("idle");
+    const res = await fetch("/api/users/me/avatar", { method: "DELETE" });
+    if (res.ok) {
+      setAvatarUrl(null);
+      setAvatarPreview(null);
+      router.refresh();
+    }
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus("saving");
     const form = new FormData(event.currentTarget);
-    const body: Record<string, unknown> = {};
+    const body: Record<string, unknown> = { isProfilePublic };
 
     const name = String(form.get("name") ?? "").trim();
     if (name) body.name = name;
@@ -89,6 +147,86 @@ export function ArtistProfileForm({ profile }: { profile: ArtistProfile }) {
       <p className="mt-xs text-body-sm text-ink-muted">
         These details are sent to organizers with every registration.
       </p>
+
+      <div className="mt-lg flex flex-wrap items-center gap-md">
+        {avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={avatarUrl}
+            alt="Profile picture"
+            className="h-20 w-20 rounded-full border border-line object-cover"
+          />
+        ) : avatarPreview ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={avatarPreview}
+            alt="Profile preview"
+            className="h-20 w-20 rounded-full border border-line object-cover"
+          />
+        ) : (
+          <div className="flex h-20 w-20 items-center justify-center rounded-full border border-line bg-paper font-display text-title-md uppercase text-ink-muted">
+            {profile.name?.charAt(0) ?? "?"}
+          </div>
+        )}
+        <div className="space-y-sm">
+          <label className="block cursor-pointer border border-line px-md py-xs font-mono text-[0.7rem] uppercase text-ink-muted transition-colors hover:border-accent hover:text-accent">
+            {avatarState === "uploading" ? "Uploading…" : avatarUrl ? "Change photo" : "Upload photo"}
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={(e) => void handleAvatarFile(e.target.files?.[0])}
+            />
+          </label>
+          {avatarUrl ? (
+            <button
+              type="button"
+              onClick={() => void handleRemoveAvatar()}
+              className="block border border-line px-md py-xs font-mono text-[0.7rem] uppercase text-ink-muted transition-colors hover:border-red-500 hover:text-red-500"
+            >
+              Remove photo
+            </button>
+          ) : null}
+          {avatarState === "error" ? (
+            <p className="font-mono text-[0.65rem] uppercase text-red-600">
+              Only JPG, PNG, or WebP up to 5MB
+            </p>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="mt-lg">
+        <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Profile visibility</span>
+        <div className="mt-xs grid gap-sm sm:grid-cols-2">
+          <label className="block cursor-pointer border border-line bg-paper px-md py-sm">
+            <input
+              type="radio"
+              name="visibility"
+              className="mr-sm"
+              checked={isProfilePublic}
+              onChange={() => setIsProfilePublic(true)}
+            />
+            <span className="text-body-sm font-bold uppercase">Public</span>
+            <p className="mt-xs text-body-sm text-ink-muted">
+              Shown in the public artist directory for visitors.
+            </p>
+          </label>
+          <label className="block cursor-pointer border border-line bg-paper px-md py-sm">
+            <input
+              type="radio"
+              name="visibility"
+              className="mr-sm"
+              checked={!isProfilePublic}
+              onChange={() => setIsProfilePublic(false)}
+            />
+            <span className="text-body-sm font-bold uppercase">Private</span>
+            <p className="mt-xs text-body-sm text-ink-muted">
+              Hidden from visitors. Visible to logged-in organizers and artists.
+            </p>
+          </label>
+        </div>
+      </div>
 
       <div className="mt-lg grid gap-md sm:grid-cols-2">
         <label className="block">

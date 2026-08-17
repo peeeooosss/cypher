@@ -75,14 +75,28 @@ export function Nav() {
           ))}
 
           {status === "authenticated" ? (
-            <form action="/api/auth/signout" method="POST" className="inline-block">
-              <button
-                type="submit"
-                className="border border-line px-md py-xs font-mono text-[0.7rem] uppercase tracking-[0.15em] transition-colors hover:border-accent hover:text-accent cursor-pointer"
-              >
-                Sign out
-              </button>
-            </form>
+            <div className="flex items-center gap-sm">
+              {session?.user?.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={session.user.avatarUrl}
+                  alt={session.user.name ?? "Profile"}
+                  className="h-8 w-8 rounded-full border border-line object-cover"
+                />
+              ) : (
+                <div className="flex h-8 w-8 items-center justify-center rounded-full border border-line bg-paper-soft font-display text-xs uppercase text-ink-muted">
+                  {session?.user?.name?.charAt(0) ?? "?"}
+                </div>
+              )}
+              <form action="/api/auth/signout" method="POST" className="inline-block">
+                <button
+                  type="submit"
+                  className="border border-line px-md py-xs font-mono text-[0.7rem] uppercase tracking-[0.15em] transition-colors hover:border-accent hover:text-accent cursor-pointer"
+                >
+                  Sign out
+                </button>
+              </form>
+            </div>
           ) : (
             <Link
               href="/login"

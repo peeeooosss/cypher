@@ -76,6 +76,8 @@ export default async function ArtistPage({ searchParams }: PageProps) {
         gigWorkExpiresAt: true,
         minJudgingPricePerDay: true,
         minWorkshopPricePerDay: true,
+        avatarUrl: true,
+        isProfilePublic: true,
       },
     }),
     prisma.artistAchievement.findMany({
