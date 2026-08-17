@@ -9,6 +9,7 @@ import { formatLabel } from "@/lib/event-types";
 import { CategoryFormat } from "@/generated/prisma/enums";
 import { CartCategoryList } from "@/components/cart-claim";
 import { CartSubmit } from "@/components/cart-submit";
+import { UpiButtons } from "@/components/upi-buttons";
 
 export const dynamic = "force-dynamic";
 
@@ -19,27 +20,6 @@ type CartSearchParams = Promise<{
   team?: string;
   members?: string;
 }>;
-
-function buildUpiUrl({
-  upiId,
-  name,
-  amount,
-  note,
-}: {
-  upiId: string;
-  name: string;
-  amount: number;
-  note: string;
-}) {
-  const params = new URLSearchParams({
-    pa: upiId,
-    pn: name,
-    am: String(amount),
-    cu: "INR",
-    tn: note,
-  });
-  return `upi://pay?${params.toString()}`;
-}
 
 function resolveFormat(format: CategoryFormat | string | null, eventType: string | null) {
   if (format) return format;
@@ -64,15 +44,17 @@ async function PaymentAside({
   children?: ReactNode;
 }) {
   let qrDataUrl: string | null = null;
-  let upiLink: string | null = null;
+  let upiId: string | null = null;
   if (organizerUpiId) {
-    upiLink = buildUpiUrl({
-      upiId: organizerUpiId,
-      name: organizerName ?? "CYPHR Organizer",
-      amount: total,
-      note: `${eventTitle} entry`,
+    upiId = organizerUpiId;
+    const params = new URLSearchParams({
+      pa: organizerUpiId,
+      pn: organizerName ?? "CYPHR Organizer",
+      am: String(total),
+      cu: "INR",
+      tn: `${eventTitle} entry`,
     });
-    qrDataUrl = await QRCode.toDataURL(upiLink, { width: 280, margin: 1 });
+    qrDataUrl = await QRCode.toDataURL(`upi://pay?${params.toString()}`, { width: 280, margin: 1 });
   }
 
   return (
@@ -80,7 +62,7 @@ async function PaymentAside({
       <p className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-accent">
         Scan to pay the organizer
       </p>
-      {qrDataUrl && upiLink ? (
+      {qrDataUrl && upiId ? (
         <>
           <img
             src={qrDataUrl}
@@ -92,18 +74,15 @@ async function PaymentAside({
           <p className="mt-lg font-display text-title-md uppercase">
             {organizerName ?? "Organizer"}
           </p>
-          <p className="mt-xs font-mono text-[0.65rem] uppercase text-ink-muted">
-            {organizerUpiId}
-          </p>
           <p className="mt-lg font-mono text-body-sm uppercase text-accent">
             {formatFee(total, "INR")}
           </p>
-          <a
-            href={upiLink}
-            className="mt-lg block border border-accent px-md py-sm text-body-sm font-bold uppercase text-accent hover:bg-accent hover:text-paper"
-          >
-            Open UPI app
-          </a>
+          <UpiButtons
+            upiId={upiId}
+            payeeName={organizerName ?? "CYPHR Organizer"}
+            amount={total}
+            note={`${eventTitle} entry`}
+          />
           <p className="mt-lg text-body-sm leading-relaxed text-ink-muted">{note}</p>
           {children}
         </>

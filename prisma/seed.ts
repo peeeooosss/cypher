@@ -180,7 +180,7 @@ const battleHiphop = await prisma.category.create({
 });
 
 // Round phases for battle categories
-for (const [cat, code] of [[battleBreaking, "BRK"], [battlePopping, "POP"], [battleHiphop, "HIP"]] as const) {
+for (const cat of [battleBreaking, battlePopping, battleHiphop]) {
   await prisma.roundFormat.createMany({
     data: [
       { categoryId: cat.id, order: 1, type: RoundType.CYPHER, label: "Cypher Round", roundCount: 1, roundDuration: 60, advanceCount: 8, phaseStatus: "PENDING" },
