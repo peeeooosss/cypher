@@ -188,7 +188,6 @@ for (const cat of [battleBreaking, battlePopping, battleHiphop]) {
       { categoryId: cat.id, order: 3, type: RoundType.FINAL, label: "Finals", roundCount: 3, roundDuration: 45, phaseStatus: "PENDING" },
     ],
   });
-  await prisma.category.update({ where: { id: cat.id }, data: { currentPhaseOrder: 1 } });
 }
 
 // Judge slots — battle event
@@ -251,7 +250,6 @@ for (const cat of [compSolo, compDuo]) {
       { categoryId: cat.id, order: 2, type: RoundType.FINAL, label: "Finals", roundCount: 3, roundDuration: 60, phaseStatus: "PENDING" },
     ],
   });
-  await prisma.category.update({ where: { id: cat.id }, data: { currentPhaseOrder: 1 } });
 }
 
 await prisma.judgeSlot.create({ data: { code: "DNC001", name: "Panel Judge 1", eventId: danceCompEvent.id, categoryId: compSolo.id, isActive: true } });
@@ -299,7 +297,6 @@ for (const cat of [musicRap, musicProducer]) {
       { categoryId: cat.id, order: 2, type: RoundType.FINAL, label: "Finals", roundCount: 3, roundDuration: 45, phaseStatus: "PENDING" },
     ],
   });
-  await prisma.category.update({ where: { id: cat.id }, data: { currentPhaseOrder: 1 } });
 }
 
 await prisma.judgeSlot.create({ data: { code: "MUS001", name: "Head Judge", eventId: musicCompEvent.id, categoryId: musicRap.id, isActive: true } });

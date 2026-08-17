@@ -6,6 +6,8 @@ import { getCurrentUser } from "@/lib/rbac";
 import { COMMISSION_RATE, isEventFlatFeePaid } from "@/lib/pricing";
 import { isValidState } from "@/lib/states";
 import { prisma } from "@/lib/prisma";
+import { generateBracket, BracketError } from "@/lib/bracket";
+import { emitToSocket } from "@/lib/socket-emit";
 
 const updateEventSchema = z.object({
   title: z.string().trim().min(2).max(120).optional(),
@@ -111,6 +113,40 @@ export async function PATCH(request: Request, { params }: EventRouteContext) {
         },
         { status: 402 },
       );
+    }
+  }
+
+  const BATTLE_TYPES = ["BATTLE_1V1", "BATTLE_2V2", "BATTLE_3V3", "BATTLE_4V4", "CREW_VS_CREW", "FINAL"];
+
+  // Auto-activate first phase when event transitions to LIVE
+  if (targetStatus === EventStatus.LIVE && ownedEvent.status !== EventStatus.LIVE) {
+    const categories = await prisma.category.findMany({
+      where: { eventId },
+      include: { rounds: { orderBy: { order: "asc" } } },
+    });
+    for (const category of categories) {
+      const firstPending = category.rounds.find(
+        (r) => r.phaseStatus !== "COMPLETE" && r.phaseStatus !== "ACTIVE",
+      );
+      if (!firstPending) continue;
+      await prisma.category.update({ where: { id: category.id }, data: { currentPhaseOrder: firstPending.order } });
+      await prisma.roundFormat.update({ where: { id: firstPending.id }, data: { phaseStatus: "ACTIVE" } });
+
+      if (BATTLE_TYPES.includes(firstPending.type)) {
+        try {
+          await generateBracket(category.id, user.id);
+        } catch (error) {
+          if (!(error instanceof BracketError)) throw error;
+        }
+      }
+
+      await emitToSocket(eventId, "phase:activated", {
+        phaseId: firstPending.id,
+        phaseOrder: firstPending.order,
+        type: firstPending.type,
+        label: firstPending.label,
+        categoryId: category.id,
+      });
     }
   }
 
