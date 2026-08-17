@@ -8,6 +8,7 @@ export const metadata: Metadata = {
   title: "CYPHR | Underground Artist Platform",
   description: "The underground platform connecting dancers, DJs, guitarists, drummers, performers, organizers, and judges.",
   icons: {
+    icon: "/Favicon.svg",
     apple: "/apple-icon.svg",
   },
 };
