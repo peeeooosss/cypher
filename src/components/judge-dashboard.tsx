@@ -39,7 +39,10 @@ export function JudgeDashboard({
     judgeCount: number;
   } | null>(null);
   const [myPick, setMyPick] = useState<"red" | "blue" | null>(null);
-  const [feedback, setFeedback] = useState<{ templateId?: string; custom: string }>({ custom: "" });
+  const [feedback, setFeedback] = useState<{
+    red: { templateId?: string; custom: string };
+    blue: { templateId?: string; custom: string };
+  }>({ red: { custom: "" }, blue: { custom: "" } });
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [joinError, setJoinError] = useState<string | null>(null);
@@ -61,7 +64,7 @@ export function JudgeDashboard({
       setWinnerCorner(null);
       setAggregate(null);
       setMyPick(null);
-      setFeedback({ custom: "" });
+      setFeedback({ red: { custom: "" }, blue: { custom: "" } });
       setSubmitError(null);
     };
 
@@ -117,8 +120,10 @@ export function JudgeDashboard({
       {
         matchId: liveMatch.matchId,
         winnerCorner: myPick,
-        feedbackTemplateId: feedback.templateId,
-        feedback: feedback.custom || undefined,
+        feedbackRed: feedback.red.custom || undefined,
+        feedbackBlue: feedback.blue.custom || undefined,
+        feedbackTemplateIdRed: feedback.red.templateId,
+        feedbackTemplateIdBlue: feedback.blue.templateId,
       },
       (ack) => {
         setSubmitting(false);
@@ -133,8 +138,6 @@ export function JudgeDashboard({
   }
 
   const pickMade = myPick != null;
-  const defeatedCorner = myPick === "red" ? "blue" : "red";
-  const defeatedName = defeatedCorner === "red" ? liveMatch?.red.name : liveMatch?.blue.name;
   const connectionLabel =
     status === "live" ? "LIVE" : status === "offline" ? "OFFLINE" : "CONNECTING...";
 
@@ -288,9 +291,9 @@ export function JudgeDashboard({
             <span className="text-accent">
               {myPick === "red" ? "Red wins" : "Blue wins"}
             </span>
-            {feedback.custom || feedback.templateId ? (
+            {feedback.red.custom || feedback.red.templateId || feedback.blue.custom || feedback.blue.templateId ? (
               <span className="block font-mono text-[0.7rem] normal-case text-ink-muted">
-                 Feedback for {defeatedName ?? "defeated entry"} recorded.
+                Feedback recorded.
               </span>
             ) : null}
           </div>
@@ -299,12 +302,18 @@ export function JudgeDashboard({
             Match complete
           </div>
         ) : (
-          <div className="grid gap-md md:grid-cols-[1fr_auto_auto]">
+          <div className="grid gap-md md:grid-cols-[1fr_1fr_auto]">
             <FeedbackSelect
               code={code}
-              label={defeatedName ? `Feedback for ${defeatedName}` : "Feedback"}
-              value={feedback}
-              onChange={setFeedback}
+              label={`Feedback for ${liveMatch.red.name} (optional)`}
+              value={feedback.red}
+              onChange={(next) => setFeedback((prev) => ({ ...prev, red: next }))}
+            />
+            <FeedbackSelect
+              code={code}
+              label={`Feedback for ${liveMatch.blue.name} (optional)`}
+              value={feedback.blue}
+              onChange={(next) => setFeedback((prev) => ({ ...prev, blue: next }))}
             />
             <div className="flex items-center gap-md">
               <span className="font-mono text-body-sm uppercase text-ink-muted">

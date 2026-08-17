@@ -29,8 +29,8 @@ export async function PATCH(request: Request, { params }: Context) {
   }
 
   const schema = z.object({
-    status: z.enum(GigApplicationStatus).refine((s) => s === "ACCEPTED" || s === "REJECTED", {
-      message: "Only ACCEPTED or REJECTED are allowed",
+    status: z.enum(GigApplicationStatus).refine((s) => s === "REJECTED", {
+      message: "Only REJECTED is allowed; use the offer endpoint to accept an application",
     }),
   });
 
@@ -45,6 +45,7 @@ export async function PATCH(request: Request, { params }: Context) {
       where: { id: applicationId },
       data: { status: parsed.data.status },
     });
+
     return NextResponse.json(application);
   } catch (error) {
     console.error(error);

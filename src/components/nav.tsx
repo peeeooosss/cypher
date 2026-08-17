@@ -22,7 +22,7 @@ const dashboardLinks: Record<string, { href: string; label: string }[]> = {
   ],
   ARTIST: [
     { href: "/artist", label: "Dashboard" },
-    { href: "/artist/gigs", label: "Marketplace" },
+    { href: "/artist/marketplace", label: "Marketplace" },
   ],
   JUDGE: [{ href: "/judge", label: "Portal" }],
   ADMIN: [{ href: "/admin", label: "Admin" }],

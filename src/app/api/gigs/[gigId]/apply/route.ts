@@ -26,7 +26,7 @@ export async function POST(request: Request, { params }: Context) {
   if (!artist || !artist.gigWorkExpiresAt || artist.gigWorkExpiresAt.getTime() <= Date.now()) {
     return NextResponse.json(
       {
-        error: "Enable Gig Work (₹49 for 3 months) to apply to gigs.",
+        error: "Enable Gig Work (₹99 for 3 months) to apply to gigs.",
         code: "GIG_WORK_REQUIRED",
       },
       { status: 403 },

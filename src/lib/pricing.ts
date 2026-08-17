@@ -8,7 +8,11 @@ export const COMMISSION_RATE = 0.015;
 
 export const GIG_FLAT_FEE = 149;
 
-export const GIG_WORK_FEE = 49;
+export const GIG_WORK_FEE = 99;
+
+export const GIG_CONNECTION_FEE = 49;
+
+export const GIG_COMMISSION_RATE = 0.1;
 
 export const GIG_WORK_DURATION_MS = 3 * 30 * 24 * 60 * 60 * 1000;
 

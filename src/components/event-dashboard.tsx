@@ -1155,12 +1155,13 @@ function JudgesTab({
             <p className="font-display text-title-md uppercase">
               {category.name}
             </p>
-            <GenerateJudgeCodeButton
-              eventId={event.id}
-              categoryId={category.id}
-              refresh={refresh}
-            />
           </div>
+
+          <JudgeCodeForm
+            eventId={event.id}
+            categoryId={category.id}
+            refresh={refresh}
+          />
 
           {category.judgeSlots.length === 0 ? (
             <p className="mt-lg text-body-sm text-ink-muted">
@@ -1179,7 +1180,7 @@ function JudgesTab({
   );
 }
 
-function GenerateJudgeCodeButton({
+function JudgeCodeForm({
   eventId,
   categoryId,
   refresh,
@@ -1188,22 +1189,65 @@ function GenerateJudgeCodeButton({
   categoryId: string;
   refresh: () => void;
 }) {
+  const [mode, setMode] = useState<"directory" | "manual">("directory");
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<Array<{ id: string; name: string | null; style: string | null; crew: string | null; city: string | null }>>([]);
+  const [selected, setSelected] = useState<{ id: string; name: string | null } | null>(null);
+  const [manualName, setManualName] = useState("");
   const [generating, setGenerating] = useState(false);
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (mode !== "directory" || query.trim().length < 2) return;
+    let active = true;
+    const timer = setTimeout(async () => {
+      const res = await fetch(`/api/artists/search?q=${encodeURIComponent(query.trim())}`);
+      if (res.ok && active) setResults(await res.json());
+    }, 300);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [query, mode]);
 
   async function handleGenerate() {
     setGenerating(true);
+    setError("");
     setGeneratedCode(null);
+
+    const body: { categoryId: string; name?: string; judgeUserId?: string } = { categoryId };
+    if (mode === "directory" && selected) {
+      body.judgeUserId = selected.id;
+      if (selected.name) body.name = selected.name;
+    } else if (mode === "manual" && manualName.trim()) {
+      body.name = manualName.trim();
+    }
+
+    if (!body.judgeUserId && !body.name) {
+      setError("Pick an artist or enter a name.");
+      setGenerating(false);
+      return;
+    }
+
     const res = await fetch(`/api/events/${eventId}/judge-slots`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ categoryId }),
+      body: JSON.stringify(body),
     });
+
     if (res.ok) {
       const data = await res.json();
       setGeneratedCode(data.code);
+      setSelected(null);
+      setManualName("");
+      setQuery("");
+      setResults([]);
       refresh();
+    } else {
+      const err = await res.json().catch(() => null);
+      setError(err?.error ?? "Failed to generate code.");
     }
     setGenerating(false);
   }
@@ -1216,23 +1260,92 @@ function GenerateJudgeCodeButton({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-sm">
-      <button
-        className="border border-line px-md py-sm text-body-sm font-bold uppercase hover:border-accent disabled:opacity-60"
-        disabled={generating}
-        onClick={handleGenerate}
-        type="button"
-      >
-        {generating ? "..." : "+ Generate code"}
-      </button>
+    <div className="mt-lg border border-line bg-paper-soft p-md">
+      <div className="flex flex-wrap items-center gap-sm">
+        <button
+          type="button"
+          className={`border px-sm py-xs font-mono text-[0.65rem] uppercase tracking-[0.1em] ${
+            mode === "directory" ? "border-accent bg-accent/10 text-accent" : "border-line text-ink-muted hover:border-accent"
+          }`}
+          onClick={() => setMode("directory")}
+        >
+          From artist directory
+        </button>
+        <button
+          type="button"
+          className={`border px-sm py-xs font-mono text-[0.65rem] uppercase tracking-[0.1em] ${
+            mode === "manual" ? "border-accent bg-accent/10 text-accent" : "border-line text-ink-muted hover:border-accent"
+          }`}
+          onClick={() => setMode("manual")}
+        >
+          Manual name
+        </button>
+      </div>
+
+      <div className="mt-md flex flex-wrap items-end gap-sm">
+        {mode === "directory" ? (
+          <div className="min-w-64 flex-1">
+            <input
+              className="w-full border border-line bg-paper px-md py-sm text-body-sm"
+              placeholder={selected?.name ?? "Search artists..."}
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                if (selected) setSelected(null);
+                if (e.target.value.trim().length < 2) setResults([]);
+              }}
+            />
+            {!selected && results.length > 0 ? (
+              <ul className="mt-xs border border-line bg-paper">
+                {results.map((artist) => (
+                  <li key={artist.id}>
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between gap-sm px-md py-sm text-left text-body-sm hover:bg-paper-soft"
+                      onClick={() => {
+                        setSelected({ id: artist.id, name: artist.name });
+                        setQuery("");
+                        setResults([]);
+                      }}
+                    >
+                      <span className="font-bold uppercase">{artist.name ?? "Unnamed"}</span>
+                      <span className="font-mono text-[0.65rem] uppercase text-ink-muted">
+                        {[artist.style, artist.crew, artist.city].filter(Boolean).join(" · ")}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : (
+          <input
+            className="min-w-64 flex-1 border border-line bg-paper px-md py-sm text-body-sm"
+            placeholder="Judge name (outsider / abroad)"
+            value={manualName}
+            onChange={(e) => setManualName(e.target.value)}
+          />
+        )}
+        <button
+          type="button"
+          className="border border-line px-md py-sm text-body-sm font-bold uppercase hover:border-accent disabled:opacity-60"
+          disabled={generating}
+          onClick={() => void handleGenerate()}
+        >
+          {generating ? "..." : "+ Generate code"}
+        </button>
+      </div>
+
+      {error ? <p className="mt-sm text-body-sm text-accent">{error}</p> : null}
+
       {generatedCode && (
-        <div className="flex items-center gap-sm">
+        <div className="mt-md flex flex-wrap items-center gap-sm">
           <code className="border border-accent bg-paper-soft px-md py-sm font-mono text-display-lg text-accent">
             {generatedCode}
           </code>
           <button
             className="border border-line px-md py-sm text-body-sm font-bold uppercase hover:border-accent"
-            onClick={copyCode}
+            onClick={() => void copyCode()}
             type="button"
           >
             {copied ? "Copied" : "Copy"}

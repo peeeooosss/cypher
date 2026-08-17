@@ -43,7 +43,7 @@ export default async function AdminDashboardPage() {
       <div className="grid gap-md sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Flat fee revenue" value={formatInr(stats.flatFeeRevenue)} sub="Verified flat fees" />
         <StatCard label="Commission collected" value={formatInr(stats.commissionRevenue)} sub="Settled commissions" />
-        <StatCard label="Gig work revenue" value={formatInr(stats.gigWorkRevenue)} sub="₹49 marketplace access" />
+        <StatCard label="Gig work revenue" value={formatInr(stats.gigWorkRevenue)} sub="₹99 marketplace access" />
         <StatCard label="Commission due" value={formatInr(stats.commissionDue)} sub="Outstanding" />
       </div>
 

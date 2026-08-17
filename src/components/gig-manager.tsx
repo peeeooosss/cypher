@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatDate, formatExperience } from "@/lib/format";
 import { SKILLS, SKILL_LABELS, skillLabel } from "@/lib/skills";
+import { RazorpayCheckout } from "@/components/razorpay-checkout";
+import { PaymentType } from "@/generated/prisma/enums";
 
 type GigApplication = {
   id: string;
@@ -20,7 +22,16 @@ type GigApplication = {
     experience: string | null;
     socialHandle: string | null;
     skills: string[];
+    minJudgingPricePerDay: number | null;
+    minWorkshopPricePerDay: number | null;
+    gigAvailability: { id: string; dateFrom: Date; dateTo: Date }[];
   };
+  agreement: {
+    id: string;
+    status: string;
+    offerAmount: number | null;
+    paymentStatus: string;
+  } | null;
 };
 
 type Gig = {
@@ -91,17 +102,12 @@ export function GigManager({ gigs }: { gigs: Gig[] }) {
     if (res.ok) router.refresh();
   }
 
-  async function updateApplication(gigId: string, applicationId: string, status: "ACCEPTED" | "REJECTED") {
+  async function rejectApplication(gigId: string, applicationId: string) {
     const res = await fetch(`/api/gigs/${gigId}/applications/${applicationId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status: "REJECTED" }),
     });
-    if (res.ok) router.refresh();
-  }
-
-  async function payGigFee(gigId: string) {
-    const res = await fetch(`/api/gigs/${gigId}/pay`, { method: "POST" });
     if (res.ok) router.refresh();
   }
 
@@ -188,13 +194,12 @@ export function GigManager({ gigs }: { gigs: Gig[] }) {
                     ) : null}
                   </>
                 ) : (
-                  <button
-                    type="button"
+                  <RazorpayCheckout
+                    type={PaymentType.GIG_POST}
+                    referenceId={gig.id}
+                    label="Pay ₹149 to publish"
                     className="border border-accent bg-accent px-sm py-xs font-mono text-[0.65rem] uppercase text-paper"
-                    onClick={() => void payGigFee(gig.id)}
-                  >
-                    Pay ₹149 to publish
-                  </button>
+                  />
                 )}
               </div>
             </div>
@@ -245,31 +250,52 @@ export function GigManager({ gigs }: { gigs: Gig[] }) {
                           {application.message ? (
                             <p className="mt-sm text-body-sm text-ink-muted">“{application.message}”</p>
                           ) : null}
+                          {(application.artist.minJudgingPricePerDay != null ||
+                            application.artist.minWorkshopPricePerDay != null) && (
+                            <p className="mt-sm text-body-sm text-ink-muted">
+                              Rates:{" "}
+                              {application.artist.minJudgingPricePerDay != null
+                                ? `Judging ₹${application.artist.minJudgingPricePerDay}/day`
+                                : null}
+                              {application.artist.minJudgingPricePerDay != null &&
+                              application.artist.minWorkshopPricePerDay != null
+                                ? " · "
+                                : null}
+                              {application.artist.minWorkshopPricePerDay != null
+                                ? `Workshop ₹${application.artist.minWorkshopPricePerDay}/day`
+                                : null}
+                            </p>
+                          )}
+                          {application.artist.gigAvailability.length > 0 ? (
+                            <p className="mt-xs text-body-sm text-ink-muted">
+                              Available:{" "}
+                              {application.artist.gigAvailability
+                                .map((a) => `${formatDate(a.dateFrom)}–${formatDate(a.dateTo)}`)
+                                .join(", ")}
+                            </p>
+                          ) : null}
                         </div>
-                        <div className="flex items-center gap-sm">
+                        <div className="flex flex-col items-end gap-sm">
                           <span className={`font-mono text-[0.65rem] uppercase ${application.status === "ACCEPTED" ? "text-accent" : application.status === "REJECTED" ? "text-red-500" : "text-ink-muted"}`}>
                             {application.status}
                           </span>
                           {application.status === "PENDING" ? (
-                            <>
-                              <button
-                                type="button"
-                                className="border border-accent bg-accent px-sm py-xs font-mono text-[0.65rem] uppercase text-paper"
-                                onClick={() => void updateApplication(gig.id, application.id, "ACCEPTED")}
-                              >
-                                Accept
-                              </button>
+                            <div className="flex items-center gap-sm">
+                              <OfferButton gig={gig} application={application} />
                               <button
                                 type="button"
                                 className="border border-line px-sm py-xs font-mono text-[0.65rem] uppercase text-ink-muted hover:border-accent hover:text-accent"
-                                onClick={() => void updateApplication(gig.id, application.id, "REJECTED")}
+                                onClick={() => void rejectApplication(gig.id, application.id)}
                               >
                                 Reject
                               </button>
-                            </>
+                            </div>
                           ) : null}
                         </div>
                       </div>
+                      {application.agreement ? (
+                        <AgreementStatus application={application} />
+                      ) : null}
                     </div>
                   ))}
                 </div>
@@ -280,4 +306,157 @@ export function GigManager({ gigs }: { gigs: Gig[] }) {
       )}
     </div>
   );
+}
+
+function OfferButton({ gig, application }: { gig: Gig; application: GigApplication }) {
+  const [open, setOpen] = useState(false);
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        className="border border-accent bg-accent px-sm py-xs font-mono text-[0.65rem] uppercase text-paper"
+        onClick={() => setOpen(true)}
+      >
+        Send offer
+      </button>
+    );
+  }
+
+  return <OfferForm gig={gig} applicationId={application.id} onClose={() => setOpen(false)} />;
+}
+
+function OfferForm({
+  gig,
+  applicationId,
+  onClose,
+}: {
+  gig: Gig;
+  applicationId: string;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [sending, setSending] = useState(false);
+  const [notice, setNotice] = useState("");
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSending(true);
+    setNotice("");
+    const form = new FormData(event.currentTarget);
+    const amount = Number(form.get("offerAmount"));
+    const workDate = form.get("workDate") as string;
+
+    const res = await fetch(`/api/gigs/${gig.id}/applications/${applicationId}/offer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        offerAmount: amount > 0 ? amount : undefined,
+        workDate: workDate ? new Date(workDate).toISOString() : undefined,
+        location: form.get("location") || undefined,
+        scope: form.get("scope") || undefined,
+        deliverables: form.get("deliverables") || undefined,
+        paymentTerms: form.get("paymentTerms") || undefined,
+        cancellationTerms: form.get("cancellationTerms") || undefined,
+      }),
+    });
+    setSending(false);
+    if (res.ok) {
+      router.refresh();
+    } else {
+      const body = await res.json().catch(() => null);
+      setNotice(body?.error ?? "Failed to send offer.");
+    }
+  }
+
+  return (
+    <form
+      className="mt-md space-y-sm border border-line bg-paper-soft p-md"
+      onSubmit={submit}
+    >
+      <p className="font-mono text-[0.65rem] uppercase text-ink-muted">
+        Work offer & agreement
+      </p>
+      <div className="grid gap-sm sm:grid-cols-2">
+        <input className="border border-line bg-paper px-md py-sm text-body-sm" name="offerAmount" type="number" min={1} placeholder="Final fee (₹)" defaultValue={gig.budget ?? undefined} />
+        <input className="border border-line bg-paper px-md py-sm text-body-sm" name="workDate" type="datetime-local" />
+        <input className="border border-line bg-paper px-md py-sm text-body-sm sm:col-span-2" name="location" placeholder="Location / city" defaultValue={gig.location ?? undefined} />
+      </div>
+      <textarea className="w-full border border-line bg-paper px-md py-sm text-body-sm" name="scope" rows={2} placeholder="Scope of work" />
+      <textarea className="w-full border border-line bg-paper px-md py-sm text-body-sm" name="deliverables" rows={2} placeholder="Deliverables" />
+      <textarea className="w-full border border-line bg-paper px-md py-sm text-body-sm" name="paymentTerms" rows={2} placeholder="Payment terms (e.g. paid after event)" />
+      <textarea className="w-full border border-line bg-paper px-md py-sm text-body-sm" name="cancellationTerms" rows={2} placeholder="Cancellation terms" />
+      {notice ? <p className="text-body-sm text-accent">{notice}</p> : null}
+      <div className="flex gap-sm">
+        <button
+          type="submit"
+          className="border border-accent bg-accent px-md py-sm font-mono text-[0.65rem] font-bold uppercase tracking-[0.15em] text-paper disabled:opacity-60"
+          disabled={sending}
+        >
+          {sending ? "Sending..." : "Send offer & sign agreement"}
+        </button>
+        <button
+          type="button"
+          className="border border-line px-md py-sm font-mono text-[0.65rem] uppercase tracking-[0.15em] text-ink-muted"
+          onClick={onClose}
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function AgreementStatus({ application }: { application: GigApplication }) {
+  const router = useRouter();
+  const agreement = application.agreement!;
+  const label = agreementLabel(agreement.status);
+
+  async function confirmPaid() {
+    const res = await fetch(`/api/agreements/${agreement.id}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "CONFIRM_PAID" }),
+    });
+    if (res.ok) router.refresh();
+  }
+
+  return (
+    <div className="mt-md border-t border-line pt-md">
+      <p className="font-mono text-[0.65rem] uppercase text-accent">{label}</p>
+      {agreement.offerAmount ? (
+        <p className="mt-xs text-body-sm text-ink-muted">
+          Agreed ₹{agreement.offerAmount} · Payment status {agreement.paymentStatus}
+        </p>
+      ) : null}
+      {["ACTIVE", "COMPLETED"].includes(agreement.status) && agreement.paymentStatus !== "PAID" ? (
+        <button
+          type="button"
+          className="mt-sm border border-line px-sm py-xs font-mono text-[0.65rem] uppercase text-ink-muted hover:border-accent hover:text-accent"
+          onClick={() => void confirmPaid()}
+        >
+          Confirm payment sent
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function agreementLabel(status: string): string {
+  switch (status) {
+    case "PENDING_ARTIST":
+      return "Offer sent — awaiting artist acceptance";
+    case "CONNECTION_PENDING":
+      return "Artist accepted — awaiting connection fee";
+    case "ACTIVE":
+      return "Connected — chat unlocked";
+    case "COMPLETED":
+      return "Work completed";
+    case "CANCELLED":
+      return "Cancelled";
+    case "EXPIRED":
+      return "Expired";
+    default:
+      return status;
+  }
 }

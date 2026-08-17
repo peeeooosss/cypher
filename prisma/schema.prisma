@@ -33,6 +33,21 @@ enum PaymentStatus {
   VERIFIED
 }
 
+enum PaymentType {
+  EVENT_FLAT_FEE
+  EVENT_COMMISSION
+  GIG_POST
+  GIG_WORK
+  GIG_COMMISSION
+  GIG_CONNECTION
+}
+
+enum PaymentOrderStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
 enum EventStatus {
   DRAFT
   PUBLISHED
@@ -76,6 +91,15 @@ enum GigApplicationStatus {
   ACCEPTED
   REJECTED
   WITHDRAWN
+}
+
+enum GigAgreementStatus {
+  PENDING_ARTIST
+  CONNECTION_PENDING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  EXPIRED
 }
 
 enum RegistrationStatus {
@@ -148,6 +172,8 @@ model User {
   feedbackTemplates FeedbackTemplate[]
   gigs            Gig[]             @relation("OrganizerGigs")
   gigApplications GigApplication[]  @relation("ArtistGigApplications")
+  agreementsAsOrganizer GigAgreement[] @relation("AgreementOrganizer")
+  agreementsAsArtist GigAgreement[] @relation("AgreementArtist")
   achievements    ArtistAchievement[]
   gigWorkEnabledAt DateTime?
   gigWorkExpiresAt DateTime?
@@ -157,6 +183,14 @@ model User {
   gigWorkPaymentVerifiedBy String?
   gigWorkPaidAt DateTime?
   isSuspended    Boolean           @default(false)
+  minJudgingPricePerDay Int?
+  minWorkshopPricePerDay Int?
+  gigAvailability ArtistAvailability[]
+  conversations Conversation[]     @relation("ConversationOrganizer")
+  artistConversations Conversation[] @relation("ConversationArtist")
+  messages       Message[]
+  payments       Payment[]
+  judgedSlots    JudgeSlot[]       @relation("JudgeSlotsJudge")
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 }
@@ -338,9 +372,11 @@ model JudgeSlot {
   categoryId String
   code       String       @unique
   name       String?
+  judgeUserId String?
   isActive   Boolean      @default(true)
   event      Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
   category   Category     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  judgeUser  User?        @relation("JudgeSlotsJudge", fields: [judgeUserId], references: [id])
   scores     MatchScore[]
   dancerScores DancerScore[]
   judgeAssignments JudgeAssignment[]
@@ -348,6 +384,7 @@ model JudgeSlot {
   updatedAt  DateTime     @updatedAt
 
   @@unique([categoryId, code])
+  @@index([judgeUserId])
 }
 
 model DancerScore {
@@ -376,6 +413,8 @@ model MatchScore {
   scoreB      Int
   winnerCorner String?
   feedback    String?
+  feedbackRed String?
+  feedbackBlue String?
   match       BattleMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
   judgeSlot   JudgeSlot   @relation(fields: [judgeSlotId], references: [id], onDelete: Cascade)
   createdAt   DateTime    @default(now())
@@ -464,8 +503,13 @@ model Gig {
   status         GigStatus          @default(OPEN)
   feePaid        Boolean            @default(false)
   feePaidAt      DateTime?
+  awardedAmount  Int?
+  commissionDue  Int?
+  commissionStatus PaymentStatus    @default(NONE)
   organizer      User               @relation("OrganizerGigs", fields: [organizerId], references: [id], onDelete: Cascade)
   applications   GigApplication[]
+  agreements     GigAgreement[]
+  conversations  Conversation[]
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
 
@@ -481,10 +525,52 @@ model GigApplication {
   status       GigApplicationStatus @default(PENDING)
   gig          Gig                  @relation(fields: [gigId], references: [id], onDelete: Cascade)
   artist       User                 @relation("ArtistGigApplications", fields: [artistId], references: [id], onDelete: Cascade)
+  agreement    GigAgreement?
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt
 
   @@unique([gigId, artistId])
+  @@index([artistId])
+}
+
+model GigAgreement {
+  id            String             @id @default(cuid())
+  gigId         String
+  applicationId String             @unique
+  organizerId   String
+  artistId      String
+  status        GigAgreementStatus @default(PENDING_ARTIST)
+
+  offerAmount   Int?
+  currency      String             @default("INR")
+  scope         String?
+  deliverables  String?
+  workDate      DateTime?
+  location      String?
+  cancellationTerms String?
+  paymentTerms  String?
+  termsVersion  String             @default("1.0")
+
+  organizerSignedAt DateTime?
+  artistSignedAt    DateTime?
+  connectionPaidAt  DateTime?
+
+  workStartedAt   DateTime?
+  workCompletedAt DateTime?
+  paymentReportedAt DateTime?
+  paymentConfirmedAt DateTime?
+  paymentStatus  String             @default("NOT_REPORTED")
+
+  gig          Gig            @relation(fields: [gigId], references: [id], onDelete: Cascade)
+  application  GigApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  organizer    User           @relation("AgreementOrganizer", fields: [organizerId], references: [id], onDelete: Cascade)
+  artist       User           @relation("AgreementArtist", fields: [artistId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@index([gigId])
+  @@index([organizerId])
   @@index([artistId])
 }
 
@@ -520,4 +606,68 @@ model Feedback {
 
   @@index([status])
   @@index([type])
+}
+
+model ArtistAvailability {
+  id        String   @id @default(cuid())
+  userId    String
+  dateFrom  DateTime
+  dateTo    DateTime
+  note      String?
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Conversation {
+  id            String          @id @default(cuid())
+  gigId         String?
+  applicationId String?         @unique
+  organizerId   String
+  artistId      String
+  status        String          @default("OPEN")
+  unlockedAt    DateTime?
+  organizer     User            @relation("ConversationOrganizer", fields: [organizerId], references: [id], onDelete: Cascade)
+  artist        User            @relation("ConversationArtist", fields: [artistId], references: [id], onDelete: Cascade)
+  gig           Gig?            @relation(fields: [gigId], references: [id], onDelete: Cascade)
+  messages      Message[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([organizerId])
+  @@index([artistId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  senderId       String
+  body           String
+  readAt         DateTime?
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId])
+}
+
+model Payment {
+  id                String             @id @default(cuid())
+  type              PaymentType
+  referenceId       String
+  payerId           String
+  amountPaise       Int
+  currency          String             @default("INR")
+  razorpayOrderId   String             @unique
+  razorpayPaymentId String?
+  razorpaySignature String?
+  status            PaymentOrderStatus @default(PENDING)
+  payer             User               @relation(fields: [payerId], references: [id], onDelete: Cascade)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([payerId])
+  @@index([type, referenceId])
 }

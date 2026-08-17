@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 const createSlotSchema = z.object({
   categoryId: z.string().cuid(),
   name: z.string().trim().max(80).optional(),
+  judgeUserId: z.string().cuid().optional(),
 });
 
 type Context = { params: Promise<{ eventId: string }> };
@@ -66,7 +67,7 @@ export async function POST(request: Request, { params }: Context) {
     return badRequest(parsed.error.issues[0]?.message ?? "Invalid slot data");
   }
 
-  const { categoryId, name } = parsed.data;
+  const { categoryId, name, judgeUserId } = parsed.data;
 
   const category = await prisma.category.findFirst({
     where: { id: categoryId, eventId },
@@ -75,6 +76,27 @@ export async function POST(request: Request, { params }: Context) {
 
   if (!category) {
     return notFound("Category");
+  }
+
+  let resolvedName = name ?? null;
+  let resolvedJudgeUserId = judgeUserId ?? null;
+
+  if (judgeUserId) {
+    const artist = await prisma.user.findFirst({
+      where: { id: judgeUserId, role: "ARTIST", isSuspended: false },
+      select: { id: true, name: true },
+    });
+
+    if (!artist) {
+      return badRequest("Selected artist is not an active artist account");
+    }
+
+    resolvedJudgeUserId = artist.id;
+    resolvedName = artist.name ?? resolvedName;
+  }
+
+  if (!resolvedName && !resolvedJudgeUserId) {
+    return badRequest("Judge name is required");
   }
 
   const slotCount = await prisma.judgeSlot.count({
@@ -112,9 +134,10 @@ export async function POST(request: Request, { params }: Context) {
     const slot = await prisma.judgeSlot.create({
       data: {
         code,
-        name: name ?? null,
-        event: { connect: { id: eventId } },
-        category: { connect: { id: categoryId } },
+        name: resolvedName,
+        judgeUserId: resolvedJudgeUserId,
+        eventId,
+        categoryId,
       },
     });
 

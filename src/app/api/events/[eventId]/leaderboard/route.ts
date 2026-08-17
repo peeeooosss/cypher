@@ -57,6 +57,8 @@ export async function GET(_: Request, { params }: Context) {
                 select: {
                   winnerCorner: true,
                   feedback: true,
+                  feedbackRed: true,
+                  feedbackBlue: true,
                   judgeSlot: { select: { name: true, code: true } },
                 },
               },
@@ -115,6 +117,8 @@ export async function GET(_: Request, { params }: Context) {
           judgeName: s.judgeSlot.name ?? s.judgeSlot.code,
           winnerCorner: s.winnerCorner,
           feedback: s.feedback,
+          feedbackRed: s.feedbackRed,
+          feedbackBlue: s.feedbackBlue,
         })),
       })),
     })),

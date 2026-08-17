@@ -52,10 +52,10 @@ export function FeedbackSelect({
         className="w-full border border-line bg-paper px-md py-sm text-body-sm text-ink"
         value={value.templateId ?? ""}
         onChange={(e) =>
-          onChange({ custom: "", templateId: e.target.value || undefined })
+          onChange({ custom: value.custom, templateId: e.target.value || undefined })
         }
       >
-        <option value="">{loaded ? "Optional feedback" : "Loading feedback..."}</option>
+        <option value="">{loaded ? "No template" : "Loading feedback..."}</option>
         {templates.map((t) => (
           <option key={t.id} value={t.id}>
             {t.text}
@@ -65,15 +65,14 @@ export function FeedbackSelect({
       </select>
       {selectedTemplate ? (
         <p className="text-body-sm text-ink-muted">{selectedTemplate.text}</p>
-      ) : (
-        <input
-          className="w-full border border-line bg-paper px-md py-sm text-body-sm"
-          placeholder="Or write your own feedback..."
-          value={value.custom}
-          maxLength={500}
-          onChange={(e) => onChange({ custom: e.target.value })}
-        />
-      )}
+      ) : null}
+      <input
+        className="w-full border border-line bg-paper px-md py-sm text-body-sm"
+        placeholder="Or write your own feedback..."
+        value={value.custom}
+        maxLength={500}
+        onChange={(e) => onChange({ custom: e.target.value, templateId: value.templateId })}
+      />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SignOutButton } from "@/components/sign-out-button";
 import { GigManager } from "@/components/gig-manager";
+import { MessagesPanel } from "@/components/messages-panel";
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 
@@ -24,7 +25,13 @@ export default async function OrganizerGigsPage() {
               experience: true,
               socialHandle: true,
               skills: true,
+              minJudgingPricePerDay: true,
+              minWorkshopPricePerDay: true,
+              gigAvailability: { orderBy: { dateFrom: "asc" } },
             },
+          },
+          agreement: {
+            select: { id: true, status: true, offerAmount: true, paymentStatus: true },
           },
         },
         orderBy: { createdAt: "asc" },
@@ -55,6 +62,13 @@ export default async function OrganizerGigsPage() {
       </div>
 
       <GigManager gigs={gigs} />
+
+      <section className="mt-section">
+        <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-ink-muted">Messages</p>
+        <div className="mt-lg">
+          <MessagesPanel />
+        </div>
+      </section>
     </main>
   );
 }

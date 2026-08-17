@@ -25,6 +25,8 @@ const updateMeSchema = z.object({
   socialHandle: nullableString(120),
   referral: nullableString(200),
   skills: z.array(z.enum(Skill)).max(20).optional(),
+  minJudgingPricePerDay: z.number().int().min(0).max(1000000).nullable().optional(),
+  minWorkshopPricePerDay: z.number().int().min(0).max(1000000).nullable().optional(),
 });
 
 export async function PATCH(request: Request) {
@@ -56,6 +58,8 @@ export async function PATCH(request: Request) {
       socialHandle: true,
       referral: true,
       skills: true,
+      minJudgingPricePerDay: true,
+      minWorkshopPricePerDay: true,
     },
   });
 

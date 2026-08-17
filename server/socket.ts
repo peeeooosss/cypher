@@ -254,14 +254,36 @@ io.on("connection", (socket) => {
     const isDecision = parsed.data.winnerCorner != null;
     const winnerCorner = parsed.data.winnerCorner?.toUpperCase() === "RED" ? "RED" : "BLUE";
 
+    async function resolveTemplate(templateId: string | undefined, fallback: string | undefined) {
+      if (fallback) return fallback;
+      if (!templateId) return null;
+      const template = await prisma.feedbackTemplate.findUnique({
+        where: { id: templateId },
+        select: { text: true },
+      });
+      return template?.text ?? null;
+    }
+
+    let feedbackRed = await resolveTemplate(parsed.data.feedbackTemplateIdRed, parsed.data.feedbackRed);
+    let feedbackBlue = await resolveTemplate(parsed.data.feedbackTemplateIdBlue, parsed.data.feedbackBlue);
+
+    // Backward compatibility: legacy single-feedback (for the defeated entry).
+    if (!feedbackRed && !feedbackBlue && (parsed.data.feedback || parsed.data.feedbackTemplateId)) {
+      const legacy = await resolveTemplate(parsed.data.feedbackTemplateId, parsed.data.feedback);
+      if (legacy) {
+        if (winnerCorner === "RED") feedbackBlue = legacy;
+        else feedbackRed = legacy;
+      }
+    }
+
     await prisma.matchScore.upsert({
       where: { matchId_judgeSlotId: { matchId: match.id, judgeSlotId: user.slotId } },
       update: isDecision
-        ? { winnerCorner, scoreA: 0, scoreB: 0, feedback: parsed.data.feedback ?? null }
-        : { scoreA: parsed.data.scoreRed ?? 0, scoreB: parsed.data.scoreBlue ?? 0, feedback: parsed.data.feedback ?? null },
+        ? { winnerCorner, scoreA: 0, scoreB: 0, feedbackRed, feedbackBlue }
+        : { scoreA: parsed.data.scoreRed ?? 0, scoreB: parsed.data.scoreBlue ?? 0, feedbackRed, feedbackBlue },
       create: isDecision
-        ? { matchId: match.id, judgeSlotId: user.slotId, winnerCorner, scoreA: 0, scoreB: 0, feedback: parsed.data.feedback ?? null }
-        : { matchId: match.id, judgeSlotId: user.slotId, scoreA: parsed.data.scoreRed ?? 0, scoreB: parsed.data.scoreBlue ?? 0, feedback: parsed.data.feedback ?? null },
+        ? { matchId: match.id, judgeSlotId: user.slotId, winnerCorner, scoreA: 0, scoreB: 0, feedbackRed, feedbackBlue }
+        : { matchId: match.id, judgeSlotId: user.slotId, scoreA: parsed.data.scoreRed ?? 0, scoreB: parsed.data.scoreBlue ?? 0, feedbackRed, feedbackBlue },
     });
 
     const aggregate = isDecision
@@ -436,6 +458,7 @@ io.on("connection", (socket) => {
       registrationId: parsed.data.registrationId,
       roundFormatId: parsed.data.roundFormatId,
       score: parsed.data.score,
+      feedback: parsed.data.feedback ?? null,
     });
     acknowledge?.({});
   });

@@ -3,15 +3,10 @@ import Link from "next/link";
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { COMMISSION_RATE, formatInr, isEventFlatFeePaid } from "@/lib/pricing";
-import { PaymentMethods } from "@/components/payment-methods";
-import { SendBillButton } from "@/components/send-bill-button";
+import { RazorpayCheckout } from "@/components/razorpay-checkout";
 import { SignOutButton } from "@/components/sign-out-button";
-import {
-  BILL_WHATSAPP_NUMBER,
-  PAYMENT_NAME,
-  PAYMENT_UPI_ID,
-  whatsappLink,
-} from "@/lib/payment";
+import { whatsappLink, BILL_WHATSAPP_NUMBER } from "@/lib/payment";
+import { PaymentType } from "@/generated/prisma/enums";
 import type { PaymentStatus } from "@/generated/prisma/enums";
 
 export const dynamic = "force-dynamic";
@@ -179,26 +174,12 @@ export default async function EventBillPage({ params }: PageProps) {
                 </div>
               ) : (
                 <div className="space-y-md">
-                  <PaymentMethods
-                    amount={flatAmount}
-                    upiId={PAYMENT_UPI_ID}
-                    payeeName={PAYMENT_NAME}
-                    note={`CYPHR event flat fee - ${event.title}`}
+                  <RazorpayCheckout
+                    type={PaymentType.EVENT_FLAT_FEE}
+                    referenceId={event.id}
+                    label={`Pay ${formatInr(flatAmount)} now`}
+                    className="block w-full border border-accent bg-accent px-lg py-md text-button-md font-bold uppercase text-paper"
                   />
-                  <div className="border-t border-line pt-md">
-                    <a
-                      href={whatsappLink(
-                        BILL_WHATSAPP_NUMBER,
-                        `Hi CYPHR, I've sent ${formatInr(flatAmount)} for the flat fee on "${event.title}". Attaching the payment screenshot for verification.`,
-                      )}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block border border-line px-md py-sm text-center font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-ink hover:border-accent hover:text-accent"
-                    >
-                      Send screenshot on WhatsApp
-                    </a>
-                    <SendBillButton eventId={event.id} mode="FLAT_FEE" />
-                  </div>
                 </div>
               )}
             </div>
@@ -280,26 +261,12 @@ export default async function EventBillPage({ params }: PageProps) {
                 </div>
               ) : (
                 <div className="space-y-md">
-                  <PaymentMethods
-                    amount={commissionDue}
-                    upiId={PAYMENT_UPI_ID}
-                    payeeName={PAYMENT_NAME}
-                    note={`CYPHR event commission - ${event.title}`}
+                  <RazorpayCheckout
+                    type={PaymentType.EVENT_COMMISSION}
+                    referenceId={event.id}
+                    label={`Pay ${formatInr(commissionDue)} commission`}
+                    className="block w-full border border-accent bg-accent px-lg py-md text-button-md font-bold uppercase text-paper"
                   />
-                  <div className="border-t border-line pt-md">
-                    <a
-                      href={whatsappLink(
-                        BILL_WHATSAPP_NUMBER,
-                        `Hi CYPHR, I've sent ${formatInr(commissionDue)} for the commission on "${event.title}". Attaching the payment screenshot for verification.`,
-                      )}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block border border-line px-md py-sm text-center font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-ink hover:border-accent hover:text-accent"
-                    >
-                      Send screenshot on WhatsApp
-                    </a>
-                    <SendBillButton eventId={event.id} mode="COMMISSION" />
-                  </div>
                 </div>
               )}
             </div>

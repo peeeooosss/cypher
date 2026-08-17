@@ -18,6 +18,10 @@ export const SubmitScoreSchema = z.object({
   winnerCorner: z.enum(["red", "blue"]).optional(),
   feedback: z.string().max(500).optional(),
   feedbackTemplateId: z.string().cuid().optional(),
+  feedbackRed: z.string().max(500).optional(),
+  feedbackBlue: z.string().max(500).optional(),
+  feedbackTemplateIdRed: z.string().cuid().optional(),
+  feedbackTemplateIdBlue: z.string().cuid().optional(),
 }).superRefine((val, ctx) => {
   const hasScores = val.scoreRed != null && val.scoreBlue != null;
   const hasDecision = val.winnerCorner != null;

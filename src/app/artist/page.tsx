@@ -2,13 +2,14 @@ import Link from "next/link";
 import { SignOutButton } from "@/components/sign-out-button";
 import { ArtistProfileForm, type ArtistProfile } from "@/components/artist-profile-form";
 import { ArtistAchievements, type Achievement } from "@/components/artist-achievements";
-import { GigWorkCard } from "@/components/gig-work-card";
+import { ArtistAvailability } from "@/components/artist-availability";
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { Pagination } from "@/components/pagination";
 import { formatLabel } from "@/lib/event-types";
 import { TeamInvitations } from "@/components/team-invitations";
 import { TeamEntries } from "@/components/team-entries";
+import { ArtistScoreboard, type BattleMatchBreakdown, type RosterRound } from "@/components/artist-scoreboard";
 
 export const dynamic = "force-dynamic";
 
@@ -33,11 +34,18 @@ export default async function ArtistPage({ searchParams }: PageProps) {
           },
         },
         members: { include: { user: { select: { name: true, username: true } } } },
+        dancerScores: {
+          include: {
+            roundFormat: { select: { order: true, type: true, label: true } },
+            judgeSlot: { select: { name: true, code: true } },
+          },
+          orderBy: { roundFormat: { order: "asc" } },
+        },
         matchesAsA: {
           include: {
             competitorB: { include: { user: { select: { name: true } } } },
              winner: { select: { id: true, userId: true } },
-            scores: { select: { feedback: true, scoreA: true, scoreB: true } },
+            scores: { select: { feedback: true, feedbackRed: true, feedbackBlue: true, scoreA: true, scoreB: true, winnerCorner: true, judgeSlot: { select: { name: true, code: true } } } },
           },
           orderBy: { round: "asc" },
         },
@@ -45,7 +53,7 @@ export default async function ArtistPage({ searchParams }: PageProps) {
           include: {
             competitorA: { include: { user: { select: { name: true } } } },
              winner: { select: { id: true, userId: true } },
-            scores: { select: { feedback: true, scoreA: true, scoreB: true } },
+            scores: { select: { feedback: true, feedbackRed: true, feedbackBlue: true, scoreA: true, scoreB: true, winnerCorner: true, judgeSlot: { select: { name: true, code: true } } } },
           },
           orderBy: { round: "asc" },
         },
@@ -66,6 +74,8 @@ export default async function ArtistPage({ searchParams }: PageProps) {
         referral: true,
         skills: true,
         gigWorkExpiresAt: true,
+        minJudgingPricePerDay: true,
+        minWorkshopPricePerDay: true,
       },
     }),
     prisma.artistAchievement.findMany({
@@ -103,7 +113,6 @@ export default async function ArtistPage({ searchParams }: PageProps) {
   const currentPage = Math.min(requestedPage, totalPages);
   const pageResults = battleResults.slice((currentPage - 1) * RESULTS_PER_PAGE, currentPage * RESULTS_PER_PAGE);
   const teamEntries = battleResults.filter((registration) => registration.userId === user.id && registration.members.length > 1);
-  const gigWorkActive = profile?.gigWorkExpiresAt != null && profile.gigWorkExpiresAt > new Date();
 
   return (
     <main className="min-h-screen bg-paper px-md py-section md:px-xl">
@@ -121,7 +130,7 @@ export default async function ArtistPage({ searchParams }: PageProps) {
             See events
           </Link>
           <Link
-            href="/artist/gigs"
+            href="/artist/marketplace"
             className="border border-accent px-md py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-accent transition-opacity hover:opacity-80"
           >
             Marketplace / Gigs
@@ -166,7 +175,27 @@ export default async function ArtistPage({ searchParams }: PageProps) {
         </div>
       </section>
 
-      <GigWorkCard expiresAt={profile?.gigWorkExpiresAt ?? null} active={gigWorkActive} />
+      <section className="mt-section border border-line bg-paper-soft p-lg">
+        <div className="flex flex-wrap items-center justify-between gap-md">
+          <div>
+            <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-ink-muted">Marketplace</p>
+            <p className="mt-sm text-body-sm text-ink-muted">
+              Browse freelance gigs, send proposals, receive offers and chat with organizers.
+            </p>
+          </div>
+          <Link
+            href="/artist/marketplace"
+            className="border border-accent bg-accent px-md py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper transition-opacity hover:opacity-80"
+          >
+            Open Marketplace
+          </Link>
+        </div>
+      </section>
+
+      <ArtistAvailability
+        minJudging={profile?.minJudgingPricePerDay ?? null}
+        minWorkshop={profile?.minWorkshopPricePerDay ?? null}
+      />
 
       {battleResults.length > 0 ? (
         <section className="mt-section">
@@ -176,6 +205,57 @@ export default async function ArtistPage({ searchParams }: PageProps) {
               const allMatches = [...reg.matchesAsA, ...reg.matchesAsB].sort((a, b) => a.round - b.round || a.position - b.position);
               const wins = allMatches.filter((m) => m.winner?.userId === user.id).length;
               const isLive = reg.category.event.status === "LIVE";
+
+              const rosterRounds: RosterRound[] = [];
+              for (const ds of reg.dancerScores) {
+                const order = ds.roundFormat.order;
+                let round = rosterRounds.find((r) => r.order === order);
+                if (!round) {
+                  round = { order, type: ds.roundFormat.type, label: ds.roundFormat.label, scores: [] };
+                  rosterRounds.push(round);
+                }
+                round.scores.push({
+                  judgeName: ds.judgeSlot.name ?? ds.judgeSlot.code,
+                  score: ds.score,
+                  feedback: ds.feedback,
+                });
+              }
+
+              const battleMatches: BattleMatchBreakdown[] = [
+                ...reg.matchesAsA.map((m) => ({
+                  id: m.id,
+                  round: m.round,
+                  status: m.status,
+                  opponentName: m.competitorB?.user.name ?? "TBD",
+                  iAmRed: true,
+                  scores: m.scores.map((s) => ({
+                    judgeName: s.judgeSlot.name ?? s.judgeSlot.code,
+                    winnerCorner: s.winnerCorner,
+                    feedback: s.feedback,
+                    feedbackRed: s.feedbackRed,
+                    feedbackBlue: s.feedbackBlue,
+                    scoreA: s.scoreA,
+                    scoreB: s.scoreB,
+                  })),
+                })),
+                ...reg.matchesAsB.map((m) => ({
+                  id: m.id,
+                  round: m.round,
+                  status: m.status,
+                  opponentName: m.competitorA?.user.name ?? "TBD",
+                  iAmRed: false,
+                  scores: m.scores.map((s) => ({
+                    judgeName: s.judgeSlot.name ?? s.judgeSlot.code,
+                    winnerCorner: s.winnerCorner,
+                    feedback: s.feedback,
+                    feedbackRed: s.feedbackRed,
+                    feedbackBlue: s.feedbackBlue,
+                    scoreA: s.scoreA,
+                    scoreB: s.scoreB,
+                  })),
+                })),
+              ].sort((a, b) => a.round - b.round);
+
               return (
                 <article className="border border-line bg-paper-soft p-lg" key={reg.id}>
                   <div className="flex flex-wrap items-start justify-between gap-sm">
@@ -231,6 +311,7 @@ export default async function ArtistPage({ searchParams }: PageProps) {
                       })
                     )}
                   </div>
+                  <ArtistScoreboard rosterRounds={rosterRounds} matches={battleMatches} />
                   {!reg.paid && !reg.paidClaimedAt && reg.userId === user.id ? (
                     <Link
                       href={`/cart?event=${reg.category.event.id}&ids=${reg.id}`}

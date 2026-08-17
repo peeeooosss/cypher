@@ -2,15 +2,10 @@ import Link from "next/link";
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { formatInr, GIG_WORK_FEE } from "@/lib/pricing";
-import { PaymentMethods } from "@/components/payment-methods";
-import { GigWorkBillSubmit } from "@/components/gig-work-bill-submit";
+import { RazorpayCheckout } from "@/components/razorpay-checkout";
 import { SignOutButton } from "@/components/sign-out-button";
-import {
-  BILL_WHATSAPP_NUMBER,
-  PAYMENT_NAME,
-  PAYMENT_UPI_ID,
-  whatsappLink,
-} from "@/lib/payment";
+import { whatsappLink, BILL_WHATSAPP_NUMBER } from "@/lib/payment";
+import { PaymentType } from "@/generated/prisma/enums";
 import type { PaymentStatus } from "@/generated/prisma/enums";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +33,7 @@ export default async function ArtistGigBillPage() {
   return (
     <main className="min-h-screen bg-paper px-md py-section md:px-xl">
       <Link
-        href="/artist/gigs"
+        href="/artist/marketplace"
         className="font-mono text-body-sm uppercase text-ink-muted hover:text-accent"
       >
         &larr; Back to marketplace
@@ -95,7 +90,7 @@ export default async function ArtistGigBillPage() {
                   ) : null}
                 </div>
                 <Link
-                  href="/artist/gigs"
+                  href="/artist/marketplace"
                   className="block border border-accent bg-accent px-md py-sm text-center font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper"
                 >
                   Browse the marketplace
@@ -127,26 +122,16 @@ export default async function ArtistGigBillPage() {
               </div>
             ) : (
               <div className="space-y-md">
-                <PaymentMethods
-                  amount={amount}
-                  upiId={PAYMENT_UPI_ID}
-                  payeeName={PAYMENT_NAME}
-                  note="CYPHR Gig Work access - 3 months"
+                <RazorpayCheckout
+                  type={PaymentType.GIG_WORK}
+                  referenceId={user.id}
+                  label={`Pay ${formatInr(amount)} now`}
+                  className="block w-full border border-accent bg-accent px-lg py-md text-button-md font-bold uppercase text-paper"
                 />
-                <div className="border-t border-line pt-md">
-                  <a
-                    href={whatsappLink(
-                      BILL_WHATSAPP_NUMBER,
-                      `Hi CYPHR, I've sent ${formatInr(amount)} for Gig Work access. Attaching the payment screenshot for verification.`,
-                    )}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block border border-line px-md py-sm text-center font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-ink hover:border-accent hover:text-accent"
-                  >
-                    Send screenshot on WhatsApp
-                  </a>
-                  <GigWorkBillSubmit />
-                </div>
+                <p className="text-body-sm text-ink-muted">
+                  Payment is verified automatically. Your marketplace access is
+                  enabled immediately and lasts 3 months.
+                </p>
               </div>
             )}
           </div>

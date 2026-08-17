@@ -50,7 +50,7 @@ export default async function JudgeCodePage({ params }: PageParams) {
       include: {
         user: { select: { name: true, email: true } },
         members: { where: { status: "ACCEPTED" }, select: { user: { select: { name: true, username: true } } } },
-        dancerScores: { select: { roundFormatId: true, score: true, judgeSlotId: true } },
+        dancerScores: { select: { roundFormatId: true, score: true, judgeSlotId: true, feedback: true } },
       },
       orderBy: [{ seed: "asc" }, { createdAt: "asc" }],
     }),

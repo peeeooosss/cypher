@@ -1,4 +1,4 @@
-export function formatDate(date: Date) {
+export function formatDate(date: Date | string | number) {
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
@@ -6,14 +6,14 @@ export function formatDate(date: Date) {
     hour: "2-digit",
     minute: "2-digit",
     hour12: true,
-  }).format(date);
+  }).format(new Date(date));
 }
 
-export function formatDateShort(date: Date) {
+export function formatDateShort(date: Date | string | number) {
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
-  }).format(date);
+  }).format(new Date(date));
 }
 
 export function formatFee(entryFee: number | null | undefined, entryCurrency: string | null | undefined) {

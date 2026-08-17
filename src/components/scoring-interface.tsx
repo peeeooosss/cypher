@@ -26,7 +26,7 @@ type RegistrationDisplay = {
   city: string | null;
   status: string;
   user: { name: string | null; email: string };
-  dancerScores: { roundFormatId: string; score: number; judgeSlotId: string }[];
+  dancerScores: { roundFormatId: string; score: number; judgeSlotId: string; feedback?: string | null }[];
 };
 
 type RoundDisplay = {
@@ -58,7 +58,19 @@ function initialMyScores(
   const result: Record<string, DancerScoreInput> = {};
   for (const reg of registrations) {
     const mine = reg.dancerScores.find((s) => s.judgeSlotId === slotId);
-    if (mine) result[reg.id] = { score: mine.score };
+    if (mine) result[reg.id] = { score: mine.score, feedback: mine.feedback ?? undefined };
+  }
+  return result;
+}
+
+function initialDancerFeedback(
+  registrations: RegistrationDisplay[],
+  slotId: string,
+): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const reg of registrations) {
+    const mine = reg.dancerScores.find((s) => s.judgeSlotId === slotId);
+    if (mine?.feedback) result[reg.id] = mine.feedback;
   }
   return result;
 }
@@ -90,7 +102,7 @@ export function ScoringInterface({
   const [draftScores, setDraftScores] = useState<Record<string, number | null>>(
     () => Object.fromEntries(data.category.registrations.map((reg) => [reg.id, null])),
   );
-  const [dancerFeedback, setDancerFeedback] = useState<Record<string, string>>({});
+  const [dancerFeedback, setDancerFeedback] = useState<Record<string, string>>(() => initialDancerFeedback(data.category.registrations, slotId));
 
   const eventId = data.category.event.id;
 
@@ -138,9 +150,10 @@ export function ScoringInterface({
       );
     });
 
-    socket.on("dancer:updated", ({ judgeSlotId, registrationId, score }) => {
+    socket.on("dancer:updated", ({ judgeSlotId, registrationId, score, feedback }) => {
       if (judgeSlotId !== slotId) return;
-      setMyDancerScores((prev) => ({ ...prev, [registrationId]: { score } }));
+      setMyDancerScores((prev) => ({ ...prev, [registrationId]: { score, feedback: feedback ?? undefined } }));
+      if (feedback) setDancerFeedback((prev) => ({ ...prev, [registrationId]: feedback }));
       setDraftScores((prev) => ({ ...prev, [registrationId]: null }));
     });
 
