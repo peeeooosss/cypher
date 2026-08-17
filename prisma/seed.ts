@@ -1,7 +1,15 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { hash } from "bcryptjs";
 import { PrismaClient } from "../src/generated/prisma/client";
-import { UserRole, RoundType, Skill, EventType } from "../src/generated/prisma/enums";
+import {
+  UserRole,
+  RoundType,
+  Skill,
+  EventType,
+  CategoryFormat,
+  RegistrationMemberRole,
+  RegistrationMemberStatus,
+} from "../src/generated/prisma/enums";
 
 const password = process.env.SEED_PASSWORD ?? "password";
 const connectionString = process.env.DATABASE_URL;
@@ -11,157 +19,309 @@ if (!connectionString) {
 }
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
-
 const passwordHash = await hash(password, 12);
+const now = new Date();
 
-// ---- Admin ----
+// ============================================================
+// 1. WIPE — delete everything except admin user
+// ============================================================
+await prisma.gigApplication.deleteMany({});
+await prisma.artistAchievement.deleteMany({});
+await prisma.feedback.deleteMany({});
+await prisma.scoreAuditLog.deleteMany({});
+await prisma.battleTimer.deleteMany({});
+await prisma.matchScore.deleteMany({});
+await prisma.judgeAssignment.deleteMany({});
+await prisma.dancerScore.deleteMany({});
+await prisma.feedbackTemplate.deleteMany({});
+await prisma.prizePool.deleteMany({});
+await prisma.registrationMember.deleteMany({});
+await prisma.registration.deleteMany({});
+await prisma.judgeSlot.deleteMany({});
+await prisma.roundFormat.deleteMany({});
+await prisma.category.deleteMany({});
+await prisma.battleMatch.deleteMany({});
+await prisma.event.deleteMany({});
+await prisma.gig.deleteMany({});
+await prisma.user.deleteMany({ where: { role: { not: UserRole.ADMIN } } });
+
+console.log("Database wiped.");
+
+// ============================================================
+// 2. ADMIN — upsert so it survives the wipe
+// ============================================================
 await prisma.user.upsert({
   where: { email: "admin@callout.local" },
   update: { name: "CYPHR Admin", role: UserRole.ADMIN, passwordHash },
   create: { email: "admin@callout.local", name: "CYPHR Admin", role: UserRole.ADMIN, passwordHash },
 });
 
-// ---- Organizer ----
-const organizer = await prisma.user.upsert({
-  where: { email: "organizer@callout.local" },
-  update: { name: "Cypher Org", role: UserRole.ORGANIZER, passwordHash, upiId: "cypherorg@upi" },
-  create: { email: "organizer@callout.local", name: "Cypher Org", role: UserRole.ORGANIZER, passwordHash, upiId: "cypherorg@upi" },
+// ============================================================
+// 3. ORGANIZERS
+// ============================================================
+const organizer1 = await prisma.user.create({
+  data: {
+    email: "organizer1@callout.local",
+    name: "Mumbai Cypher Collective",
+    role: UserRole.ORGANIZER,
+    passwordHash,
+    upiId: "mumbaicypher@upi",
+  },
 });
 
-// ---- Delete old demo event (cascade wipes categories, rounds, matches, judge slots, prize pools, registrations) ----
-try {
-  await prisma.event.delete({ where: { slug: "summer-cypher-2026" } });
-} catch {
-  // event doesn't exist yet — that's fine
-}
-try {
-  await prisma.event.delete({ where: { slug: "house-groove-workshop-2026" } });
-} catch {
-  // event doesn't exist yet — that's fine
-}
-try {
-  await prisma.event.delete({ where: { slug: "national-dance-championship-2026" } });
-} catch {
-  // event doesn't exist yet — that's fine
-}
+const organizer2 = await prisma.user.create({
+  data: {
+    email: "organizer2@callout.local",
+    name: "Northeast Groove Society",
+    role: UserRole.ORGANIZER,
+    passwordHash,
+    upiId: "negroove@upi",
+  },
+});
 
-// ---- Clear marketplace + achievements so the seed is repeatable ----
-await prisma.gigApplication.deleteMany({});
-await prisma.gig.deleteMany({});
-await prisma.artistAchievement.deleteMany({});
-
-// ---- 30 mock artists ----
-const artistDefs = [
-  "Mike Chen", "Sarah Kim", "Dave Rodriguez", "Anna Liu", "James Park",
-  "Lisa Tran", "Marcus Johnson", "Nina Patel", "Tyrone Williams", "Yuki Tanaka",
-  "Diego Martinez", "Aaliyah Brown", "Kenji Sato", "Maria Garcia", "Chris Osei",
-  "Maya Singh", "Trevor Hayes", "Luna Cruz", "Andre Dubois", "Priya Sharma",
-  "Jamal Davis", "Sofia Rossi", "Kai Nakamura", "Zara Ahmed", "Felix Wong",
-  "Imani Jones", "Hiro Yamamoto", "Eva Novak", "Malik Carter", "Rosa Lopez",
-];
-
-const styles = ["Breaking", "Popping", "Hip-Hop", "Locking", "House"];
-const crews = ["Soul Mechanics", "Floor Assassins", "Rhythm Killers", "Flow State", "Concrete Kings", null];
-const cities = ["Guwahati", "Shillong", "Imphal", "Dibrugarh", "Silchar"];
-const experiences = ["PRO", "ADVANCED", "INTERMEDIATE"];
-const socialHandles = ["@mikekicks", "@sarahpops", "@davetops", "@annafreeze", "@jamesbreaks", "@lisamoves", "@marcusthunder", "@ninaspins", "@tyronefresh", "@yukirocks"];
-const referrals = ["Instagram", "TikTok", "Friend", "Crew", "Event Website"];
-
-const skillSets: Skill[][] = [
-  ["DANCER", "CHOREOGRAPHER"],
-  ["DANCER", "DJ"],
-  ["DANCER", "MC"],
-  ["DANCER", "GUITARIST"],
-  ["DANCER", "DRUMMER"],
-  ["DANCER", "VOCALIST"],
-  ["DANCER", "RAPPER"],
-  ["DANCER", "PRODUCER"],
-  ["DANCER", "BEATBOXER"],
-  ["DANCER", "PHOTOGRAPHER"],
-  ["DANCER"],
-  ["DANCER", "CHOREOGRAPHER", "PERFORMER"],
-  ["DANCER", "DJ", "PERFORMER"],
-  ["DANCER", "MC"],
-  ["DANCER", "GUITARIST", "VOCALIST"],
-  ["DANCER", "DRUMMER"],
-  ["DANCER", "VOCALIST"],
-  ["DANCER", "RAPPER"],
-  ["DANCER", "PRODUCER", "DJ"],
-  ["DANCER", "BEATBOXER"],
-  ["DANCER", "CHOREOGRAPHER"],
-  ["DANCER", "DJ"],
-  ["DANCER", "MC", "PERFORMER"],
-  ["DANCER", "GUITARIST"],
-  ["DANCER", "DRUMMER", "PERFORMER"],
-  ["DANCER", "VOCALIST"],
-  ["DANCER", "RAPPER"],
-  ["DANCER", "PRODUCER"],
-  ["DANCER", "BEATBOXER"],
-  ["DANCER", "PHOTOGRAPHER", "PERFORMER"],
+// ============================================================
+// 4. ARTISTS (20)
+// ============================================================
+const artistDefs: Array<{
+  name: string;
+  username: string;
+  style: string;
+  crew: string | null;
+  city: string;
+  experience: string;
+  socialHandle: string;
+  skills: Skill[];
+}> = [
+  { name: "Rohan Mehta", username: "rohanm", style: "Breaking", crew: "Soul Mechanics", city: "Mumbai", experience: "ADVANCED", socialHandle: "@rohanbreaks", skills: ["DANCER", "CHOREOGRAPHER"] },
+  { name: "Ayesha Khan", username: "ayeshak", style: "Popping", crew: null, city: "Delhi", experience: "PRO", socialHandle: "@ayeshapops", skills: ["DANCER", "PERFORMER"] },
+  { name: "Vikram Singh", username: "vikrams", style: "Hip-Hop", crew: "Concrete Kings", city: "Pune", experience: "INTERMEDIATE", socialHandle: "@vikramflows", skills: ["DANCER", "MC"] },
+  { name: "Priya Das", username: "priyad", style: "Locking", crew: "Flow State", city: "Kolkata", experience: "ADVANCED", socialHandle: "@priyalocks", skills: ["DANCER", "CHOREOGRAPHER"] },
+  { name: "Arjun Nair", username: "arjunn", style: "Breaking", crew: "Floor Assassins", city: "Chennai", experience: "PRO", socialHandle: "@arjunbreaks", skills: ["DANCER", "DJ"] },
+  { name: "Neha Gupta", username: "nehag", style: "House", crew: null, city: "Mumbai", experience: "ADVANCED", socialHandle: "@nehahouses", skills: ["DANCER", "PERFORMER"] },
+  { name: "Karan Malhotra", username: "karans", style: "Breaking", crew: "Rhythm Killers", city: "Jaipur", experience: "INTERMEDIATE", socialHandle: "@karanbboy", skills: ["DANCER"] },
+  { name: "Sana Patel", username: "sanap", style: "Hip-Hop", crew: null, city: "Ahmedabad", experience: "ADVANCED", socialHandle: "@sanahiphop", skills: ["DANCER", "RAPPER"] },
+  { name: "Ravi Kumar", username: "ravik", style: "Breaking", crew: "Concrete Kings", city: "Bangalore", experience: "PRO", socialHandle: "@ravibreaks", skills: ["DANCER", "CHOREOGRAPHER"] },
+  { name: "Meera Reddy", username: "meerar", style: "Popping", crew: "Flow State", city: "Hyderabad", experience: "ADVANCED", socialHandle: "@meerapops", skills: ["DANCER", "DJ"] },
+  { name: "Amit Sharma", username: "amits", style: "Hip-Hop", crew: "Soul Mechanics", city: "Delhi", experience: "INTERMEDIATE", socialHandle: "@amithiphop", skills: ["DANCER", "BEATBOXER"] },
+  { name: "Divya Menon", username: "divyam", style: "Locking", crew: null, city: "Chennai", experience: "ADVANCED", socialHandle: "@divyalocks", skills: ["DANCER", "PERFORMER"] },
+  { name: "Siddharth Rao", username: "sidr", style: "Breaking", crew: "Floor Assassins", city: "Mumbai", experience: "PRO", socialHandle: "@siddharthbreaks", skills: ["DANCER", "MC", "CHOREOGRAPHER"] },
+  { name: "Tanya Joshi", username: "tanyaj", style: "House", crew: "Rhythm Killers", city: "Pune", experience: "INTERMEDIATE", socialHandle: "@tanyahouse", skills: ["DANCER"] },
+  { name: "Rahul Verma", username: "rahulv", style: "Breaking", crew: null, city: "Guwahati", experience: "ADVANCED", socialHandle: "@rahulbreaks", skills: ["DANCER", "DJ"] },
+  { name: "Ishita Banerjee", username: "ishitab", style: "Hip-Hop", crew: "Concrete Kings", city: "Kolkata", experience: "ADVANCED", socialHandle: "@ishitahiphop", skills: ["DANCER", "CHOREOGRAPHER", "PERFORMER"] },
+  { name: "Aditya Kulkarni", username: "adik", style: "Breaking", crew: "Soul Mechanics", city: "Bangalore", experience: "INTERMEDIATE", socialHandle: "@adityaboy", skills: ["DANCER"] },
+  { name: "Kavya Iyer", username: "kavyai", style: "Popping", crew: null, city: "Chennai", experience: "ADVANCED", socialHandle: "@kavyapops", skills: ["DANCER", "VOCALIST"] },
+  { name: "Mohit Tiwari", username: "mohitt", style: "Hip-Hop", crew: "Flow State", city: "Lucknow", experience: "PRO", socialHandle: "@mohithiphop", skills: ["DANCER", "RAPPER", "PRODUCER"] },
+  { name: "Ananya Sen", username: "ananyas", style: "Locking", crew: "Rhythm Killers", city: "Guwahati", experience: "INTERMEDIATE", socialHandle: "@ananyalocks", skills: ["DANCER", "MC"] },
 ];
 
 const artists = [];
-for (let i = 0; i < artistDefs.length; i++) {
-  const name = artistDefs[i];
-  const email = `artist${i + 1}@callout.local`;
-  const user = await prisma.user.upsert({
-    where: { email },
-    update: {
-      name,
-      username: `artist${i + 1}`,
+for (const def of artistDefs) {
+  const user = await prisma.user.create({
+    data: {
+      email: `${def.username}@callout.local`,
+      name: def.name,
+      username: def.username,
       role: UserRole.ARTIST,
       passwordHash,
-      style: styles[i % styles.length],
-      crew: crews[i % crews.length],
-      city: cities[i % cities.length],
+      style: def.style,
+      crew: def.crew,
+      city: def.city,
       country: "India",
-      experience: experiences[i % experiences.length],
-      socialHandle: socialHandles[i % socialHandles.length],
-      referral: referrals[i % referrals.length],
-      skills: skillSets[i % skillSets.length],
-    },
-    create: {
-      email,
-      name,
-      username: `artist${i + 1}`,
-      role: UserRole.ARTIST,
-      passwordHash,
-      style: styles[i % styles.length],
-      crew: crews[i % crews.length],
-      city: cities[i % cities.length],
-      country: "India",
-      experience: experiences[i % experiences.length],
-      socialHandle: socialHandles[i % socialHandles.length],
-      referral: referrals[i % referrals.length],
-      skills: skillSets[i % skillSets.length],
+      experience: def.experience,
+      socialHandle: def.socialHandle,
+      referral: "Instagram",
+      skills: def.skills,
     },
   });
   artists.push(user);
 }
 
-// Keep the legacy judge login account for back-compat
-await prisma.user.upsert({
-  where: { email: "judge@callout.local" },
-  update: { name: "Legacy Judge", role: UserRole.JUDGE, passwordHash },
-  create: { email: "judge@callout.local", name: "Legacy Judge", role: UserRole.JUDGE, passwordHash },
+console.log("Created 2 organizers + 20 artists.");
+
+// ============================================================
+// 5. EVENTS
+// ============================================================
+function future(days: number) {
+  return new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+}
+
+// --- Event 1: Underground Battle ---
+const battleEvent = await prisma.event.create({
+  data: {
+    title: "Mumbai Underground Cypher",
+    slug: "mumbai-underground-cypher-2026",
+    description:
+      "Raw underground breaking battles. No frills, no filters — just skill, music, and the floor. Three style categories, live judges, cash prizes. Bring your A-game.",
+    eventType: EventType.UNDERGROUND_BATTLE,
+    venue: "The Underground",
+    city: "Mumbai",
+    state: "Maharashtra",
+    status: "PUBLISHED",
+    startsAt: future(10),
+    organizerId: organizer1.id,
+    categoryCount: 3,
+    flatFee: 299,
+    flatFeePaid: true,
+    flatFeePaidAt: now,
+    flatFeePaymentStatus: "VERIFIED",
+    flatFeePaymentMethod: "UPI",
+    flatFeePaymentSentAt: now,
+  },
 });
 
-// ---- Event ----
-const now = new Date();
-const startsAt = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+const battleBreaking = await prisma.category.create({
+  data: { eventId: battleEvent.id, name: "Breaking", format: CategoryFormat.BATTLE_1V1, minMembers: 1, maxMembers: 1, maxCompetitors: 32, entryFee: 500, entryCurrency: "INR" },
+});
+const battlePopping = await prisma.category.create({
+  data: { eventId: battleEvent.id, name: "Popping", format: CategoryFormat.BATTLE_1V1, minMembers: 1, maxMembers: 1, maxCompetitors: 16, entryFee: 500, entryCurrency: "INR" },
+});
+const battleHiphop = await prisma.category.create({
+  data: { eventId: battleEvent.id, name: "Hip-Hop", format: CategoryFormat.BATTLE_1V1, minMembers: 1, maxMembers: 1, maxCompetitors: 16, entryFee: 500, entryCurrency: "INR" },
+});
 
-const event = await prisma.event.create({
+// Round phases for battle categories
+for (const [cat, code] of [[battleBreaking, "BRK"], [battlePopping, "POP"], [battleHiphop, "HIP"]] as const) {
+  await prisma.roundFormat.createMany({
+    data: [
+      { categoryId: cat.id, order: 1, type: RoundType.CYPHER, label: "Cypher Round", roundCount: 1, roundDuration: 60, advanceCount: 8, phaseStatus: "PENDING" },
+      { categoryId: cat.id, order: 2, type: RoundType.BATTLE_1V1, label: "Top 8", roundCount: 2, roundDuration: 30, phaseStatus: "PENDING" },
+      { categoryId: cat.id, order: 3, type: RoundType.FINAL, label: "Finals", roundCount: 3, roundDuration: 45, phaseStatus: "PENDING" },
+    ],
+  });
+  await prisma.category.update({ where: { id: cat.id }, data: { currentPhaseOrder: 1 } });
+}
+
+// Judge slots — battle event
+for (const [cat, code] of [[battleBreaking, "BRK"], [battlePopping, "POP"], [battleHiphop, "HIP"]] as const) {
+  for (let i = 1; i <= 3; i++) {
+    const names = ["Head Judge", "Score Judge", "Tech Judge"];
+    await prisma.judgeSlot.create({
+      data: { code: `${code}00${i}`, name: names[i - 1], eventId: battleEvent.id, categoryId: cat.id, isActive: true },
+    });
+  }
+}
+
+// Prize pools — battle event
+const prizeDistribution = [
+  { rank: 1, label: "Winner", pct: 50 },
+  { rank: 2, label: "Runner-up", pct: 30 },
+  { rank: 3, label: "Semi-finalist", pct: 20 },
+];
+await prisma.prizePool.create({ data: { categoryId: battleBreaking.id, totalAmount: 100000, currency: "INR", distribution: prizeDistribution } });
+await prisma.prizePool.create({ data: { categoryId: battlePopping.id, totalAmount: 50000, currency: "INR", distribution: prizeDistribution } });
+await prisma.prizePool.create({ data: { categoryId: battleHiphop.id, totalAmount: 50000, currency: "INR", distribution: prizeDistribution } });
+
+console.log("Created battle event with 3 categories + rounds + judge slots + prize pools.");
+
+// --- Event 2: Dance Competition ---
+const danceCompEvent = await prisma.event.create({
   data: {
-    title: "Summer Cypher 2026",
-    slug: "summer-cypher-2026",
+    title: "Delhi Dance Open 2026",
+    slug: "delhi-dance-open-2026",
     description:
-      "The biggest underground breaking showcase of the season. Three floors, one stage, no rules but respect. Cash prizes for Breaking, Popping and Hip-Hop, live judges, and an all-night cypher after the battles.",
-    eventType: "UNDERGROUND_BATTLE",
-    venue: "The Underground",
-    city: "Brooklyn",
+      "A judged solo and duo dance competition. Performers scored 0–10 by a live panel. No eliminations in prelims — top scorers advance to finals. Cash prizes and trophies.",
+    eventType: EventType.DANCE_COMPETITION,
+    venue: "Jawaharlal Nehru Stadium",
+    city: "Delhi",
+    state: "Delhi",
     status: "PUBLISHED",
-    startsAt,
-    organizerId: organizer.id,
+    startsAt: future(20),
+    organizerId: organizer1.id,
+    categoryCount: 2,
+    flatFee: 199,
+    flatFeePaid: true,
+    flatFeePaidAt: now,
+    flatFeePaymentStatus: "VERIFIED",
+    flatFeePaymentMethod: "UPI",
+    flatFeePaymentSentAt: now,
+  },
+});
+
+const compSolo = await prisma.category.create({
+  data: { eventId: danceCompEvent.id, name: "Solo Dance", format: CategoryFormat.SOLO, minMembers: 1, maxMembers: 1, maxCompetitors: 24, entryFee: 800, entryCurrency: "INR" },
+});
+const compDuo = await prisma.category.create({
+  data: { eventId: danceCompEvent.id, name: "Duo Performance", format: CategoryFormat.DUO, minMembers: 2, maxMembers: 2, maxCompetitors: 16, entryFee: 1200, entryCurrency: "INR" },
+});
+
+for (const cat of [compSolo, compDuo]) {
+  await prisma.roundFormat.createMany({
+    data: [
+      { categoryId: cat.id, order: 1, type: RoundType.QUALIFIER, label: "Qualifiers", roundCount: 1, roundDuration: 120, advanceCount: 8, phaseStatus: "PENDING" },
+      { categoryId: cat.id, order: 2, type: RoundType.FINAL, label: "Finals", roundCount: 3, roundDuration: 60, phaseStatus: "PENDING" },
+    ],
+  });
+  await prisma.category.update({ where: { id: cat.id }, data: { currentPhaseOrder: 1 } });
+}
+
+await prisma.judgeSlot.create({ data: { code: "DNC001", name: "Panel Judge 1", eventId: danceCompEvent.id, categoryId: compSolo.id, isActive: true } });
+await prisma.judgeSlot.create({ data: { code: "DNC002", name: "Panel Judge 2", eventId: danceCompEvent.id, categoryId: compSolo.id, isActive: true } });
+await prisma.judgeSlot.create({ data: { code: "DNC003", name: "Panel Judge 1", eventId: danceCompEvent.id, categoryId: compDuo.id, isActive: true } });
+await prisma.judgeSlot.create({ data: { code: "DNC004", name: "Panel Judge 2", eventId: danceCompEvent.id, categoryId: compDuo.id, isActive: true } });
+
+console.log("Created dance competition event with 2 categories.");
+
+// --- Event 3: Music Competition ---
+const musicCompEvent = await prisma.event.create({
+  data: {
+    title: "Guwahati Music Clash",
+    slug: "guwahati-music-clash-2026",
+    description:
+      "Hip-hop music competition — rap battles and producer showcases. Beatmakers bring their best instrumentals, MCs spit bars. Judges score on delivery, flow, and crowd impact.",
+    eventType: EventType.MUSIC_COMPETITION,
+    venue: "Rabindra Bhawan",
+    city: "Guwahati",
+    state: "Assam",
+    status: "PUBLISHED",
+    startsAt: future(28),
+    organizerId: organizer2.id,
+    categoryCount: 2,
+    flatFee: 149,
+    flatFeePaid: true,
+    flatFeePaidAt: now,
+    flatFeePaymentStatus: "VERIFIED",
+    flatFeePaymentMethod: "UPI",
+    flatFeePaymentSentAt: now,
+  },
+});
+
+const musicRap = await prisma.category.create({
+  data: { eventId: musicCompEvent.id, name: "Rap Battle", format: CategoryFormat.SOLO, minMembers: 1, maxMembers: 1, maxCompetitors: 16, entryFee: 400, entryCurrency: "INR" },
+});
+const musicProducer = await prisma.category.create({
+  data: { eventId: musicCompEvent.id, name: "Producer Showcase", format: CategoryFormat.SOLO, minMembers: 1, maxMembers: 1, maxCompetitors: 12, entryFee: 600, entryCurrency: "INR" },
+});
+
+for (const cat of [musicRap, musicProducer]) {
+  await prisma.roundFormat.createMany({
+    data: [
+      { categoryId: cat.id, order: 1, type: RoundType.QUALIFIER, label: "Qualifiers", roundCount: 1, roundDuration: 90, advanceCount: 6, phaseStatus: "PENDING" },
+      { categoryId: cat.id, order: 2, type: RoundType.FINAL, label: "Finals", roundCount: 3, roundDuration: 45, phaseStatus: "PENDING" },
+    ],
+  });
+  await prisma.category.update({ where: { id: cat.id }, data: { currentPhaseOrder: 1 } });
+}
+
+await prisma.judgeSlot.create({ data: { code: "MUS001", name: "Head Judge", eventId: musicCompEvent.id, categoryId: musicRap.id, isActive: true } });
+await prisma.judgeSlot.create({ data: { code: "MUS002", name: "Panel Judge", eventId: musicCompEvent.id, categoryId: musicRap.id, isActive: true } });
+await prisma.judgeSlot.create({ data: { code: "MUS003", name: "Head Judge", eventId: musicCompEvent.id, categoryId: musicProducer.id, isActive: true } });
+
+console.log("Created music competition event with 2 categories.");
+
+// --- Event 4: Hip-Hop Workshop ---
+const workshopEvent = await prisma.event.create({
+  data: {
+    title: "Shillong Hip-Hop Intensive",
+    slug: "shillong-hiphop-intensive-2026",
+    description:
+      "A 2-day intensive hip-hop workshop. Learn breaking foundations, freestyle techniques, and beatbox from some of the best in the scene. Open to all levels — bring your energy.",
+    eventType: EventType.WORKSHOP,
+    venue: "Blue Diamond Cultural Centre",
+    city: "Shillong",
+    state: "Meghalaya",
+    status: "PUBLISHED",
+    startsAt: future(15),
+    organizerId: organizer2.id,
     categoryCount: 3,
     flatFee: 99,
     flatFeePaid: true,
@@ -172,227 +332,295 @@ const event = await prisma.event.create({
   },
 });
 
-// ---- Categories ----
-const breaking = await prisma.category.create({ data: { eventId: event.id, name: "Breaking", format: "BATTLE_1V1", minMembers: 1, maxMembers: 1, maxCompetitors: 32, entryFee: 500, entryCurrency: "INR" } });
-const popping = await prisma.category.create({ data: { eventId: event.id, name: "Popping", format: "BATTLE_1V1", minMembers: 1, maxMembers: 1, maxCompetitors: 32, entryFee: 500, entryCurrency: "INR" } });
-const hiphop = await prisma.category.create({ data: { eventId: event.id, name: "Hip-Hop", format: "BATTLE_1V1", minMembers: 1, maxMembers: 1, maxCompetitors: 16, entryFee: 500, entryCurrency: "INR" } });
+const wsBreaking = await prisma.category.create({
+  data: { eventId: workshopEvent.id, name: "B-Boy Fundamentals", format: CategoryFormat.SOLO, minMembers: 1, maxMembers: 1, maxCompetitors: 30, entryFee: 300, entryCurrency: "INR" },
+});
+const wsFreestyle = await prisma.category.create({
+  data: { eventId: workshopEvent.id, name: "Freestyle Session", format: CategoryFormat.SOLO, minMembers: 1, maxMembers: 1, maxCompetitors: 25, entryFee: 250, entryCurrency: "INR" },
+});
+const wsBeatbox = await prisma.category.create({
+  data: { eventId: workshopEvent.id, name: "Beatbox Workshop", format: CategoryFormat.SOLO, minMembers: 1, maxMembers: 1, maxCompetitors: 20, entryFee: 200, entryCurrency: "INR" },
+});
 
-// ---- Round phases ----
-const phaseDefs: Record<string, Array<{ order: number; type: RoundType; label: string; roundCount: number; roundDuration: number; advanceCount?: number }>> = {
-  breaking: [
-    { order: 1, type: RoundType.CYPHER, label: "Cypher Round", roundCount: 1, roundDuration: 60, advanceCount: 8 },
-    { order: 2, type: RoundType.BATTLE_1V1, label: "Top 8", roundCount: 2, roundDuration: 30 },
-    { order: 3, type: RoundType.FINAL, label: "Finals", roundCount: 3, roundDuration: 45 },
-  ],
-  popping: [
-    { order: 1, type: RoundType.CYPHER, label: "Cypher Round", roundCount: 1, roundDuration: 60, advanceCount: 8 },
-    { order: 2, type: RoundType.BATTLE_1V1, label: "Top 8", roundCount: 2, roundDuration: 30 },
-    { order: 3, type: RoundType.FINAL, label: "Finals", roundCount: 3, roundDuration: 45 },
-  ],
-  hiphop: [
-    { order: 1, type: RoundType.QUALIFIER, label: "Qualifiers", roundCount: 1, roundDuration: 45, advanceCount: 8 },
-    { order: 2, type: RoundType.BATTLE_1V1, label: "Top 8", roundCount: 2, roundDuration: 30 },
-    { order: 3, type: RoundType.FINAL, label: "Finals", roundCount: 3, roundDuration: 45 },
-  ],
-};
+console.log("Created workshop event with 3 sessions.");
 
-for (const [catName, phases] of Object.entries(phaseDefs)) {
-  const cat = catName === "breaking" ? breaking : catName === "popping" ? popping : hiphop;
-  for (const phase of phases) {
-    await prisma.roundFormat.create({
-      data: {
-        categoryId: cat.id,
-        order: phase.order,
-        type: phase.type,
-        label: phase.label,
-        roundCount: phase.roundCount,
-        roundDuration: phase.roundDuration,
-        advanceCount: phase.advanceCount ?? null,
-        phaseStatus: phase.order === 1 ? "ACTIVE" : "PENDING",
-      },
-    });
-  }
-  await prisma.category.update({ where: { id: cat.id }, data: { currentPhaseOrder: 1 } });
-}
+// ============================================================
+// 6. REGISTRATIONS
+// ============================================================
 
-// ---- Judge slots (9 total: 3 per category) ----
-const judgeSlotDefs = [
-  { code: "BRK001", name: "Head Judge", categoryId: breaking.id },
-  { code: "BRK002", name: "Score Judge", categoryId: breaking.id },
-  { code: "BRK003", name: "Tech Judge", categoryId: breaking.id },
-  { code: "POP001", name: "Head Judge", categoryId: popping.id },
-  { code: "POP002", name: "Score Judge", categoryId: popping.id },
-  { code: "POP003", name: "Tech Judge", categoryId: popping.id },
-  { code: "HIP001", name: "Head Judge", categoryId: hiphop.id },
-  { code: "HIP002", name: "Score Judge", categoryId: hiphop.id },
-  { code: "HIP003", name: "Tech Judge", categoryId: hiphop.id },
+// --- Battle event registrations (15 artists, paid) ---
+const battleRegs = [
+  { artistIdx: 0, cat: battleBreaking },
+  { artistIdx: 2, cat: battleBreaking },
+  { artistIdx: 4, cat: battleBreaking },
+  { artistIdx: 6, cat: battleBreaking },
+  { artistIdx: 8, cat: battleBreaking },
+  { artistIdx: 10, cat: battlePopping },
+  { artistIdx: 12, cat: battlePopping },
+  { artistIdx: 14, cat: battlePopping },
+  { artistIdx: 16, cat: battlePopping },
+  { artistIdx: 18, cat: battlePopping },
+  { artistIdx: 1, cat: battleHiphop },
+  { artistIdx: 3, cat: battleHiphop },
+  { artistIdx: 5, cat: battleHiphop },
+  { artistIdx: 7, cat: battleHiphop },
+  { artistIdx: 9, cat: battleHiphop },
 ];
 
-for (const slot of judgeSlotDefs) {
-  await prisma.judgeSlot.create({
-    data: { code: slot.code, name: slot.name, eventId: event.id, categoryId: slot.categoryId, isActive: true },
+for (const reg of battleRegs) {
+  const artist = artists[reg.artistIdx];
+  await prisma.registration.create({
+    data: {
+      userId: artist.id,
+      categoryId: reg.cat.id,
+      status: "CONFIRMED",
+      format: CategoryFormat.BATTLE_1V1,
+      entryFee: reg.cat.entryFee,
+      entryCurrency: "INR",
+      paid: true,
+      paidAt: now,
+      paidClaimedAt: now,
+      seed: 1,
+      style: artist.style,
+      crew: artist.crew,
+      city: artist.city,
+      country: "India",
+      experience: artist.experience,
+      socialHandle: artist.socialHandle,
+      referral: "Instagram",
+      members: {
+        create: [{ categoryId: reg.cat.id, userId: artist.id, role: RegistrationMemberRole.CAPTAIN, status: RegistrationMemberStatus.ACCEPTED, acceptedAt: now }],
+      },
+    },
   });
 }
 
-// ---- Registrations: 12 Breaking, 10 Popping, 8 Hip-Hop = 30 total ----
-const regPlan: Array<{ category: typeof breaking; count: number; offset: number }> = [
-  { category: breaking, count: 12, offset: 0 },
-  { category: popping, count: 10, offset: 12 },
-  { category: hiphop, count: 8, offset: 22 },
-];
-
-let seedNum = 1;
-for (const plan of regPlan) {
-  for (let i = 0; i < plan.count; i++) {
-    const artist = artists[plan.offset + i];
-    await prisma.registration.create({
-      data: {
-        userId: artist.id,
-        categoryId: plan.category.id,
-        status: "CONFIRMED",
-        entryFee: plan.category.entryFee,
-        entryCurrency: plan.category.entryCurrency,
-        paid: true,
-        paidAt: now,
-        seed: seedNum,
-        style: plan.category.name,
-        crew: crews[i % crews.length] ?? null,
-        city: cities[i % cities.length],
-        country: "India",
-        experience: experiences[i % experiences.length],
-        socialHandle: `@${artist.name?.toLowerCase().replace(/\s+/g, "")}`,
-        referral: referrals[i % referrals.length],
-        members: {
-          create: [{ categoryId: plan.category.id, userId: artist.id, role: "CAPTAIN", status: "ACCEPTED", acceptedAt: now }],
-        },
+// --- Dance competition: solo entries (8 artists) ---
+const soloEntries = [0, 1, 3, 5, 8, 11, 13, 17];
+for (const artistIdx of soloEntries) {
+  const artist = artists[artistIdx];
+  await prisma.registration.create({
+    data: {
+      userId: artist.id,
+      categoryId: compSolo.id,
+      status: "CONFIRMED",
+      format: CategoryFormat.SOLO,
+      entryFee: compSolo.entryFee,
+      entryCurrency: "INR",
+      paid: true,
+      paidAt: now,
+      paidClaimedAt: now,
+      seed: 1,
+      style: artist.style,
+      crew: artist.crew,
+      city: artist.city,
+      country: "India",
+      experience: artist.experience,
+      socialHandle: artist.socialHandle,
+      referral: "Friend",
+      members: {
+        create: [{ categoryId: compSolo.id, userId: artist.id, role: RegistrationMemberRole.CAPTAIN, status: RegistrationMemberStatus.ACCEPTED, acceptedAt: now }],
       },
-    });
-    seedNum++;
-  }
-  seedNum = 1;
+    },
+  });
 }
 
-// ---- Prize pools ----
-const distribution = [
-  { rank: 1, label: "Winner", pct: 60 },
-  { rank: 2, label: "Runner-up", pct: 25 },
-  { rank: 3, label: "Semi-finalist", pct: 15 },
-];
-
-await prisma.prizePool.create({ data: { categoryId: breaking.id, totalAmount: 250000, currency: "USD", distribution } });
-await prisma.prizePool.create({ data: { categoryId: popping.id, totalAmount: 150000, currency: "USD", distribution } });
-await prisma.prizePool.create({ data: { categoryId: hiphop.id, totalAmount: 100000, currency: "USD", distribution } });
-
-// ---- Feedback templates ----
-const feedbackTemplates = [
-  { text: "Excellent musicality and timing", minScore: 8, maxScore: 10, scoreLabel: "High" },
-  { text: "Clean, precise footwork", minScore: 8, maxScore: 10, scoreLabel: "High" },
-  { text: "Incredible creativity and originality", minScore: 8, maxScore: 10, scoreLabel: "High" },
-  { text: "Strong stage presence and energy", minScore: 6, maxScore: 9, scoreLabel: "Mid" },
-  { text: "Good foundation work", minScore: 6, maxScore: 9, scoreLabel: "Mid" },
-  { text: "Solid effort, keep polishing", minScore: 4, maxScore: 7, scoreLabel: "Low" },
-  { text: "Needs more dynamics and variation", minScore: 0, maxScore: 5, scoreLabel: "Low" },
-  { text: "Watch your musicality", minScore: 0, maxScore: 5, scoreLabel: "Low" },
-  { text: "Great battle attitude", minScore: 6, maxScore: 10, scoreLabel: "Mid" },
-  { text: "Room for improvement on transitions", minScore: 0, maxScore: 6, scoreLabel: "Low" },
-];
-
-for (const tpl of feedbackTemplates) {
-  const existing = await prisma.feedbackTemplate.findFirst({ where: { text: tpl.text, organizerId: organizer.id } });
-  if (!existing) {
-    await prisma.feedbackTemplate.create({
-      data: { organizerId: organizer.id, text: tpl.text, minScore: tpl.minScore, maxScore: tpl.maxScore, scoreLabel: tpl.scoreLabel },
-    });
-  }
+// --- Dance competition: duo entries (4 pairs) ---
+const duoPairs = [[2, 3], [6, 7], [12, 13], [16, 17]];
+for (const [a1, a2] of duoPairs) {
+  const captain = artists[a1];
+  const mate = artists[a2];
+  await prisma.registration.create({
+    data: {
+      userId: captain.id,
+      categoryId: compDuo.id,
+      status: "CONFIRMED",
+      format: CategoryFormat.DUO,
+      entryFee: compDuo.entryFee,
+      entryCurrency: "INR",
+      paid: true,
+      paidAt: now,
+      paidClaimedAt: now,
+      seed: 1,
+      teamName: `${captain.name} & ${mate.name}`,
+      style: captain.style,
+      crew: captain.crew,
+      city: captain.city,
+      country: "India",
+      experience: captain.experience,
+      socialHandle: captain.socialHandle,
+      referral: "Crew",
+      members: {
+        create: [
+          { categoryId: compDuo.id, userId: captain.id, role: RegistrationMemberRole.CAPTAIN, status: RegistrationMemberStatus.ACCEPTED, acceptedAt: now },
+          { categoryId: compDuo.id, userId: mate.id, role: RegistrationMemberRole.MEMBER, status: RegistrationMemberStatus.ACCEPTED, acceptedAt: now },
+        ],
+      },
+    },
+  });
 }
 
-// ---- Gigs (freelance marketplace work posted by the organizer) ----
-const future = (days: number) => new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+// --- Music competition: rap battle (6 artists) ---
+const rapArtists = [1, 7, 10, 14, 18, 19];
+for (const artistIdx of rapArtists) {
+  const artist = artists[artistIdx];
+  await prisma.registration.create({
+    data: {
+      userId: artist.id,
+      categoryId: musicRap.id,
+      status: "CONFIRMED",
+      format: CategoryFormat.SOLO,
+      entryFee: musicRap.entryFee,
+      entryCurrency: "INR",
+      paid: true,
+      paidAt: now,
+      paidClaimedAt: now,
+      seed: 1,
+      style: artist.style,
+      crew: artist.crew,
+      city: artist.city,
+      country: "India",
+      experience: artist.experience,
+      socialHandle: artist.socialHandle,
+      referral: "Instagram",
+      members: {
+        create: [{ categoryId: musicRap.id, userId: artist.id, role: RegistrationMemberRole.CAPTAIN, status: RegistrationMemberStatus.ACCEPTED, acceptedAt: now }],
+      },
+    },
+  });
+}
 
-const gigDefs: Array<{
-  title: string;
-  description: string;
-  skillsRequired: Skill[];
-  location: string;
-  budget: number;
-  startsAt: Date;
-  status: "OPEN" | "FILLED";
-}> = [
+// --- Music competition: producer showcase (4 artists, paidClaimedAt only — pending) ---
+const producerArtists = [9, 15, 17, 19];
+for (const artistIdx of producerArtists) {
+  const artist = artists[artistIdx];
+  await prisma.registration.create({
+    data: {
+      userId: artist.id,
+      categoryId: musicProducer.id,
+      status: "CONFIRMED",
+      format: CategoryFormat.SOLO,
+      entryFee: musicProducer.entryFee,
+      entryCurrency: "INR",
+      paid: false,
+      seed: 1,
+      style: artist.style,
+      crew: artist.crew,
+      city: artist.city,
+      country: "India",
+      experience: artist.experience,
+      socialHandle: artist.socialHandle,
+      referral: "TikTok",
+      members: {
+        create: [{ categoryId: musicProducer.id, userId: artist.id, role: RegistrationMemberRole.CAPTAIN, status: RegistrationMemberStatus.ACCEPTED, acceptedAt: now }],
+      },
+    },
+  });
+}
+
+// --- Workshop registrations (8 artists, paid) ---
+const workshopRegs: Array<[number, typeof wsBreaking]> = [
+  [0, wsBreaking], [4, wsBreaking], [6, wsBreaking],
+  [2, wsFreestyle], [8, wsFreestyle], [11, wsFreestyle],
+  [5, wsBeatbox], [13, wsBeatbox],
+];
+for (const [artistIdx, cat] of workshopRegs) {
+  const artist = artists[artistIdx];
+  await prisma.registration.create({
+    data: {
+      userId: artist.id,
+      categoryId: cat.id,
+      status: "CONFIRMED",
+      format: CategoryFormat.SOLO,
+      entryFee: cat.entryFee,
+      entryCurrency: "INR",
+      paid: true,
+      paidAt: now,
+      paidClaimedAt: now,
+      seed: 1,
+      style: artist.style,
+      crew: artist.crew,
+      city: artist.city,
+      country: "India",
+      experience: artist.experience,
+      socialHandle: artist.socialHandle,
+      referral: "Friend",
+      members: {
+        create: [{ categoryId: cat.id, userId: artist.id, role: RegistrationMemberRole.CAPTAIN, status: RegistrationMemberStatus.ACCEPTED, acceptedAt: now }],
+      },
+    },
+  });
+}
+
+console.log("Created all registrations.");
+
+// ============================================================
+// 7. GIGS (marketplace)
+// ============================================================
+const gigData = [
   {
     title: "DJ for Saturday cypher night",
-    description:
-      "Need a DJ comfortable with open-format battles — quick cuts, scratch-friendly, can read a crowd in a 2x2 floor setup. 4-hour set at The Underground.",
-    skillsRequired: ["DJ", "DANCER"],
-    location: "The Underground, Brooklyn",
+    description: "Need a DJ comfortable with open-format battles — quick cuts, scratch-friendly, can read a crowd in a 2x2 floor setup. 4-hour set.",
+    skillsRequired: ["DJ" as Skill, "DANCER" as Skill],
+    location: "The Underground, Mumbai",
     budget: 8000,
-    startsAt: future(7),
-    status: "OPEN",
+    startsAt: future(5),
+    status: "OPEN" as const,
   },
   {
     title: "Choreographer for music video",
-    description:
-      "Looking for a choreographer to build and rehearse a 90-second routine for an upcoming single. 3 shoot days, travel covered.",
-    skillsRequired: ["CHOREOGRAPHER", "DANCER"],
-    location: "Guwahati",
+    description: "Looking for a choreographer to build and rehearse a 90-second routine for an upcoming hip-hop single. 3 shoot days, travel covered.",
+    skillsRequired: ["CHOREOGRAPHER" as Skill, "DANCER" as Skill],
+    location: "Delhi",
     budget: 25000,
-    startsAt: future(14),
-    status: "OPEN",
+    startsAt: future(12),
+    status: "OPEN" as const,
   },
   {
     title: "MC / host for open-mic cypher",
-    description:
-      "Host our monthly open-mic cypher — warm up the room, hype the battles, keep energy between rounds. Two-hour show.",
-    skillsRequired: ["MC"],
+    description: "Host our monthly open-mic cypher — warm up the room, hype the battles, keep energy between rounds. Two-hour show.",
+    skillsRequired: ["MC" as Skill],
     location: "Shillong",
     budget: 6000,
-    startsAt: future(21),
-    status: "OPEN",
+    startsAt: future(18),
+    status: "OPEN" as const,
   },
   {
-    title: "Guitarist for live set",
-    description:
-      "One-off live set with a hip-hop producer — need a guitarist who can improvise over beats and keep up with tempo changes.",
-    skillsRequired: ["GUITARIST", "VOCALIST"],
-    location: "Imphal",
+    title: "Guitarist for live beat set",
+    description: "One-off live set with a hip-hop producer — need a guitarist who can improvise over beats and keep up with tempo changes. Bring your own pedal board.",
+    skillsRequired: ["GUITARIST" as Skill, "VOCALIST" as Skill],
+    location: "Guwahati",
     budget: 12000,
-    startsAt: future(10),
-    status: "OPEN",
+    startsAt: future(8),
+    status: "OPEN" as const,
   },
   {
-    title: "Dancer for festival performance",
-    description:
-      "Festival stage performance in front of ~2000 people. Need 4 dancers for a 6-minute routine. Rehearsals paid.",
-    skillsRequired: ["DANCER", "PERFORMER"],
-    location: "Dibrugarh",
+    title: "Dancers for festival performance",
+    description: "Festival stage in front of ~2000 people. Need 4 dancers for a 6-minute routine. Rehearsals paid. All styles welcome.",
+    skillsRequired: ["DANCER" as Skill, "PERFORMER" as Skill],
+    location: "Mumbai",
     budget: 15000,
-    startsAt: future(30),
-    status: "OPEN",
+    startsAt: future(25),
+    status: "FILLED" as const,
   },
   {
-    title: "B-boy workshop instructor",
-    description:
-      "Run a 2-day breaking fundamentals workshop for 40 kids. Session plan provided, bring your own style. Pay per day.",
-    skillsRequired: ["DANCER", "CHOREOGRAPHER"],
-    location: "Silchar",
-    budget: 10000,
-    startsAt: future(45),
-    status: "FILLED",
+    title: "Beatboxer for workshop demo",
+    description: "Need a beatboxer to do a 30-minute demo at a hip-hop workshop. Show basic techniques, loop station use, and crowd interaction.",
+    skillsRequired: ["BEATBOXER" as Skill],
+    location: "Pune",
+    budget: 5000,
+    startsAt: future(14),
+    status: "OPEN" as const,
   },
 ];
 
 const gigs = [];
-for (const def of gigDefs) {
+for (const def of gigData) {
   const gig = await prisma.gig.create({
     data: {
-      organizerId: organizer.id,
-      title: def.title,
-      description: def.description,
-      skillsRequired: def.skillsRequired,
-      location: def.location,
-      budget: def.budget,
+      organizerId: organizer1.id,
+      ...def,
       currency: "INR",
-      startsAt: def.startsAt,
-      status: def.status,
       feePaid: true,
       feePaidAt: now,
     },
@@ -400,237 +628,55 @@ for (const def of gigDefs) {
   gigs.push(gig);
 }
 
-// ---- Artist achievements (battle resume) ----
-const achievementDefs: Array<{ artistIndex: number; title: string; competition: string; placement: string; year: number; prize: number; note?: string }> = [
-  { artistIndex: 0, title: "Champion", competition: "North East Breaking Championship", placement: "1st", year: 2025, prize: 50000 },
-  { artistIndex: 3, title: "Runner-up", competition: "Guwahati Cypher League", placement: "2nd", year: 2024, prize: 15000 },
-  { artistIndex: 6, title: "Semi-finalist", competition: "National B-Boy Showcase", placement: "Semi-final", year: 2024, prize: 5000 },
-  { artistIndex: 9, title: "Winner", competition: "Silchar Pop Off", placement: "1st", year: 2023, prize: 20000 },
-  { artistIndex: 12, title: "Champion", competition: "House Groove Circuit", placement: "1st", year: 2025, prize: 30000 },
-  { artistIndex: 15, title: "Runner-up", competition: "Imphal Street Clash", placement: "2nd", year: 2022, prize: 10000 },
-  { artistIndex: 18, title: "Champion", competition: "Dibrugarh Break Finals", placement: "1st", year: 2024, prize: 40000 },
-  { artistIndex: 21, title: "Top 4", competition: "Shillong Cypher Slam", placement: "Semi-final", year: 2025, prize: 8000 },
+console.log("Created 6 gigs.");
+
+// ============================================================
+// 8. ARTIST ACHIEVEMENTS
+// ============================================================
+const achievementData = [
+  { artistIdx: 0, title: "Champion", competition: "Mumbai Street Clash 2025", placement: "1st", year: 2025, prize: 30000 },
+  { artistIdx: 4, title: "Runner-up", competition: "South India Breaking Open", placement: "2nd", year: 2024, prize: 15000 },
+  { artistIdx: 8, title: "Winner", competition: "Delhi Cypher League", placement: "1st", year: 2025, prize: 40000 },
+  { artistIdx: 12, title: "Semi-finalist", competition: "National B-Boy Showcase", placement: "Semi-final", year: 2024, prize: 8000 },
+  { artistIdx: 18, title: "Champion", competition: "Northeast Hip-Hop Awards", placement: "1st", year: 2025, prize: 25000 },
 ];
 
-for (const def of achievementDefs) {
+for (const def of achievementData) {
   await prisma.artistAchievement.create({
     data: {
-      userId: artists[def.artistIndex].id,
+      userId: artists[def.artistIdx].id,
       title: def.title,
       competition: def.competition,
       placement: def.placement,
       year: def.year,
       prize: def.prize,
       currency: "INR",
-      note: def.note,
     },
   });
 }
 
-// ---- Gig applications ----
-const applicationDefs: Array<{ artistIndex: number; gigIndex: number; message: string; status: "PENDING" | "ACCEPTED" }> = [
-  {
-    artistIndex: 1,
-    gigIndex: 0,
-    message: "I spin open-format battles weekly and can scratch between rounds. 4-hour set is no problem.",
-    status: "ACCEPTED",
-  },
-  {
-    artistIndex: 12,
-    gigIndex: 1,
-    message: "I've choreographed 3 music videos this year and work well under tight shoot schedules.",
-    status: "PENDING",
-  },
-  {
-    artistIndex: 21,
-    gigIndex: 5,
-    message: "Been teaching breaking fundamentals to kids for 2 years. Happy to follow your session plan.",
-    status: "PENDING",
-  },
-];
-
-for (const def of applicationDefs) {
-  await prisma.gigApplication.create({
-    data: {
-      gigId: gigs[def.gigIndex].id,
-      artistId: artists[def.artistIndex].id,
-      message: def.message,
-      status: def.status,
-    },
-  });
-}
-
-// ---- Workshop event (organizer gives workshops, artists join sessions) ----
-const workshop = await prisma.event.create({
-  data: {
-    title: "House Groove Workshop",
-    slug: "house-groove-workshop-2026",
-    description:
-      "A full-day house dance workshop for all levels. Learn the foundations of house — jacking, footwork, hustle — then open the floor for a guided cypher session.",
-    eventType: EventType.WORKSHOP,
-    venue: "Flow State Studio",
-    city: "Mumbai",
-    state: "Maharashtra",
-    status: "PUBLISHED",
-    startsAt: future(12),
-    organizerId: organizer.id,
-    categoryCount: 3,
-    flatFee: 99,
-    flatFeePaid: true,
-    flatFeePaidAt: now,
-    flatFeePaymentStatus: "VERIFIED",
-    flatFeePaymentMethod: "UPI",
-    flatFeePaymentSentAt: now,
-  },
+// ============================================================
+// 9. GIG APPLICATIONS
+// ============================================================
+await prisma.gigApplication.create({
+  data: { gigId: gigs[0].id, artistId: artists[4].id, message: "I spin open-format battles weekly and can scratch between rounds. 4-hour set is no problem.", status: "ACCEPTED" },
+});
+await prisma.gigApplication.create({
+  data: { gigId: gigs[1].id, artistId: artists[3].id, message: "Choreographed 3 music videos this year. Tight shoot schedules are my thing.", status: "PENDING" },
+});
+await prisma.gigApplication.create({
+  data: { gigId: gigs[3].id, artistId: artists[10].id, message: "I play guitar over lo-fi hip-hop beats regularly. Happy to improvise and adapt on the fly.", status: "PENDING" },
 });
 
-const workshopSessions = [
-  { name: "House Foundations", maxCompetitors: 20, entryFee: 400 },
-  { name: "Footwork & Hustle", maxCompetitors: 20, entryFee: 400 },
-  { name: "Open Groove Cypher", maxCompetitors: 30, entryFee: 200 },
-];
+console.log("Created achievements + gig applications.");
 
-const sessionIds = [];
-for (const session of workshopSessions) {
-  const cat = await prisma.category.create({
-    data: {
-      eventId: workshop.id,
-      name: session.name,
-      format: "SOLO",
-      minMembers: 1,
-      maxMembers: 1,
-      maxCompetitors: session.maxCompetitors,
-      entryFee: session.entryFee,
-      entryCurrency: "INR",
-    },
-  });
-  sessionIds.push(cat.id);
-}
-
-// A few artists join the workshop sessions (paid)
-const workshopJoins: Array<[number, number]> = [
-  [0, 0], [2, 0], [5, 1], [8, 1], [11, 2], [14, 2], [17, 0], [20, 2],
-];
-let wsSeed = 1;
-for (const [artistIndex, sessionIndex] of workshopJoins) {
-  await prisma.registration.create({
-    data: {
-      userId: artists[artistIndex].id,
-      categoryId: sessionIds[sessionIndex],
-      status: "CONFIRMED",
-      entryFee: workshopSessions[sessionIndex].entryFee,
-      entryCurrency: "INR",
-      paid: true,
-      paidAt: now,
-      seed: wsSeed,
-      style: artists[artistIndex].style,
-      crew: artists[artistIndex].crew,
-      city: artists[artistIndex].city,
-      country: "India",
-      experience: artists[artistIndex].experience,
-      socialHandle: artists[artistIndex].socialHandle,
-      referral: artists[artistIndex].referral,
-      members: {
-        create: [{ categoryId: sessionIds[sessionIndex], userId: artists[artistIndex].id, role: "CAPTAIN", status: "ACCEPTED", acceptedAt: now }],
-      },
-    },
-  });
-  wsSeed++;
-}
-
-// ---- Dance competition event (single-point scoring, auto Qualifiers + Finals) ----
-const championship = await prisma.event.create({
-  data: {
-    title: "National Dance Championship 2026",
-    slug: "national-dance-championship-2026",
-    description:
-      "A judged solo and group dance competition. Performers are scored 0-10 by a live panel with feedback — no eliminations in prelims, top scorers advance to finals.",
-    eventType: EventType.DANCE_COMPETITION,
-    venue: "Rabindra Bhawan",
-    city: "Guwahati",
-    state: "Assam",
-    status: "PUBLISHED",
-    startsAt: future(25),
-    organizerId: organizer.id,
-    categoryCount: 3,
-    flatFee: 99,
-    flatFeePaid: true,
-    flatFeePaidAt: now,
-    flatFeePaymentStatus: "VERIFIED",
-    flatFeePaymentMethod: "UPI",
-    flatFeePaymentSentAt: now,
-  },
-});
-
-const competitionCategories = [];
-const competitionDefs = [
-  { name: "Solo Dance", format: "SOLO" as const, minMembers: 1, maxMembers: 1, maxCompetitors: 24, entryFee: 800 },
-  { name: "Duo Performance", format: "DUO" as const, minMembers: 2, maxMembers: 2, maxCompetitors: 16, entryFee: 1200 },
-  { name: "Group Performance", format: "GROUP" as const, minMembers: 4, maxMembers: 12, maxCompetitors: 12, entryFee: 1500 },
-];
-for (let ci = 0; ci < competitionDefs.length; ci++) {
-  const def = competitionDefs[ci];
-  const cat = await prisma.category.create({
-    data: {
-      eventId: championship.id,
-      name: def.name,
-      format: def.format,
-      minMembers: def.minMembers,
-      maxMembers: def.maxMembers,
-      maxCompetitors: def.maxCompetitors,
-      entryFee: def.entryFee,
-      entryCurrency: "INR",
-    },
-  });
-  await prisma.roundFormat.createMany({
-    data: [
-      { categoryId: cat.id, order: 1, type: RoundType.QUALIFIER, label: "Qualifiers", phaseStatus: "PENDING" },
-      { categoryId: cat.id, order: 2, type: RoundType.QUALIFIER, label: "Finals", phaseStatus: "PENDING" },
-    ],
-  });
-  await prisma.judgeSlot.create({
-      data: { code: `DNC00${ci + 1}`, name: "Panel Judge", eventId: championship.id, categoryId: cat.id, isActive: true },
-  });
-  competitionCategories.push(cat);
-}
-
-// A few artists enter the competition (paid)
-const competitionEntries: Array<[number, number]> = [
-  [1, 0], [3, 0], [4, 0], [7, 0], [9, 0], [12, 0], [18, 0], [22, 0], [25, 0], [28, 0],
-  [0, 1], [6, 1], [13, 1], [21, 1], [26, 1],
-];
-let compSeed = 1;
-for (const [artistIndex, catIndex] of competitionEntries) {
-  await prisma.registration.create({
-      data: {
-      userId: artists[artistIndex].id,
-      categoryId: competitionCategories[catIndex].id,
-      status: "CONFIRMED",
-      entryFee: competitionDefs[catIndex].entryFee,
-      entryCurrency: "INR",
-      paid: true,
-      paidAt: now,
-      seed: compSeed,
-      style: artists[artistIndex].style,
-      crew: artists[artistIndex].crew,
-      city: artists[artistIndex].city,
-      country: "India",
-      experience: artists[artistIndex].experience,
-      socialHandle: artists[artistIndex].socialHandle,
-        referral: artists[artistIndex].referral,
-        format: competitionDefs[catIndex].format,
-        teamName: catIndex === 1 ? `${artists[artistIndex].name ?? "Duo"} Pair` : null,
-        members: {
-          create: [
-            { categoryId: competitionCategories[catIndex].id, userId: artists[artistIndex].id, role: "CAPTAIN", status: "ACCEPTED", acceptedAt: now },
-            ...(catIndex === 1 ? [{ categoryId: competitionCategories[catIndex].id, userId: artists[(artistIndex + 1) % artists.length].id, role: "MEMBER" as const, status: "ACCEPTED" as const, acceptedAt: now }] : []),
-          ],
-        },
-    },
-  });
-  compSeed++;
-}
-
-console.log("Seed complete: 1 organizer, 30 artists, 3 events (battle/workshop/competition), 8 workshop sessions+competition categories, 12 judge slots, 53 registrations, 3 prize pools, 10 feedback templates, 6 gigs, 8 achievements, 3 gig applications");
+// ============================================================
+// DONE
+// ============================================================
+console.log("\n=== Seed Complete ===");
+console.log("1 admin | 2 organizers | 20 artists");
+console.log("4 events: Battle + Dance Comp + Music Comp + Workshop");
+console.log("50+ registrations across all events");
+console.log("6 gigs | 5 achievements | 3 gig applications");
 
 await prisma.$disconnect();
