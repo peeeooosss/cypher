@@ -3,7 +3,6 @@ import { z } from "zod";
 import { badRequest, forbidden, notFound, serverError, unauthorized } from "@/lib/api";
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
-import { GIG_COMMISSION_RATE } from "@/lib/pricing";
 
 type Context = { params: Promise<{ gigId: string }> };
 
@@ -20,11 +19,11 @@ export async function POST(request: Request, { params }: Context) {
 
   const gig = await prisma.gig.findFirst({
     where: { id: gigId, organizerId: user.id },
-    select: { id: true, commissionStatus: true },
+    select: { id: true, status: true },
   });
   if (!gig) return notFound("Gig");
-  if (gig.commissionStatus === "VERIFIED") {
-    return NextResponse.json({ error: "Commission already settled" }, { status: 409 });
+  if (gig.status === "FILLED") {
+    return NextResponse.json({ error: "Gig already awarded" }, { status: 409 });
   }
 
   const parsed = awardSchema.safeParse(await request.json().catch(() => null));
@@ -35,15 +34,12 @@ export async function POST(request: Request, { params }: Context) {
       where: { id: gigId },
       data: {
         awardedAmount: parsed.data.amount,
-        commissionDue: Math.round(parsed.data.amount * GIG_COMMISSION_RATE),
-        commissionStatus: "PENDING",
         status: "FILLED",
       },
       select: {
         id: true,
         awardedAmount: true,
-        commissionDue: true,
-        commissionStatus: true,
+        status: true,
       },
     });
 

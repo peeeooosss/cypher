@@ -4,7 +4,7 @@ import { EventStatus, EventType } from "@/generated/prisma/enums";
 import type { Prisma } from "@/generated/prisma/client";
 import { badRequest, isUniqueConstraintError, serverError, unauthorized, conflict } from "@/lib/api";
 import { getCurrentUser } from "@/lib/rbac";
-import { flatFeeForCategoryCount } from "@/lib/pricing";
+import { flatFeeForEventType } from "@/lib/pricing";
 import { isValidState } from "@/lib/states";
 import { prisma } from "@/lib/prisma";
 
@@ -12,7 +12,7 @@ const eventSchema = z.object({
   title: z.string().trim().min(2).max(120),
   slug: z.string().trim().min(2).max(80).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
   description: z.string().trim().max(5000).optional(),
-  eventType: z.enum(EventType).optional(),
+  eventType: z.enum(EventType),
   posterUrl: z.string().trim().max(3_000_000).nullable().optional(),
   venue: z.string().trim().max(200).optional(),
   city: z.string().trim().max(120).optional(),
@@ -21,7 +21,6 @@ const eventSchema = z.object({
   }),
   startsAt: z.coerce.date(),
   status: z.enum(EventStatus).default(EventStatus.DRAFT),
-  categoryCount: z.number().int().min(1).max(20).optional(),
 });
 
 export async function GET(request: Request) {
@@ -88,13 +87,13 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { categoryCount, ...rest } = parsed.data;
+    const { eventType, ...rest } = parsed.data;
 
     const event = await prisma.event.create({
       data: {
         ...rest,
-        categoryCount: categoryCount ?? null,
-        flatFee: categoryCount ? flatFeeForCategoryCount(categoryCount) : null,
+        eventType,
+        flatFee: flatFeeForEventType(eventType),
         organizer: { connect: { id: user.id } },
       },
       include: { categories: true },

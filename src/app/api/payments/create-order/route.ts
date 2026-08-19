@@ -74,18 +74,6 @@ export async function POST(request: Request) {
         break;
       }
 
-      case PaymentType.GIG_COMMISSION: {
-        if (user.role !== "ORGANIZER") return forbidden();
-        const gig = await prisma.gig.findFirst({
-          where: { id: referenceId, organizerId: user.id },
-          select: { commissionDue: true, commissionStatus: true },
-        });
-        if (!gig) return notFound("Gig");
-        if (gig.commissionStatus === "VERIFIED") return conflict("Gig commission already paid");
-        amount = gig.commissionDue ?? 0;
-        break;
-      }
-
       case PaymentType.GIG_WORK: {
         if (user.role !== "ARTIST") return forbidden();
         if (referenceId !== user.id) return forbidden();

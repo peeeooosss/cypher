@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { EventStatus, EventType } from "@/generated/prisma/enums";
+import type { Prisma } from "@/generated/prisma/client";
 import { badRequest, conflict, forbidden, isUniqueConstraintError, notFound, serverError, unauthorized } from "@/lib/api";
 import { getCurrentUser } from "@/lib/rbac";
-import { COMMISSION_RATE, isEventFlatFeePaid } from "@/lib/pricing";
+import { COMMISSION_RATE, flatFeeForEventType, isEventFlatFeePaid } from "@/lib/pricing";
 import { isValidState } from "@/lib/states";
 import { prisma } from "@/lib/prisma";
 import { generateBracket, BracketError } from "@/lib/bracket";
@@ -59,6 +60,7 @@ export async function PATCH(request: Request, { params }: EventRouteContext) {
     select: {
       id: true,
       status: true,
+      eventType: true,
       flatFee: true,
       flatFeePaid: true,
       commissionPaid: true,
@@ -106,7 +108,7 @@ export async function PATCH(request: Request, { params }: EventRouteContext) {
       });
       return NextResponse.json(
         {
-          error: "Settle the 1.5% commission before completing the event.",
+          error: "Settle the 2.99% commission before completing the event.",
           code: "COMMISSION_REQUIRED",
           commissionDue,
           billUrl: `/organizer/${eventId}/bill#commission`,
@@ -151,9 +153,19 @@ export async function PATCH(request: Request, { params }: EventRouteContext) {
   }
 
   try {
+    const updateData: Prisma.EventUpdateInput = { ...parsed.data };
+
+    if (
+      parsed.data.eventType &&
+      parsed.data.eventType !== ownedEvent.eventType &&
+      !ownedEvent.flatFeePaid
+    ) {
+      updateData.flatFee = flatFeeForEventType(parsed.data.eventType);
+    }
+
     const event = await prisma.event.update({
       where: { id: eventId },
-      data: parsed.data,
+      data: updateData,
     });
 
     return NextResponse.json(event);

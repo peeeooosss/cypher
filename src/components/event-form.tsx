@@ -2,10 +2,10 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { flatFeeForCategoryCount, formatInr } from "@/lib/pricing";
+import { flatFeeForEventType, formatInr } from "@/lib/pricing";
 import { PosterUpload } from "@/components/poster-upload";
 import { BATTLE_FORMATS, CATEGORY_FORMAT_LABELS, COMPETITION_FORMATS, EVENT_TYPE_LABELS, EVENT_TYPE_LIST, defaultRosterSize, isCompetitionType, isWorkshopType } from "@/lib/event-types";
-import { CategoryFormat } from "@/generated/prisma/enums";
+import { CategoryFormat, EventType } from "@/generated/prisma/enums";
 import { INDIAN_STATES } from "@/lib/states";
 
 export function EventForm() {
@@ -13,7 +13,7 @@ export function EventForm() {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [posterUrl, setPosterUrl] = useState<string | null>(null);
-  const [categoryCount, setCategoryCount] = useState(2);
+  const [eventType, setEventType] = useState<EventType | "">("");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -21,7 +21,6 @@ export function EventForm() {
     setIsSubmitting(true);
 
     const formData = new FormData(event.currentTarget);
-    const eventType = formData.get("eventType") as string | null;
     const response = await fetch("/api/events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -29,13 +28,12 @@ export function EventForm() {
         title: formData.get("title"),
         slug: formData.get("slug"),
         description: formData.get("description") || undefined,
-        eventType: eventType || undefined,
+        eventType,
         posterUrl,
         venue: formData.get("venue") || undefined,
         city: formData.get("city") || undefined,
         state: formData.get("state") || undefined,
         startsAt: formData.get("startsAt"),
-        categoryCount,
       }),
     });
 
@@ -59,7 +57,12 @@ export function EventForm() {
         <input required className="border border-line bg-paper px-md py-sm" name="slug" placeholder="event-slug" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" />
         <label className="block">
           <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Event type</span>
-          <select className="mt-xs w-full border border-line bg-paper px-md py-sm" name="eventType" defaultValue="">
+          <select
+            className="mt-xs w-full border border-line bg-paper px-md py-sm"
+            name="eventType"
+            value={eventType}
+            onChange={(e) => setEventType(e.target.value as EventType | "")}
+          >
             <option value="">Select a type</option>
             {EVENT_TYPE_LIST.map((t) => (
               <option key={t} value={t}>{EVENT_TYPE_LABELS[t]}</option>
@@ -75,17 +78,6 @@ export function EventForm() {
             ))}
           </select>
         </label>
-        <label className="block">
-          <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Categories</span>
-          <input
-            className="mt-xs w-full border border-line bg-paper px-md py-sm"
-            type="number"
-            min={1}
-            max={20}
-            value={categoryCount}
-            onChange={(e) => setCategoryCount(Number(e.target.value))}
-          />
-        </label>
         <input className="border border-line bg-paper px-md py-sm" name="venue" placeholder="Venue" />
         <input className="border border-line bg-paper px-md py-sm" name="city" placeholder="City" />
         <input required className="border border-line bg-paper px-md py-sm md:col-span-2" name="startsAt" type="datetime-local" />
@@ -95,14 +87,14 @@ export function EventForm() {
         <div className="flex flex-wrap items-center justify-between gap-md">
           <div>
             <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">Flat fee to activate</p>
-            <p className="mt-xs font-display text-title-md text-accent">{formatInr(flatFeeForCategoryCount(categoryCount))}</p>
+            <p className="mt-xs font-display text-title-md text-accent">{eventType ? formatInr(flatFeeForEventType(eventType)) : "Select a type"}</p>
           </div>
           <p className="font-mono text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">
-            1–2 categories ₹49 · 3–4 ₹99 · 5+ ₹199
+            Workshop ₹99 · Underground battle ₹199 · Competition ₹249
           </p>
         </div>
         <p className="mt-md border-t border-line pt-md text-body-sm text-ink-muted">
-          Paid once at creation. Later, just 1.5% per confirmed entry — taken at event completion.
+          Paid once at creation. Unlimited categories and unlimited phases — one flat fee. Later, just 2.99% per confirmed entry — taken at event completion.
         </p>
       </div>
       <div className="mt-lg">
@@ -112,7 +104,7 @@ export function EventForm() {
         </div>
       </div>
       {error ? <p className="mt-md text-body-sm text-accent">{error}</p> : null}
-      <button className="mt-lg border border-accent bg-accent px-lg py-sm font-bold uppercase text-paper disabled:opacity-60" disabled={isSubmitting} type="submit">
+      <button className="mt-lg border border-accent bg-accent px-lg py-sm font-bold uppercase text-paper disabled:opacity-60" disabled={isSubmitting || !eventType} type="submit">
         {isSubmitting ? "Creating..." : "Create event & pay flat fee"}
       </button>
     </form>

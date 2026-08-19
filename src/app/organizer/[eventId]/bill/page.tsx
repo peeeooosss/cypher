@@ -112,7 +112,7 @@ export default async function EventBillPage({ params }: PageProps) {
                 <Link href="#commission" className="underline">{formatInr(commissionDue)} — pay</Link>
               </span>
             ) : (
-              <span className="font-mono text-ink-muted">1.5% at completion</span>
+              <span className="font-mono text-ink-muted">2.99% at completion</span>
             )}
           </div>
         </div>
@@ -137,7 +137,7 @@ export default async function EventBillPage({ params }: PageProps) {
               </div>
             </div>
             <p className="mt-md text-body-sm text-ink-muted">
-              Paid once at creation. Later, just 1.5% per confirmed entry fee — settled at event completion.
+              Paid once at creation. Later, just 2.99% per confirmed entry fee — settled at event completion.
             </p>
           </div>
 
@@ -196,7 +196,7 @@ export default async function EventBillPage({ params }: PageProps) {
 
       <section id="commission" className="mt-section border border-line p-lg scroll-mt-24">
         <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">Commission</p>
-        <h2 className="mt-sm font-display text-title-md uppercase">Settle the 1.5% commission</h2>
+        <h2 className="mt-sm font-display text-title-md uppercase">Settle the 2.99% commission</h2>
         <p className="mt-sm text-body-sm text-ink-muted">
           Charged on confirmed entry fees and due before the event can be marked Completed.
         </p>
@@ -211,7 +211,7 @@ export default async function EventBillPage({ params }: PageProps) {
                     <span className="font-mono text-accent">{formatInr(category.commission)}</span>
                   </div>
                   <p className="mt-xs text-body-sm text-ink-muted">
-                    {category.registrations} entries · {formatInr(category.entryFeeSum)} entry fees × 1.5%
+                    {category.registrations} entries · {formatInr(category.entryFeeSum)} entry fees × 2.99%
                   </p>
                 </div>
               ))}
@@ -273,7 +273,7 @@ export default async function EventBillPage({ params }: PageProps) {
           </div>
         ) : (
           <p className="mt-lg border border-line p-lg text-body-sm text-ink-muted">
-            No commission due yet — it&apos;s 1.5% of confirmed entry fees, settled when the event completes.
+            No commission due yet — it&apos;s 2.99% of confirmed entry fees, settled when the event completes.
           </p>
         )}
       </section>
@@ -284,7 +284,7 @@ export default async function EventBillPage({ params }: PageProps) {
           <li>Pay the flat fee above to activate the event.</li>
           <li>Add categories, rounds, judges and prize pools.</li>
           <li>Publish the event so artists can register.</li>
-          <li>At the end, settle the 1.5% commission and complete the event.</li>
+          <li>At the end, settle the 2.99% commission and complete the event.</li>
         </ol>
       </div>
     </main>

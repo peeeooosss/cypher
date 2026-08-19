@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatDate, formatExperience } from "@/lib/format";
 import { SKILLS, SKILL_LABELS, skillLabel } from "@/lib/skills";
+import { GIG_FLAT_FEE, formatInr } from "@/lib/pricing";
 import { RazorpayCheckout } from "@/components/razorpay-checkout";
 import { PaymentType } from "@/generated/prisma/enums";
 
@@ -117,7 +118,10 @@ export function GigManager({ gigs }: { gigs: Gig[] }) {
       <form className="border border-line bg-paper-soft p-lg" onSubmit={handleCreate}>
         <p className="font-display text-title-md uppercase">Post freelance work</p>
         <p className="mt-xs text-body-sm text-ink-muted">
-          Create a gig and artists with matching skills can apply.
+          Create a gig and artists with matching skills can apply. Flat {formatInr(GIG_FLAT_FEE)} posting fee — no extra commission.
+        </p>
+        <p className="mt-xs text-body-sm text-accent">
+          Why spend on Meta ads? You&apos;ll get your target audience right here. No extra commission, no extra tension for organizers.
         </p>
         <div className="mt-lg grid gap-md md:grid-cols-2">
           <input required className="border border-line bg-paper px-md py-sm text-body-sm md:col-span-2" name="title" placeholder="Gig title — e.g. DJ for Saturday night" />
@@ -198,7 +202,7 @@ export function GigManager({ gigs }: { gigs: Gig[] }) {
                   <RazorpayCheckout
                     type={PaymentType.GIG_POST}
                     referenceId={gig.id}
-                    label="Pay ₹149 to publish"
+                    label={`Pay ${formatInr(GIG_FLAT_FEE)} to publish`}
                     className="border border-accent bg-accent px-sm py-xs font-mono text-[0.65rem] uppercase text-paper"
                   />
                 )}
@@ -206,7 +210,7 @@ export function GigManager({ gigs }: { gigs: Gig[] }) {
             </div>
             {!gig.feePaid ? (
               <p className="mt-sm text-body-sm text-accent">
-                This gig is saved as a draft. Pay the ₹149 posting fee to publish it and let artists apply.
+                This gig is saved as a draft. Pay the {formatInr(GIG_FLAT_FEE)} posting fee to publish it and let artists apply.
               </p>
             ) : null}
             <p className="mt-sm text-body-sm text-ink whitespace-pre-wrap">{gig.description}</p>

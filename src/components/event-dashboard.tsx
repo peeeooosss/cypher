@@ -616,7 +616,7 @@ function OverviewTab({
               {event.commissionDue != null && event.commissionDue > 0 ? (
                 <span className="font-mono text-accent">{formatInr(event.commissionDue)}</span>
               ) : (
-                <span className="font-mono text-ink-muted">1.5% at completion</span>
+                <span className="font-mono text-ink-muted">2.99% at completion</span>
               )}
             </div>
           </div>
@@ -646,7 +646,7 @@ function OverviewTab({
                     Commission not paid — {formatInr(event.commissionDue)}
                   </p>
                   <p className="mt-xs text-body-sm text-ink-muted">
-                    Settle the 1.5% commission on confirmed entries before marking the event Completed.
+                    Settle the 2.99% commission on confirmed entries before marking the event Completed.
                   </p>
                   <Link
                     href={`/organizer/${event.id}/bill#commission`}

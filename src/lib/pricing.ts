@@ -1,18 +1,19 @@
-export const EVENT_FLAT_FEES: Record<number, number> = {
-  2: 49,
-  3: 99,
-  5: 199,
+import { EventType } from "@/generated/prisma/enums";
+
+export const EVENT_TYPE_FEES: Record<EventType, number> = {
+  WORKSHOP: 99,
+  UNDERGROUND_BATTLE: 199,
+  DANCE_COMPETITION: 249,
+  MUSIC_COMPETITION: 249,
 };
 
-export const COMMISSION_RATE = 0.015;
+export const COMMISSION_RATE = 0.0299;
 
-export const GIG_FLAT_FEE = 149;
+export const GIG_FLAT_FEE = 199;
 
 export const GIG_WORK_FEE = 99;
 
 export const GIG_CONNECTION_FEE = 49;
-
-export const GIG_COMMISSION_RATE = 0.1;
 
 export const GIG_WORK_DURATION_MS = 3 * 30 * 24 * 60 * 60 * 1000;
 
@@ -22,10 +23,8 @@ export function gigWorkExpiryFrom(paidAt: Date): Date {
   return expiresAt;
 }
 
-export function flatFeeForCategoryCount(categoryCount: number): number {
-  if (categoryCount <= 2) return EVENT_FLAT_FEES[2];
-  if (categoryCount <= 4) return EVENT_FLAT_FEES[3];
-  return EVENT_FLAT_FEES[5];
+export function flatFeeForEventType(eventType: EventType): number {
+  return EVENT_TYPE_FEES[eventType];
 }
 
 export function isEventFlatFeePaid(event: {
@@ -34,11 +33,6 @@ export function isEventFlatFeePaid(event: {
 }): boolean {
   if (event.flatFee == null || event.flatFee <= 0) return true;
   return event.flatFeePaid;
-}
-
-export function commissionFor(entryFee: number): number {
-  if (!entryFee || entryFee <= 0) return 0;
-  return Math.round(entryFee * COMMISSION_RATE);
 }
 
 export function formatInr(amount: number): string {

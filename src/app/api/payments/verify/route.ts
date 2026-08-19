@@ -97,14 +97,6 @@ async function applyPaymentSideEffects(type: PaymentType, referenceId: string, v
       return;
     }
 
-    case PaymentType.GIG_COMMISSION: {
-      await prisma.gig.update({
-        where: { id: referenceId },
-        data: { commissionStatus: "VERIFIED" },
-      });
-      return;
-    }
-
     case PaymentType.GIG_WORK: {
       await prisma.user.update({
         where: { id: referenceId },

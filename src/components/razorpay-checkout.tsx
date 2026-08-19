@@ -25,7 +25,7 @@ declare global {
       modal?: {
         ondismiss?: () => void;
       };
-    }) => { open: () => void };
+    }) => { open: () => void; on: (event: string, callback: (response: RazorpayHandler & { error?: { reason?: string; description?: string } }) => void) => void };
   }
 }
 
@@ -128,6 +128,11 @@ export function RazorpayCheckout({
         },
       },
       theme: { color: "#FF3B30" },
+    });
+
+    rzp.on("payment.failed", () => {
+      setBusy(false);
+      setError("Payment failed. Please try again.");
     });
 
     rzp.open();
