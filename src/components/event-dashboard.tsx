@@ -247,7 +247,7 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
                     <h3 className="font-display text-title-md uppercase">{category.name}</h3>
                     <p className="mt-xs text-body-sm text-ink-muted">
                       {category.currentPhaseOrder != null 
-                        ? `Phase ${category.currentPhaseOrder} of ${category.rounds.length}: ${category.rounds.find(r => r.order === category.currentPhaseOrder)?.label ?? 'Active'}`
+                         ? `Phase ${(category.currentPhaseOrder ?? 0) + 1} of ${category.rounds.length}: ${category.rounds.find(r => r.order === category.currentPhaseOrder)?.label ?? 'Active'}`
                         : category.rounds.every(r => r.phaseStatus === "COMPLETE") ? 'All phases complete' : 'Not started'}
                     </p>
                   </div>
@@ -377,7 +377,15 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
                 {category.currentPhaseOrder != null && (() => {
                   const currentPhase = category.rounds.find(r => r.order === category.currentPhaseOrder && r.phaseStatus === "ACTIVE");
                    if (!currentPhase || !["BATTLE_1V1","BATTLE_2V2","BATTLE_3V3","BATTLE_4V4","CREW_VS_CREW","FINAL"].includes(currentPhase.type)) return null;
-                  return <BracketView key={`${category.id}-${controlRoomKey}`} categoryId={category.id} eventId={event.id} />;
+                   return (
+                     <BracketView
+                       key={`${category.id}-${controlRoomKey}`}
+                       categoryId={category.id}
+                       eventId={event.id}
+                       phaseLabel={currentPhase.label ?? currentPhase.type}
+                       advanceCount={currentPhase.advanceCount}
+                     />
+                   );
                 })()}
               </div>
             ))
@@ -2178,7 +2186,17 @@ type BracketMatch = {
   scoreB: number;
 };
 
-function BracketView({ categoryId, eventId }: { categoryId: string; eventId: string }) {
+function BracketView({
+  categoryId,
+  eventId,
+  phaseLabel,
+  advanceCount,
+}: {
+  categoryId: string;
+  eventId: string;
+  phaseLabel: string;
+  advanceCount: number | null;
+}) {
   const [matches, setMatches] = useState<BracketMatch[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -2226,7 +2244,9 @@ function BracketView({ categoryId, eventId }: { categoryId: string; eventId: str
   return (
     <div className="mt-lg border-t border-line pt-md">
       <div className="flex items-center justify-between">
-        <p className="font-mono text-[0.7rem] uppercase text-ink-muted mb-md">Bracket matches</p>
+        <p className="font-mono text-[0.7rem] uppercase text-ink-muted mb-md">
+          {phaseLabel} bracket matches{advanceCount != null ? ` · ${advanceCount} advance` : ""}
+        </p>
         {error && <p className="mb-md text-body-sm text-accent">{error}</p>}
       </div>
       {matches.map(match => {

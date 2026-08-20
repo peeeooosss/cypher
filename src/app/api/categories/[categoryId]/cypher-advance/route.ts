@@ -33,6 +33,10 @@ export async function POST(request: Request, { params }: Context) {
 
   const { registrationIds } = parsed.data;
 
+  if (currentPhase.advanceCount != null && new Set(registrationIds).size !== currentPhase.advanceCount) {
+    return badRequest(`Select exactly ${currentPhase.advanceCount} entries to advance`);
+  }
+
   const registrations = category.registrations;
 
   if (registrations.some((registration) => registration.members.length < category.minMembers || registration.members.length > category.maxMembers)) {

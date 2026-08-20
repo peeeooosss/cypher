@@ -136,7 +136,7 @@ export async function PATCH(request: Request, { params }: EventRouteContext) {
 
       if (BATTLE_TYPES.includes(firstPending.type)) {
         try {
-          await generateBracket(category.id, user.id);
+          await generateBracket(category.id, user.id, firstPending.id);
         } catch (error) {
           if (!(error instanceof BracketError)) throw error;
         }

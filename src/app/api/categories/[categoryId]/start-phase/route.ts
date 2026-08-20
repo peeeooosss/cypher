@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { badRequest, forbidden, notFound, unauthorized } from "@/lib/api";
-import { generateBracket, BracketError } from "@/lib/bracket";
+import { BATTLE_PHASE_TYPES, generateBracket, BracketError } from "@/lib/bracket";
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { emitToSocket } from "@/lib/socket-emit";
@@ -29,9 +29,9 @@ export async function POST(_request: Request, { params }: Context) {
   await prisma.roundFormat.update({ where: { id: nextPhase.id }, data: { phaseStatus: "ACTIVE" } });
 
   let matches: unknown[] = [];
-  if (["BATTLE_1V1", "BATTLE_2V2", "BATTLE_3V3", "BATTLE_4V4", "CREW_VS_CREW", "FINAL"].includes(nextPhase.type)) {
+  if (BATTLE_PHASE_TYPES.includes(nextPhase.type as (typeof BATTLE_PHASE_TYPES)[number])) {
     try {
-      matches = await generateBracket(categoryId, user.id);
+      matches = await generateBracket(categoryId, user.id, nextPhase.id);
     } catch (error) {
       if (error instanceof BracketError) return badRequest(error.message);
       throw error;

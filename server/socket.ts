@@ -208,7 +208,7 @@ io.on("connection", (socket) => {
     if (!match) { acknowledge?.({ ok: false, error: "Match not found" }); return; }
     if (match.category.event.organizerId !== user.userId) { acknowledge?.({ ok: false, error: "Not your event" }); return; }
 
-    const timeLimitMs = parsed.data.timeLimitMs ?? (await getDefaultTimeLimit(match.categoryId, match.round));
+    const timeLimitMs = parsed.data.timeLimitMs ?? (await getDefaultTimeLimit(match.roundFormatId));
 
     await prisma.$transaction([
       prisma.battleMatch.update({ where: { id: match.id }, data: { status: "LIVE", startedAt: new Date() } }),

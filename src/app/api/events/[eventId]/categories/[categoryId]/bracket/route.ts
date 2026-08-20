@@ -9,8 +9,21 @@ type BracketRouteContext = { params: Promise<{ eventId: string; categoryId: stri
 
 export async function GET(_: Request, { params }: BracketRouteContext) {
   const { eventId, categoryId } = await params;
+  const category = await prisma.category.findFirst({
+    where: { id: categoryId, eventId },
+    include: { rounds: { orderBy: { order: "asc" } } },
+  });
+
+  if (!category) return notFound("Category");
+
+  const currentPhase = category.rounds.find(
+    (round) => round.order === category.currentPhaseOrder && round.phaseStatus === "ACTIVE",
+  );
+
+  if (!currentPhase) return NextResponse.json([]);
+
   const matches = await prisma.battleMatch.findMany({
-    where: { eventId, categoryId },
+    where: { eventId, categoryId, roundFormatId: currentPhase.id },
     include: {
        competitorA: { include: { user: { select: { id: true, name: true } }, members: { where: { status: "ACCEPTED" }, select: { user: { select: { name: true, username: true } } } } } },
        competitorB: { include: { user: { select: { id: true, name: true } }, members: { where: { status: "ACCEPTED" }, select: { user: { select: { name: true, username: true } } } } } },
@@ -39,14 +52,22 @@ export async function POST(_: Request, { params }: BracketRouteContext) {
     return notFound("Event");
   }
 
-  const category = await prisma.category.findFirst({ where: { id: categoryId, eventId }, select: { id: true } });
+  const category = await prisma.category.findFirst({
+    where: { id: categoryId, eventId },
+    include: { rounds: { orderBy: { order: "asc" } } },
+  });
 
   if (!category) {
     return notFound("Category");
   }
 
+  const currentPhase = category.rounds.find(
+    (round) => round.order === category.currentPhaseOrder && round.phaseStatus === "ACTIVE",
+  );
+  if (!currentPhase) return badRequest("No active battle phase");
+
   try {
-    const matches = await generateBracket(categoryId, user.id);
+    const matches = await generateBracket(categoryId, user.id, currentPhase.id);
     return NextResponse.json(matches, { status: 201 });
   } catch (error) {
     if (error instanceof BracketError) {

@@ -3,7 +3,7 @@ import type { MatchLiveData } from "@/lib/socket/types";
 
 export async function getMatchState(eventId: string) {
   return prisma.battleMatch.findMany({
-    where: { eventId },
+    where: { eventId, roundFormat: { phaseStatus: "ACTIVE" } },
     include: {
       competitorA: { include: { user: { select: { id: true, name: true } }, members: { where: { status: "ACCEPTED" }, select: { user: { select: { name: true, username: true } } } } } },
       competitorB: { include: { user: { select: { id: true, name: true } }, members: { where: { status: "ACCEPTED" }, select: { user: { select: { name: true, username: true } } } } } },
@@ -24,13 +24,12 @@ export async function getLiveMatchPayload(matchId: string): Promise<MatchLiveDat
       competitorB: {
         include: { user: { select: { id: true, name: true, avatarUrl: true } }, members: { where: { status: "ACCEPTED" }, select: { user: { select: { name: true, username: true } } } } },
       },
-      category: { include: { rounds: { orderBy: { order: "asc" } } } },
+      roundFormat: true,
       battleTimer: true,
     },
   });
   if (!match) return null;
 
-  const activeRound = match.category.rounds.find((r) => r.order === match.round);
   return {
     matchId: match.id,
     round: match.round,
@@ -51,7 +50,7 @@ export async function getLiveMatchPayload(matchId: string): Promise<MatchLiveDat
        avatar: match.competitorB?.user.avatarUrl ?? null,
        members: match.competitorB?.members.map((member) => member.user.name ?? member.user.username ?? "Unnamed"),
     },
-    timeLimitMs: match.battleTimer?.timeLimitMs ?? activeRound?.timeLimitMs ?? 60000,
+     timeLimitMs: match.battleTimer?.timeLimitMs ?? match.roundFormat?.timeLimitMs ?? 60000,
     status: "LIVE" as const,
   };
 }
@@ -79,9 +78,10 @@ export async function getMatchDecisionAggregate(matchId: string) {
   return { scoreRed: redVotes, scoreBlue: blueVotes, judgeCount: scores.length };
 }
 
-export async function getDefaultTimeLimit(categoryId: string, roundOrder: number): Promise<number> {
+export async function getDefaultTimeLimit(roundFormatId: string | null): Promise<number> {
+  if (!roundFormatId) return 60000;
   const round = await prisma.roundFormat.findUnique({
-    where: { categoryId_order: { categoryId, order: roundOrder } },
+    where: { id: roundFormatId },
     select: { timeLimitMs: true },
   });
   return round?.timeLimitMs ?? 60000;

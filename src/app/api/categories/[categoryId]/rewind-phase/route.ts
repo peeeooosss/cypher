@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
 import { badRequest, forbidden, notFound, unauthorized } from "@/lib/api";
 import { clearCategoryCompetitionData, restoreCategoryRegistrations } from "@/lib/category-phase";
-import { generateBracket, BracketError } from "@/lib/bracket";
+import { BATTLE_PHASE_TYPES, generateBracket, BracketError } from "@/lib/bracket";
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { emitToSocket } from "@/lib/socket-emit";
 
 type Context = { params: Promise<{ categoryId: string }> };
-const BATTLE_PHASES = ["BATTLE_1V1", "BATTLE_2V2", "BATTLE_3V3", "BATTLE_4V4", "CREW_VS_CREW", "FINAL"];
 
 export async function POST(_request: Request, { params }: Context) {
   const { categoryId } = await params;
@@ -57,9 +56,9 @@ export async function POST(_request: Request, { params }: Context) {
   });
 
   let matches: unknown[] = [];
-  if (BATTLE_PHASES.includes(previousPhase.type)) {
+  if (BATTLE_PHASE_TYPES.includes(previousPhase.type as (typeof BATTLE_PHASE_TYPES)[number])) {
     try {
-      matches = await generateBracket(categoryId, user.id);
+      matches = await generateBracket(categoryId, user.id, previousPhase.id);
     } catch (error) {
       if (error instanceof BracketError) return badRequest(error.message);
       throw error;

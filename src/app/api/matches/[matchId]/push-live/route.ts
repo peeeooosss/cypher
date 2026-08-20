@@ -33,7 +33,7 @@ export async function POST(request: Request, { params }: Context) {
   const timeLimitMs =
     parsed.success && parsed.data.timeLimitMs != null
       ? parsed.data.timeLimitMs
-      : await getDefaultTimeLimit(match.categoryId, match.round);
+      : await getDefaultTimeLimit(match.roundFormatId);
 
   await prisma.$transaction([
     prisma.battleMatch.update({

@@ -272,6 +272,7 @@ model RoundFormat {
   phaseStatus    String?   @default("PENDING")
   timeLimitMs    Int       @default(60000)
   dancerScores   DancerScore[]
+  battleMatches  BattleMatch[]
   category      Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -336,6 +337,7 @@ model BattleMatch {
   id              String        @id @default(cuid())
   eventId         String
   categoryId      String
+  roundFormatId   String?
   round           Int
   position        Int
   status          MatchStatus   @default(PENDING)
@@ -349,6 +351,7 @@ model BattleMatch {
   teamLabelB      String?
   event           Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
   category        Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  roundFormat     RoundFormat?  @relation(fields: [roundFormatId], references: [id], onDelete: Cascade)
   competitorA     Registration? @relation("CompetitorA", fields: [competitorAId], references: [id])
   competitorB     Registration? @relation("CompetitorB", fields: [competitorBId], references: [id])
   winner          Registration? @relation("MatchWinner", fields: [winnerId], references: [id])
@@ -362,8 +365,9 @@ model BattleMatch {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
-  @@unique([categoryId, round, position])
+  @@unique([roundFormatId, round, position])
   @@index([eventId, categoryId])
+  @@index([categoryId, roundFormatId])
   @@index([nextMatchId])
 }
 
