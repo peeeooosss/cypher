@@ -177,7 +177,7 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
         <OverviewTab event={event} setEvent={setEvent} />
       )}
       {resolvedTab === "Categories" && (
-        <CategoriesTab event={event} refresh={refresh} />
+        <CategoriesTab event={event} refresh={refreshControlRoom} refreshing={refreshing} />
       )}
       {resolvedTab === "Judges" && (
         <JudgesTab event={event} refresh={refresh} />
@@ -674,9 +674,11 @@ function OverviewTab({
 function CategoriesTab({
   event,
   refresh,
+  refreshing,
 }: {
   event: EventWithRelations;
   refresh: () => void;
+  refreshing?: boolean;
 }) {
   return (
     <div className="space-y-xl">
@@ -687,9 +689,10 @@ function CategoriesTab({
         <button
           type="button"
           onClick={refresh}
-          className="border border-line px-md py-xs font-mono text-[0.65rem] uppercase text-ink-muted hover:border-accent hover:text-accent"
+          disabled={refreshing}
+          className="border border-line px-md py-xs font-mono text-[0.65rem] uppercase text-ink-muted hover:border-accent hover:text-accent disabled:opacity-60"
         >
-          Refresh
+          {refreshing ? "Refreshing..." : "Refresh"}
         </button>
       </div>
       {event.categories.map((category) => (
