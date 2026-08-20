@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { emitToSocket } from "@/lib/socket-emit";
 import { getMatchState } from "@/lib/live-match";
 
-const completeSchema = z.object({ winnerId: z.string().cuid() });
+const completeSchema = z.object({ winnerId: z.string().min(1) });
 type MatchRouteContext = { params: Promise<{ matchId: string }> };
 
 export async function POST(request: Request, { params }: MatchRouteContext) {
