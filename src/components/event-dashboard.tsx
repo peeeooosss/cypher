@@ -680,6 +680,18 @@ function CategoriesTab({
 }) {
   return (
     <div className="space-y-xl">
+      <div className="flex items-center justify-between">
+        <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">
+          {event.categories.length} categor{event.categories.length === 1 ? "y" : "ies"}
+        </p>
+        <button
+          type="button"
+          onClick={refresh}
+          className="border border-line px-md py-xs font-mono text-[0.65rem] uppercase text-ink-muted hover:border-accent hover:text-accent"
+        >
+          Refresh
+        </button>
+      </div>
       {event.categories.map((category) => (
         <div key={category.id} className="border border-line p-lg">
           <div className="flex flex-wrap items-start justify-between gap-md">

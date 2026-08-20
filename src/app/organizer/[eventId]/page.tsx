@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
-import { SignOutButton } from "@/components/sign-out-button";
 import { EventDashboard } from "@/components/event-dashboard";
 
 export const dynamic = "force-dynamic";
@@ -51,7 +50,7 @@ export default async function OrganizerEventPage({ params }: PageProps) {
       >
         &larr; Back to events
       </Link>
-      <div className="mt-lg flex flex-wrap items-end justify-between gap-md">
+      <div className="mt-lg">
         <div>
           <h1 className="font-display text-display-lg uppercase">
             {event.title}
@@ -60,7 +59,6 @@ export default async function OrganizerEventPage({ params }: PageProps) {
             {event.startsAt.toLocaleString()} / {event.status} / {event.slug}
           </p>
         </div>
-        <SignOutButton />
       </div>
 
       <EventDashboard key={event.id} event={event} />
