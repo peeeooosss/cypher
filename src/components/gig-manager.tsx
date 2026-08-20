@@ -6,8 +6,7 @@ import Link from "next/link";
 import { formatDate, formatExperience } from "@/lib/format";
 import { SKILLS, SKILL_LABELS, skillLabel } from "@/lib/skills";
 import { GIG_FLAT_FEE, formatInr } from "@/lib/pricing";
-import { RazorpayCheckout } from "@/components/razorpay-checkout";
-import { PaymentType } from "@/generated/prisma/enums";
+import { ManualPayment } from "@/components/manual-payment";
 
 type GigApplication = {
   id: string;
@@ -199,19 +198,23 @@ export function GigManager({ gigs }: { gigs: Gig[] }) {
                     ) : null}
                   </>
                 ) : (
-                  <RazorpayCheckout
-                    type={PaymentType.GIG_POST}
-                    referenceId={gig.id}
-                    label={`Pay ${formatInr(GIG_FLAT_FEE)} to publish`}
-                    className="border border-accent bg-accent px-sm py-xs font-mono text-[0.65rem] uppercase text-paper"
-                  />
+                  <span className="font-mono text-[0.65rem] uppercase text-accent">Draft</span>
                 )}
               </div>
             </div>
             {!gig.feePaid ? (
-              <p className="mt-sm text-body-sm text-accent">
-                This gig is saved as a draft. Pay the {formatInr(GIG_FLAT_FEE)} posting fee to publish it and let artists apply.
-              </p>
+              <div className="mt-md border border-accent/40 bg-paper p-md">
+                <p className="text-body-sm text-accent">
+                  This gig is saved as a draft. Pay the {formatInr(GIG_FLAT_FEE)} posting fee to publish it and let artists apply.
+                </p>
+                <ManualPayment
+                  amount={GIG_FLAT_FEE}
+                  note={`Gig posting — ${gig.title}`}
+                  submitUrl={`/api/gigs/${gig.id}/pay`}
+                  submitBody={{ method: "UPI" }}
+                  buttonLabel="I've paid — send for verification"
+                />
+              </div>
             ) : null}
             <p className="mt-sm text-body-sm text-ink whitespace-pre-wrap">{gig.description}</p>
             <div className="mt-sm flex flex-wrap gap-xs">

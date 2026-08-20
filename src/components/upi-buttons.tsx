@@ -24,11 +24,13 @@ export function UpiButtons({
   payeeName,
   amount,
   note,
+  verifier = "the organizer",
 }: {
   upiId: string;
   payeeName: string;
   amount: number;
   note: string;
+  verifier?: string;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -56,7 +58,7 @@ export function UpiButtons({
       </button>
       <p className="mt-md text-body-sm text-ink-muted">
         Tap your UPI app below, or enter the ID above manually in your app.
-        Take a screenshot of the payment — you&apos;ll send it to the organizer for verification.
+        Take a screenshot of the payment — you&apos;ll send it to {verifier} for verification.
       </p>
       <div className="mt-md grid gap-sm sm:grid-cols-3">
         {APP_METHODS.map((method) => (

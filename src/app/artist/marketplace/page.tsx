@@ -90,6 +90,8 @@ export default async function ArtistMarketplacePage() {
           organizerSignedAt: app.agreement.organizerSignedAt?.toISOString() ?? null,
           artistSignedAt: app.agreement.artistSignedAt?.toISOString() ?? null,
           connectionPaidAt: app.agreement.connectionPaidAt?.toISOString() ?? null,
+          connectionPaymentStatus: app.agreement.connectionPaymentStatus,
+          connectionPaymentSentAt: app.agreement.connectionPaymentSentAt?.toISOString() ?? null,
           workCompletedAt: app.agreement.workCompletedAt?.toISOString() ?? null,
           paymentStatus: app.agreement.paymentStatus,
           createdAt: app.agreement.createdAt.toISOString(),

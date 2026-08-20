@@ -3,10 +3,9 @@ import Link from "next/link";
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { COMMISSION_RATE, formatInr, isEventFlatFeePaid } from "@/lib/pricing";
-import { RazorpayCheckout } from "@/components/razorpay-checkout";
+import { ManualPayment } from "@/components/manual-payment";
 import { SignOutButton } from "@/components/sign-out-button";
 import { whatsappLink, BILL_WHATSAPP_NUMBER } from "@/lib/payment";
-import { PaymentType } from "@/generated/prisma/enums";
 import type { PaymentStatus } from "@/generated/prisma/enums";
 
 export const dynamic = "force-dynamic";
@@ -173,14 +172,13 @@ export default async function EventBillPage({ params }: PageProps) {
                   </a>
                 </div>
               ) : (
-                <div className="space-y-md">
-                  <RazorpayCheckout
-                    type={PaymentType.EVENT_FLAT_FEE}
-                    referenceId={event.id}
-                    label={`Pay ${formatInr(flatAmount)} now`}
-                    className="block w-full border border-accent bg-accent px-lg py-md text-button-md font-bold uppercase text-paper"
-                  />
-                </div>
+                <ManualPayment
+                  amount={flatAmount}
+                  note={`Flat fee — ${event.title}`}
+                  submitUrl={`/api/events/${event.id}/bill/submit`}
+                  submitBody={{ method: "UPI", type: "FLAT_FEE" }}
+                  buttonLabel="I've paid — send for verification"
+                />
               )}
             </div>
           </div>
@@ -260,14 +258,13 @@ export default async function EventBillPage({ params }: PageProps) {
                   </a>
                 </div>
               ) : (
-                <div className="space-y-md">
-                  <RazorpayCheckout
-                    type={PaymentType.EVENT_COMMISSION}
-                    referenceId={event.id}
-                    label={`Pay ${formatInr(commissionDue)} commission`}
-                    className="block w-full border border-accent bg-accent px-lg py-md text-button-md font-bold uppercase text-paper"
-                  />
-                </div>
+                <ManualPayment
+                  amount={commissionDue}
+                  note={`Commission — ${event.title}`}
+                  submitUrl={`/api/events/${event.id}/bill/submit`}
+                  submitBody={{ method: "UPI", type: "COMMISSION" }}
+                  buttonLabel="I've paid — send for verification"
+                />
               )}
             </div>
           </div>

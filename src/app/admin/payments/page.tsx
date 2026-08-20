@@ -1,6 +1,12 @@
 import Link from "next/link";
-import { getAdminGigPayments, getAdminPayments, requireAdmin } from "@/lib/admin";
-import { formatInr, GIG_WORK_FEE } from "@/lib/pricing";
+import {
+  getAdminGigConnectionPayments,
+  getAdminGigPayments,
+  getAdminGigPostPayments,
+  getAdminPayments,
+  requireAdmin,
+} from "@/lib/admin";
+import { formatInr, GIG_WORK_FEE, GIG_FLAT_FEE, GIG_CONNECTION_FEE } from "@/lib/pricing";
 import { AdminPaymentActions } from "@/components/admin-payment-actions";
 import type { PaymentStatus } from "@/generated/prisma/enums";
 
@@ -8,7 +14,7 @@ export const dynamic = "force-dynamic";
 
 type PaymentRow = {
   key: string;
-  type: "FLAT_FEE" | "COMMISSION" | "GIG";
+  type: "FLAT_FEE" | "COMMISSION" | "GIG" | "GIG_POST" | "GIG_CONNECTION";
   targetId: string;
   title: string;
   subjectName: string | null;
@@ -88,12 +94,56 @@ function gigRows(artists: Awaited<ReturnType<typeof getAdminGigPayments>>): Paym
   }));
 }
 
+function gigPostRows(gigs: Awaited<ReturnType<typeof getAdminGigPostPayments>>): PaymentRow[] {
+  return gigs.map((gig) => ({
+    key: `${gig.id}-gig-post`,
+    type: "GIG_POST",
+    targetId: gig.id,
+    title: gig.title,
+    subjectName: gig.organizer.name,
+    amount: GIG_FLAT_FEE,
+    method: gig.feePaymentMethod,
+    sentAt: gig.feePaymentSentAt,
+    status: gig.feePaid ? "VERIFIED" : ((gig.feePaymentStatus ?? "NONE") as PaymentStatus),
+    verifiedBy: gig.feePaymentVerifiedBy,
+    paidAt: gig.feePaidAt,
+    regs: 0,
+    cats: 0,
+  }));
+}
+
+function gigConnectionRows(
+  agreements: Awaited<ReturnType<typeof getAdminGigConnectionPayments>>,
+): PaymentRow[] {
+  return agreements.map((agreement) => ({
+    key: `${agreement.id}-gig-conn`,
+    type: "GIG_CONNECTION",
+    targetId: agreement.id,
+    title: agreement.gig.title,
+    subjectName: agreement.artist.name,
+    amount: GIG_CONNECTION_FEE,
+    method: agreement.connectionPaymentMethod,
+    sentAt: agreement.connectionPaymentSentAt,
+    status: agreement.connectionPaidAt
+      ? "VERIFIED"
+      : ((agreement.connectionPaymentStatus ?? "NONE") as PaymentStatus),
+    verifiedBy: agreement.connectionPaymentVerifiedBy,
+    paidAt: agreement.connectionPaidAt,
+    regs: 0,
+    cats: 0,
+  }));
+}
+
 function typeLabel(type: PaymentRow["type"]) {
   switch (type) {
     case "COMMISSION":
       return "Commission";
     case "GIG":
       return "Gig work";
+    case "GIG_POST":
+      return "Gig posting";
+    case "GIG_CONNECTION":
+      return "Connection";
     default:
       return "Flat fee";
   }
@@ -103,6 +153,19 @@ function typeColor(type: PaymentRow["type"]) {
   return type === "FLAT_FEE" ? "text-ink-muted" : "text-accent";
 }
 
+function rowScope(type: PaymentRow["type"]): "event" | "gig-work" | "gig-post" | "gig-connection" {
+  switch (type) {
+    case "GIG":
+      return "gig-work";
+    case "GIG_POST":
+      return "gig-post";
+    case "GIG_CONNECTION":
+      return "gig-connection";
+    default:
+      return "event";
+  }
+}
+
 function RowTitle({ row }: { row: PaymentRow }) {
   if (row.type === "GIG") {
     return (
@@ -110,6 +173,16 @@ function RowTitle({ row }: { row: PaymentRow }) {
         {row.title}
       </Link>
     );
+  }
+  if (row.type === "GIG_POST") {
+    return (
+      <Link className="font-bold uppercase hover:text-accent" href="/organizer/gigs">
+        {row.title}
+      </Link>
+    );
+  }
+  if (row.type === "GIG_CONNECTION") {
+    return <span className="font-bold uppercase">{row.title}</span>;
   }
   return (
     <Link className="font-bold uppercase hover:text-accent" href={`/organizer/${row.targetId}`}>
@@ -122,6 +195,12 @@ function RowSub({ row }: { row: PaymentRow }) {
   if (row.type === "GIG") {
     return <span className="ml-sm text-ink-muted">3-month artist access</span>;
   }
+  if (row.type === "GIG_POST") {
+    return <span className="ml-sm text-ink-muted">gig posting fee</span>;
+  }
+  if (row.type === "GIG_CONNECTION") {
+    return <span className="ml-sm text-ink-muted">connection fee</span>;
+  }
   return (
     <span className="ml-sm text-ink-muted">
       ({row.cats} cat · {row.regs} regs)
@@ -131,8 +210,18 @@ function RowSub({ row }: { row: PaymentRow }) {
 
 export default async function AdminPaymentsPage() {
   await requireAdmin();
-  const [events, artists] = await Promise.all([getAdminPayments(), getAdminGigPayments()]);
-  const rows = [...toRows(events), ...gigRows(artists)].sort((a, b) => {
+  const [events, artists, gigPosts, connections] = await Promise.all([
+    getAdminPayments(),
+    getAdminGigPayments(),
+    getAdminGigPostPayments(),
+    getAdminGigConnectionPayments(),
+  ]);
+  const rows = [
+    ...toRows(events),
+    ...gigRows(artists),
+    ...gigPostRows(gigPosts),
+    ...gigConnectionRows(connections),
+  ].sort((a, b) => {
     const aTime = (a.sentAt ?? a.paidAt)?.getTime() ?? 0;
     const bTime = (b.sentAt ?? b.paidAt)?.getTime() ?? 0;
     return bTime - aTime;
@@ -182,7 +271,7 @@ export default async function AdminPaymentsPage() {
                         id={row.targetId}
                         status={row.status}
                         type={row.type}
-                        scope={row.type === "GIG" ? "gig-work" : "event"}
+                        scope={rowScope(row.type)}
                       />
                     </td>
                   </tr>
@@ -232,7 +321,7 @@ export default async function AdminPaymentsPage() {
                         id={row.targetId}
                         status={row.status}
                         type={row.type}
-                        scope={row.type === "GIG" ? "gig-work" : "event"}
+                        scope={rowScope(row.type)}
                       />
                     </td>
                   </tr>

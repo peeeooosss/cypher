@@ -121,6 +121,48 @@ export async function getAdminGigPayments() {
   });
 }
 
+export async function getAdminGigPostPayments() {
+  return prisma.gig.findMany({
+    where: {
+      OR: [{ feePaymentStatus: "PENDING" }, { feePaid: true }],
+    },
+    select: {
+      id: true,
+      title: true,
+      feePaid: true,
+      feePaidAt: true,
+      feePaymentStatus: true,
+      feePaymentMethod: true,
+      feePaymentSentAt: true,
+      feePaymentVerifiedBy: true,
+      organizer: { select: { name: true } },
+    },
+    orderBy: { feePaymentSentAt: "desc" },
+  });
+}
+
+export async function getAdminGigConnectionPayments() {
+  return prisma.gigAgreement.findMany({
+    where: {
+      OR: [{ connectionPaymentStatus: "PENDING" }, { connectionPaidAt: { not: null } }],
+    },
+    select: {
+      id: true,
+      status: true,
+      offerAmount: true,
+      connectionPaidAt: true,
+      connectionPaymentStatus: true,
+      connectionPaymentMethod: true,
+      connectionPaymentSentAt: true,
+      connectionPaymentVerifiedBy: true,
+      artist: { select: { name: true } },
+      organizer: { select: { name: true } },
+      gig: { select: { title: true } },
+    },
+    orderBy: { connectionPaymentSentAt: "desc" },
+  });
+}
+
 export async function getAdminOrganizers() {
   return prisma.user.findMany({
     where: { role: "ORGANIZER" },

@@ -504,6 +504,10 @@ model Gig {
   status         GigStatus          @default(OPEN)
   feePaid        Boolean            @default(false)
   feePaidAt      DateTime?
+  feePaymentStatus PaymentStatus    @default(NONE)
+  feePaymentMethod String?
+  feePaymentSentAt DateTime?
+  feePaymentVerifiedBy String?
   awardedAmount  Int?
   commissionDue  Int?
   commissionStatus PaymentStatus    @default(NONE)
@@ -555,6 +559,10 @@ model GigAgreement {
   organizerSignedAt DateTime?
   artistSignedAt    DateTime?
   connectionPaidAt  DateTime?
+  connectionPaymentStatus PaymentStatus @default(NONE)
+  connectionPaymentMethod String?
+  connectionPaymentSentAt DateTime?
+  connectionPaymentVerifiedBy String?
 
   workStartedAt   DateTime?
   workCompletedAt DateTime?

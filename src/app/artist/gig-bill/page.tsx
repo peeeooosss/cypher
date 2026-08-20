@@ -2,10 +2,9 @@ import Link from "next/link";
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { formatInr, GIG_WORK_FEE } from "@/lib/pricing";
-import { RazorpayCheckout } from "@/components/razorpay-checkout";
+import { ManualPayment } from "@/components/manual-payment";
 import { SignOutButton } from "@/components/sign-out-button";
 import { whatsappLink, BILL_WHATSAPP_NUMBER } from "@/lib/payment";
-import { PaymentType } from "@/generated/prisma/enums";
 import type { PaymentStatus } from "@/generated/prisma/enums";
 
 export const dynamic = "force-dynamic";
@@ -121,18 +120,13 @@ export default async function ArtistGigBillPage() {
                 </a>
               </div>
             ) : (
-              <div className="space-y-md">
-                <RazorpayCheckout
-                  type={PaymentType.GIG_WORK}
-                  referenceId={user.id}
-                  label={`Pay ${formatInr(amount)} now`}
-                  className="block w-full border border-accent bg-accent px-lg py-md text-button-md font-bold uppercase text-paper"
-                />
-                <p className="text-body-sm text-ink-muted">
-                  Payment is verified automatically. Your marketplace access is
-                  enabled immediately and lasts 3 months.
-                </p>
-              </div>
+              <ManualPayment
+                amount={amount}
+                note="Gig Work marketplace access"
+                submitUrl="/api/me/gig-work/bill-submit"
+                submitBody={{ method: "UPI" }}
+                buttonLabel="I've paid — send for verification"
+              />
             )}
           </div>
         </div>

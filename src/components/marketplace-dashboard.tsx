@@ -6,9 +6,8 @@ import Link from "next/link";
 import { formatDate } from "@/lib/format";
 import { SKILLS, SKILL_LABELS } from "@/lib/skills";
 import { GIG_CONNECTION_FEE, formatInr } from "@/lib/pricing";
-import { RazorpayCheckout } from "@/components/razorpay-checkout";
+import { ManualPayment } from "@/components/manual-payment";
 import { MessagesPanel } from "@/components/messages-panel";
-import { PaymentType } from "@/generated/prisma/enums";
 
 type GigView = {
   id: string;
@@ -37,6 +36,8 @@ type AgreementView = {
   organizerSignedAt: string | null;
   artistSignedAt: string | null;
   connectionPaidAt: string | null;
+  connectionPaymentStatus: string;
+  connectionPaymentSentAt: string | null;
   workCompletedAt: string | null;
   paymentStatus: string;
   createdAt: string;
@@ -317,19 +318,33 @@ export function MarketplaceDashboard({
                   Agreed {formatFee(app.agreement!.offerAmount, app.agreement!.currency)} · Payment {app.agreement!.paymentStatus}
                 </p>
                 {app.agreement!.status === "CONNECTION_PENDING" ? (
-                  <div className="mt-md border border-accent bg-accent/10 p-md">
-                    <p className="text-body-sm">
-                      Pay the connection fee to unlock your private chat with the organizer.
-                    </p>
-                    <div className="mt-md">
-                      <RazorpayCheckout
-                        type={PaymentType.GIG_CONNECTION}
-                        referenceId={app.agreement!.id}
-                        label={`Pay ${formatInr(GIG_CONNECTION_FEE)} to unlock chat`}
-                        className="border border-accent bg-accent px-md py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper"
+                  app.agreement!.connectionPaymentStatus === "PENDING" ? (
+                    <div className="mt-md border border-accent bg-accent/10 p-md">
+                      <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent">
+                        Payment sent — waiting for confirmation
+                      </p>
+                      <p className="mt-xs text-body-sm text-ink-muted">
+                        We&apos;re verifying your connection fee transfer
+                        {app.agreement!.connectionPaymentSentAt
+                          ? ` sent ${new Date(app.agreement!.connectionPaymentSentAt).toLocaleString()}`
+                          : ""}.
+                        Your private chat unlocks once confirmed.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mt-md border border-accent bg-accent/10 p-md">
+                      <p className="text-body-sm">
+                        Pay the connection fee to unlock your private chat with the organizer.
+                      </p>
+                      <ManualPayment
+                        amount={GIG_CONNECTION_FEE}
+                        note={`Connection fee — ${app.gig.title}`}
+                        submitUrl={`/api/agreements/${app.agreement!.id}/connection/submit`}
+                        submitBody={{ method: "UPI" }}
+                        buttonLabel="I've paid — send for verification"
                       />
                     </div>
-                  </div>
+                  )
                 ) : (
                   <div className="mt-md flex flex-wrap gap-sm border-t border-line pt-md">
                     <button

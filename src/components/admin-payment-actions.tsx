@@ -11,8 +11,8 @@ export function AdminPaymentActions({
 }: {
   id: string;
   status: "PENDING" | "VERIFIED" | "NONE";
-  type?: "FLAT_FEE" | "COMMISSION" | "GIG";
-  scope?: "event" | "gig-work";
+  type?: "FLAT_FEE" | "COMMISSION" | "GIG" | "GIG_POST" | "GIG_CONNECTION";
+  scope?: "event" | "gig-work" | "gig-post" | "gig-connection";
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState("");
@@ -21,7 +21,14 @@ export function AdminPaymentActions({
   async function run(action: "verify" | "reopen") {
     setBusy(action);
     setError("");
-    const base = scope === "gig-work" ? "/api/admin/gig-work" : "/api/admin/payments";
+    const base =
+      scope === "gig-work"
+        ? "/api/admin/gig-work"
+        : scope === "gig-post"
+          ? "/api/admin/gigs"
+          : scope === "gig-connection"
+            ? "/api/admin/gig-connection"
+            : "/api/admin/payments";
     const res = await fetch(`${base}/${id}/${action}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
