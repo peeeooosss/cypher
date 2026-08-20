@@ -34,7 +34,7 @@ export async function PATCH(request: Request, { params }: Context) {
   if (["WORK_COMPLETE", "REPORT_PAID"].includes(parsed.data.action) && !isArtist) return forbidden();
   if (["CONFIRM_PAID", "CANCEL"].includes(parsed.data.action) && !isOrganizer) return forbidden();
 
-  if (!["ACTIVE", "CONNECTION_PENDING"].includes(agreement.status) && parsed.data.action !== "DISPUTE") {
+  if (!["ACTIVE", "CONNECTION_PENDING", "COMPLETED"].includes(agreement.status) && parsed.data.action !== "DISPUTE") {
     return conflict("This agreement is no longer active");
   }
 

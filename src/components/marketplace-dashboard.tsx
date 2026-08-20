@@ -79,11 +79,13 @@ export function MarketplaceDashboard({
   applications,
   gigWorkEnabled,
   gigWorkStatus = "NONE",
+  unreadMessages = 0,
 }: {
   gigs: GigView[];
   applications: ApplicationView[];
   gigWorkEnabled: boolean;
   gigWorkStatus?: "NONE" | "PENDING" | "VERIFIED";
+  unreadMessages?: number;
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("browse");
@@ -106,6 +108,17 @@ export function MarketplaceDashboard({
 
   const offers = useMemo(
     () => applications.filter((a) => a.agreement && a.agreement.status === "PENDING_ARTIST"),
+    [applications],
+  );
+
+  const pendingConnectionFees = useMemo(
+    () =>
+      applications.filter(
+        (a) =>
+          a.agreement &&
+          a.agreement.status === "CONNECTION_PENDING" &&
+          a.agreement.connectionPaymentStatus !== "VERIFIED",
+      ),
     [applications],
   );
 
@@ -199,8 +212,10 @@ export function MarketplaceDashboard({
               tab === t.key ? "border-accent bg-accent/10 text-accent" : "border-line text-ink-muted hover:border-accent"
             }`}
           >
-            {t.label}
-            {t.key === "offers" && offers.length > 0 ? ` (${offers.length})` : ""}
+        {t.label}
+        {t.key === "offers" && offers.length > 0 ? ` (${offers.length})` : ""}
+        {t.key === "active" && pendingConnectionFees.length > 0 ? ` (${pendingConnectionFees.length})` : ""}
+        {t.key === "messages" && unreadMessages > 0 ? ` (${unreadMessages})` : ""}
           </button>
         ))}
       </div>
@@ -375,15 +390,22 @@ export function MarketplaceDashboard({
             <p className="border border-line p-lg text-body-sm text-ink-muted">No completed work yet.</p>
           ) : (
             completed.map((app) => (
-              <article key={app.id} className="border border-line bg-paper-soft p-lg">
-                <div className="flex flex-wrap items-start justify-between gap-sm">
-                  <h3 className="font-display text-title-md uppercase">{app.gig.title}</h3>
-                  <span className="font-mono text-[0.65rem] uppercase text-ink-muted">{app.agreement!.status}</span>
-                </div>
-                <p className="mt-xs text-body-sm text-ink-muted">
-                  Agreed {formatFee(app.agreement!.offerAmount, app.agreement!.currency)} · Payment {app.agreement!.paymentStatus}
-                </p>
-              </article>
+               <article key={app.id} className="border border-line bg-paper-soft p-lg">
+                 <div className="flex flex-wrap items-start justify-between gap-sm">
+                   <h3 className="font-display text-title-md uppercase">{app.gig.title}</h3>
+                   <span className="font-mono text-[0.65rem] uppercase text-ink-muted">{app.agreement!.status}</span>
+                 </div>
+                 <p className="mt-xs text-body-sm text-ink-muted">
+                   Agreed {formatFee(app.agreement!.offerAmount, app.agreement!.currency)} · Payment{" "}
+                   {app.agreement!.paymentStatus === "PAID" ? (
+                     <span className="font-bold text-accent">PAID ✓</span>
+                   ) : app.agreement!.paymentStatus === "ARTIST_REPORTED" ? (
+                     <span className="font-bold text-accent">Reported — awaiting organizer confirmation</span>
+                   ) : (
+                     <span className="text-ink-muted">Not reported</span>
+                   )}
+                 </p>
+               </article>
             ))
           )}
         </div>

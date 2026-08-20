@@ -15,8 +15,8 @@ export async function GET(_: Request, { params }: Context) {
     where: { id, OR: [{ organizerId: user.id }, { artistId: user.id }] },
     include: {
       gig: { select: { id: true, title: true } },
-      organizer: { select: { id: true, name: true } },
-      artist: { select: { id: true, name: true } },
+      organizer: { select: { id: true, name: true, email: true, upiId: true } },
+      artist: { select: { id: true, name: true, email: true } },
       messages: {
         orderBy: { createdAt: "asc" },
         select: { id: true, senderId: true, body: true, createdAt: true },
@@ -27,10 +27,39 @@ export async function GET(_: Request, { params }: Context) {
   if (!conversation) return notFound("Conversation");
 
   if (!conversation.unlockedAt) {
-    return NextResponse.json(
-      { error: "This chat unlocks after the connection fee is paid." },
-      { status: 403 },
-    );
+    const agreement = conversation.applicationId
+      ? await prisma.gigAgreement.findUnique({
+          where: { applicationId: conversation.applicationId },
+          select: {
+            id: true,
+            status: true,
+            connectionPaymentStatus: true,
+            connectionPaymentMethod: true,
+            connectionPaymentSentAt: true,
+            connectionPaidAt: true,
+          },
+        })
+      : null;
+
+    return NextResponse.json({
+      id: conversation.id,
+      gigTitle: conversation.gig?.title ?? null,
+      organizerName: conversation.organizer.name ?? "Organizer",
+      artistName: conversation.artist.name ?? "Artist",
+      messages: [],
+      myId: user.id,
+      locked: true,
+      agreement: agreement
+        ? {
+            id: agreement.id,
+            status: agreement.status,
+            connectionPaymentStatus: agreement.connectionPaymentStatus,
+            connectionPaymentMethod: agreement.connectionPaymentMethod,
+            connectionPaymentSentAt: agreement.connectionPaymentSentAt,
+            connectionPaidAt: agreement.connectionPaidAt,
+          }
+        : null,
+    });
   }
 
   await prisma.message.updateMany({
@@ -45,6 +74,8 @@ export async function GET(_: Request, { params }: Context) {
     artistName: conversation.artist.name ?? "Artist",
     messages: conversation.messages,
     myId: user.id,
+    locked: false,
+    agreement: null,
   });
 }
 

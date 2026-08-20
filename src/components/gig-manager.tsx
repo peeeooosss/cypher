@@ -228,6 +228,7 @@ export function GigManager({ gigs }: { gigs: Gig[] }) {
             <div className="mt-lg border-t border-line pt-md">
               <p className="font-mono text-[0.7rem] uppercase text-ink-muted">
                 Applicants ({gig.applications.length})
+                {gig.applications.filter((a) => a.status === "PENDING").length > 0 ? ` · ${gig.applications.filter((a) => a.status === "PENDING").length} pending` : ""}
               </p>
               {gig.applications.length === 0 ? (
                 <p className="mt-sm text-body-sm text-ink-muted">No applications yet.</p>

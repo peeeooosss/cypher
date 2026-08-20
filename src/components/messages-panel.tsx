@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ManualPayment } from "@/components/manual-payment";
 import { GIG_CONNECTION_FEE, formatInr } from "@/lib/pricing";
-import { whatsappLink, BILL_WHATSAPP_NUMBER } from "@/lib/payment";
+import { whatsappLink, BILL_WHATSAPP_NUMBER, PAYMENT_UPI_ID, PAYMENT_NAME } from "@/lib/payment";
+import { UpiButtons } from "@/components/upi-buttons";
 
 type ConversationSummary = {
   id: string;
@@ -12,6 +12,7 @@ type ConversationSummary = {
   lastMessage: { body: string; createdAt: string; senderId: string } | null;
   unlocked: boolean;
   agreementId: string | null;
+  unreadCount: number;
 };
 
 type Thread = {
@@ -21,6 +22,15 @@ type Thread = {
   artistName: string;
   myId: string;
   messages: { id: string; senderId: string; body: string; createdAt: string }[];
+  locked: boolean;
+  agreement: {
+    id: string;
+    status: string;
+    connectionPaymentStatus: string;
+    connectionPaymentMethod: string | null;
+    connectionPaymentSentAt: string | null;
+    connectionPaidAt: string | null;
+  } | null;
 };
 
 export function MessagesPanel({ role }: { role: "ORGANIZER" | "ARTIST" }) {
@@ -29,6 +39,7 @@ export function MessagesPanel({ role }: { role: "ORGANIZER" | "ARTIST" }) {
   const [thread, setThread] = useState<Thread | null>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
   async function loadConversations() {
@@ -54,15 +65,43 @@ export function MessagesPanel({ role }: { role: "ORGANIZER" | "ARTIST" }) {
   }, []);
 
   async function openConversation(id: string) {
-    const conv = conversations.find((c) => c.id === id);
-    if (conv && !conv.unlocked) {
-      setActiveId(id);
-      setThread(null);
-      return;
-    }
     setActiveId(id);
     const res = await fetch(`/api/conversations/${id}`);
     if (res.ok) setThread(await res.json());
+    else setThread(null);
+  }
+
+  useEffect(() => {
+    if (!activeId) return;
+    let cancelled = false;
+    async function pollThread() {
+      const res = await fetch(`/api/conversations/${activeId}`);
+      if (cancelled) return;
+      if (res.ok) {
+        const t: Thread = await res.json();
+        setThread((prev) => {
+          if (!prev) return t;
+          if (t.locked) return t;
+          return { ...t, messages: dedupeMessages(prev.messages, t.messages) };
+        });
+      }
+    }
+    void pollThread();
+    const interval = setInterval(() => void pollThread(), 10000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [activeId]);
+
+  function dedupeMessages(prev: Thread["messages"], next: Thread["messages"]) {
+    const byId = new Map(prev.map((m) => [m.id, m]));
+    for (const m of next) {
+      if (!byId.has(m.id)) byId.set(m.id, m);
+    }
+    return Array.from(byId.values()).sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    );
   }
 
   async function sendMessage(e: React.FormEvent) {
@@ -77,17 +116,31 @@ export function MessagesPanel({ role }: { role: "ORGANIZER" | "ARTIST" }) {
     setSending(false);
     if (res.ok) {
       setDraft("");
-      await openConversation(thread.id);
       await loadConversations();
+      if (activeId) {
+        const tRes = await fetch(`/api/conversations/${activeId}`);
+        if (tRes.ok) {
+          const t: Thread = await tRes.json();
+          setThread(t);
+        }
+      }
     }
   }
 
   const activeConv = conversations.find((c) => c.id === activeId);
+  const totalUnread = conversations.reduce((sum, c) => sum + c.unreadCount, 0);
 
   return (
     <div className="grid gap-md lg:grid-cols-[16rem_1fr]">
       <div className="border border-line bg-paper-soft p-md">
-        <p className="font-mono text-[0.7rem] uppercase text-ink-muted">Conversations</p>
+        <div className="flex items-center justify-between">
+          <p className="font-mono text-[0.7rem] uppercase text-ink-muted">Conversations</p>
+          {totalUnread > 0 ? (
+            <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-accent px-xs font-mono text-[0.65rem] font-bold uppercase text-paper">
+              {totalUnread}
+            </span>
+          ) : null}
+        </div>
         {!loaded ? (
           <p className="mt-sm text-body-sm text-ink-muted">Loading...</p>
         ) : conversations.length === 0 ? (
@@ -116,6 +169,11 @@ export function MessagesPanel({ role }: { role: "ORGANIZER" | "ARTIST" }) {
                   <span className="block truncate text-[0.7rem] text-ink-muted">
                     {c.gigTitle ?? "Gig"} — {c.lastMessage?.body ?? "No messages"}
                   </span>
+                  {c.unlocked && c.unreadCount > 0 ? (
+                    <span className="mt-xs inline-block rounded-full bg-accent px-xs font-mono text-[0.6rem] font-bold uppercase text-paper">
+                      {c.unreadCount} unread
+                    </span>
+                  ) : null}
                   {!c.unlocked ? (
                     <span className="block text-[0.65rem] text-ink-muted">
                       Chat locked — pay {formatInr(GIG_CONNECTION_FEE)} to unlock
@@ -131,7 +189,7 @@ export function MessagesPanel({ role }: { role: "ORGANIZER" | "ARTIST" }) {
       <div className="border border-line bg-paper-soft p-md">
         {!thread && !activeConv ? (
           <p className="text-body-sm text-ink-muted">Select a conversation to view messages.</p>
-        ) : activeConv && !activeConv.unlocked ? (
+        ) : activeConv && thread?.locked ? (
           role === "ARTIST" ? (
             <div className="flex h-full flex-col">
               <p className="font-mono text-[0.7rem] uppercase text-ink-muted">
@@ -145,26 +203,51 @@ export function MessagesPanel({ role }: { role: "ORGANIZER" | "ARTIST" }) {
                     Once verified, you and the organizer can message each other.
                   </p>
                 </div>
-                {activeConv.agreementId ? (
-                  <ManualPayment
-                    amount={GIG_CONNECTION_FEE}
-                    note={`Connection fee — chat with ${activeConv.otherParty}`}
-                    submitUrl={`/api/agreements/${activeConv.agreementId}/connection/submit`}
-                    submitBody={{ method: "UPI" }}
-                    buttonLabel="I've paid — send for verification"
-                  />
+                {thread.agreement?.connectionPaymentStatus === "PENDING" ? (
+                  <div className="border border-accent bg-paper p-md">
+                    <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent">
+                      Payment sent — waiting for confirmation
+                    </p>
+                    <p className="mt-xs text-body-sm text-ink-muted">
+                      We&apos;re verifying your transfer{thread.agreement.connectionPaymentSentAt ? ` sent ${new Date(thread.agreement.connectionPaymentSentAt).toLocaleString()}` : ""}.
+                      Your chat unlocks automatically once confirmed.
+                    </p>
+                  </div>
+                ) : thread.agreement ? (
+                  <div>
+                    <UpiButtons
+                      upiId={PAYMENT_UPI_ID}
+                      payeeName={PAYMENT_NAME}
+                      amount={GIG_CONNECTION_FEE}
+                      note={`Connection fee — ${activeConv.gigTitle ?? "chat"}`}
+                      verifier="the CYPHR team"
+                    />
+                    <div className="mt-lg border-t border-line pt-md">
+                      <p className="text-body-sm text-ink-muted">
+                        Paid? Send it for verification. Keep your screenshot &mdash; you&apos;ll share it on WhatsApp as proof.
+                      </p>
+                        <button
+                        className="mt-md w-full border border-accent bg-accent px-lg py-md text-button-md font-bold uppercase text-paper disabled:cursor-wait disabled:opacity-60"
+                        disabled={submitting}
+                        type="button"
+                        onClick={() => void handleSubmitConnection(thread.agreement!.id, setSubmitting)}
+                      >
+                        {submitting ? "Submitting..." : "I've paid — send for verification"}
+                      </button>
+                      <a
+                        href={whatsappLink(
+                          BILL_WHATSAPP_NUMBER,
+                          `Hi CYPHR, I've paid ₹${GIG_CONNECTION_FEE} for the connection fee to chat with ${activeConv.otherParty} on "${activeConv.gigTitle ?? "gig"}". Attaching the payment screenshot for verification.`,
+                        )}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-md block border border-line px-md py-sm text-center font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-ink-muted hover:border-accent hover:text-accent"
+                      >
+                        Resend screenshot on WhatsApp
+                      </a>
+                    </div>
+                  </div>
                 ) : null}
-                <a
-                  href={whatsappLink(
-                    BILL_WHATSAPP_NUMBER,
-                    `Hi CYPHR, I've paid ₹${GIG_CONNECTION_FEE} for the connection fee to chat with ${activeConv.otherParty} on "${activeConv.gigTitle ?? "gig"}". Attaching the payment screenshot for verification.`,
-                  )}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block border border-line px-md py-sm text-center font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-ink-muted hover:border-accent hover:text-accent"
-                >
-                  Resend screenshot on WhatsApp
-                </a>
               </div>
             </div>
           ) : (
@@ -177,23 +260,22 @@ export function MessagesPanel({ role }: { role: "ORGANIZER" | "ARTIST" }) {
                   Chat locked — awaiting artist payment
                 </p>
                 <p className="mt-xs text-body-sm text-ink-muted">
-                  {activeConv.otherParty} needs to pay the {formatInr(GIG_CONNECTION_FEE)}
-                  connection fee before you can exchange messages. The chat will unlock
-                  automatically once the payment is verified.
+                  {activeConv.otherParty} needs to pay the {formatInr(GIG_CONNECTION_FEE)} connection fee
+                  before you can exchange messages. The chat unlocks automatically once verified.
                 </p>
               </div>
             </div>
           )
-        ) : thread ? (
+        ) : (
           <div className="flex h-full flex-col">
             <p className="font-mono text-[0.7rem] uppercase text-ink-muted">
-              {thread.gigTitle ?? "Gig"} · with {thread.myId === thread.organizerName ? thread.artistName : thread.organizerName}
+              {thread?.gigTitle ?? "Gig"} · with {thread?.myId === thread?.organizerName ? thread?.artistName : thread?.organizerName}
             </p>
             <div className="mt-md flex-1 space-y-sm overflow-y-auto">
-              {thread.messages.length === 0 ? (
+              {thread?.messages.length === 0 ? (
                 <p className="text-body-sm text-ink-muted">No messages yet. Say hello.</p>
               ) : (
-                thread.messages.map((m) => (
+                thread?.messages.map((m) => (
                   <div
                     key={m.id}
                     className={`max-w-[80%] border px-md py-sm text-body-sm ${
@@ -223,8 +305,23 @@ export function MessagesPanel({ role }: { role: "ORGANIZER" | "ARTIST" }) {
               </button>
             </form>
           </div>
-        ) : null}
+        )}
       </div>
     </div>
   );
+}
+
+async function handleSubmitConnection(agreementId: string, setSubmitting: (v: boolean) => void) {
+  setSubmitting(true);
+  const res = await fetch(`/api/agreements/${agreementId}/connection/submit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ method: "UPI" }),
+  });
+  setSubmitting(false);
+  if (res.ok) window.location.reload();
+  else {
+    const body = await res.json().catch(() => null);
+    alert(body?.error ?? "Failed to submit payment. Try again.");
+  }
 }

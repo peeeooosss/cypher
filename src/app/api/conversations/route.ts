@@ -20,6 +20,16 @@ export async function GET() {
         take: 1,
         select: { body: true, createdAt: true, senderId: true },
       },
+      _count: {
+        select: {
+          messages: {
+            where: {
+              senderId: { not: user.id },
+              readAt: null,
+            },
+          },
+        },
+      },
     },
     orderBy: { updatedAt: "desc" },
   });
@@ -29,7 +39,9 @@ export async function GET() {
     .filter((id): id is string => id != null);
 
   const agreements = await prisma.gigAgreement.findMany({
-    where: { applicationId: { in: applicationIds.length > 0 ? applicationIds : ["__none__"] } },
+    where: {
+      applicationId: applicationIds.length > 0 ? { in: applicationIds } : { in: ["__none__"] },
+    },
     select: { applicationId: true, id: true, status: true, connectionPaymentStatus: true },
   });
 
@@ -46,8 +58,13 @@ export async function GET() {
       lastMessage: c.messages[0] ?? null,
       unlocked: c.unlockedAt !== null,
       agreementId: agreement?.id ?? null,
+      unreadCount: c._count.messages,
     };
   });
 
-  return NextResponse.json(payload);
+  return NextResponse.json(payload, {
+    headers: {
+      "Cache-Control": "no-store",
+    },
+  });
 }

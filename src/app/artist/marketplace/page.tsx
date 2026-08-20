@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function ArtistMarketplacePage() {
   const user = await requireRole("ARTIST");
 
-  const [gigs, applications, me] = await Promise.all([
+  const [gigs, applications, me, unreadMessages] = await Promise.all([
     prisma.gig.findMany({
       where: { status: "OPEN", feePaid: true },
       include: { organizer: { select: { name: true } } },
@@ -38,6 +38,13 @@ export default async function ArtistMarketplacePage() {
     prisma.user.findUnique({
       where: { id: user.id },
       select: { gigWorkExpiresAt: true, gigWorkPaymentStatus: true },
+    }),
+    prisma.message.count({
+      where: {
+        conversation: { artistId: user.id },
+        senderId: { not: user.id },
+        readAt: null,
+      },
     }),
   ]);
 
@@ -125,6 +132,7 @@ export default async function ArtistMarketplacePage() {
         applications={applicationViews}
         gigWorkEnabled={gigWorkEnabled}
         gigWorkStatus={gigWorkStatus}
+        unreadMessages={unreadMessages}
       />
     </main>
   );
