@@ -400,7 +400,7 @@ export function MarketplaceDashboard({
         </div>
       )}
 
-      {tab === "messages" && <MessagesPanel />}
+      {tab === "messages" && <MessagesPanel role="ARTIST" />}
     </div>
   );
 }

@@ -10,7 +10,6 @@ export async function GET() {
   const conversations = await prisma.conversation.findMany({
     where: {
       OR: [{ organizerId: user.id }, { artistId: user.id }],
-      unlockedAt: { not: null },
     },
     include: {
       gig: { select: { id: true, title: true } },
@@ -25,14 +24,30 @@ export async function GET() {
     orderBy: { updatedAt: "desc" },
   });
 
-  const payload = conversations.map((c) => ({
-    id: c.id,
-    gigTitle: c.gig?.title ?? null,
-    organizerName: c.organizer.name ?? "Organizer",
-    artistName: c.artist.name ?? "Artist",
-    otherParty: user.id === c.organizerId ? (c.artist.name ?? "Artist") : (c.organizer.name ?? "Organizer"),
-    lastMessage: c.messages[0] ?? null,
-  }));
+  const applicationIds = conversations
+    .map((c) => c.applicationId)
+    .filter((id): id is string => id != null);
+
+  const agreements = await prisma.gigAgreement.findMany({
+    where: { applicationId: { in: applicationIds.length > 0 ? applicationIds : ["__none__"] } },
+    select: { applicationId: true, id: true, status: true, connectionPaymentStatus: true },
+  });
+
+  const agreementByAppId = new Map(agreements.map((a) => [a.applicationId, a]));
+
+  const payload = conversations.map((c) => {
+    const agreement = c.applicationId ? agreementByAppId.get(c.applicationId) : undefined;
+    return {
+      id: c.id,
+      gigTitle: c.gig?.title ?? null,
+      organizerName: c.organizer.name ?? "Organizer",
+      artistName: c.artist.name ?? "Artist",
+      otherParty: user.id === c.organizerId ? (c.artist.name ?? "Artist") : (c.organizer.name ?? "Organizer"),
+      lastMessage: c.messages[0] ?? null,
+      unlocked: c.unlockedAt !== null,
+      agreementId: agreement?.id ?? null,
+    };
+  });
 
   return NextResponse.json(payload);
 }

@@ -316,7 +316,10 @@ export function GigManager({ gigs }: { gigs: Gig[] }) {
                         </div>
                       </div>
                       {application.agreement ? (
-                        <AgreementStatus application={application} />
+                        <>
+                          <AgreementStatus application={application} />
+                          <ConversationAction agreement={application.agreement} />
+                        </>
                       ) : null}
                     </div>
                   ))}
@@ -481,4 +484,40 @@ function agreementLabel(status: string): string {
     default:
       return status;
   }
+}
+
+function ConversationAction({ agreement }: { agreement: { status: string } }) {
+  const chatUnlocked =
+    agreement.status === "ACTIVE" || agreement.status === "COMPLETED";
+  const chatLocked =
+    agreement.status === "CONNECTION_PENDING";
+
+  if (!chatUnlocked && !chatLocked) {
+    return null;
+  }
+
+  if (chatLocked) {
+    return (
+      <div className="mt-md">
+        <button
+          type="button"
+          className="border border-line px-sm py-xs font-mono text-[0.6rem] uppercase tracking-[0.15em] text-ink-muted"
+          title="Chat unlocks after the artist pays and the connection fee is verified"
+        >
+          Chat locked
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-md">
+      <Link
+        href="/organizer/gigs"
+        className="inline-block border border-accent bg-accent px-sm py-xs font-mono text-[0.6rem] uppercase tracking-[0.15em] text-paper hover:bg-accent/90"
+      >
+        Open chat
+      </Link>
+    </div>
+  );
 }

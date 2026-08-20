@@ -67,7 +67,7 @@ export default async function OrganizerGigsPage() {
       <section className="mt-section">
         <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-ink-muted">Messages</p>
         <div className="mt-lg">
-          <MessagesPanel />
+          <MessagesPanel role="ORGANIZER" />
         </div>
       </section>
     </main>
