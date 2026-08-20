@@ -21,7 +21,7 @@ export async function GET(_: Request, { params }: Context) {
            minMembers: true,
            maxMembers: true,
           currentPhaseOrder: true,
-          rounds: {
+           rounds: {
             select: {
               id: true,
               order: true,
@@ -30,12 +30,12 @@ export async function GET(_: Request, { params }: Context) {
               phaseStatus: true,
             },
             orderBy: { order: "asc" },
-          },
-          registrations: {
-            where: { status: "CONFIRMED" },
-            select: {
-              id: true,
-              seed: true,
+           },
+           registrations: {
+             select: {
+               id: true,
+               status: true,
+               seed: true,
                crew: true,
                teamName: true,
                user: { select: { name: true } },
@@ -44,9 +44,10 @@ export async function GET(_: Request, { params }: Context) {
             },
           },
           matches: {
-            select: {
-              id: true,
-              round: true,
+             select: {
+               id: true,
+               roundFormatId: true,
+               round: true,
               position: true,
               status: true,
               winnerId: true,
@@ -90,9 +91,10 @@ export async function GET(_: Request, { params }: Context) {
         label: r.label,
         phaseStatus: r.phaseStatus,
       })),
-      registrations: category.registrations.map((reg) => ({
-        id: reg.id,
-        seed: reg.seed,
+       registrations: category.registrations.map((reg) => ({
+         id: reg.id,
+         status: reg.status,
+         seed: reg.seed,
          crew: reg.crew,
          teamName: reg.teamName,
          name: reg.teamName ?? reg.user.name ?? "Unnamed",
@@ -102,9 +104,10 @@ export async function GET(_: Request, { params }: Context) {
           roundFormatId: d.roundFormatId,
         })),
       })),
-      matches: category.matches.map((m) => ({
-        id: m.id,
-        round: m.round,
+       matches: category.matches.map((m) => ({
+         id: m.id,
+         roundFormatId: m.roundFormatId,
+         round: m.round,
         position: m.position,
         status: m.status,
          redName: m.competitorA?.teamName ?? m.competitorA?.user.name ?? "TBD",

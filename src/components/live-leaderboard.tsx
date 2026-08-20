@@ -7,6 +7,7 @@ import { formatLabel } from "@/lib/event-types";
 type LeaderboardScore = { score: number; roundFormatId: string };
 type LeaderboardRegistration = {
   id: string;
+  status: string;
   seed: number | null;
   crew: string | null;
   teamName: string | null;
@@ -23,6 +24,7 @@ type LeaderboardRound = {
 };
 type LeaderboardMatch = {
   id: string;
+  roundFormatId: string | null;
   round: number;
   position: number;
   status: string;
@@ -180,8 +182,11 @@ export function LiveLeaderboard({
     .sort((a, b) => b.total - a.total || (a.reg.seed ?? 999) - (b.reg.seed ?? 999))
     .map((r, i) => ({ ...r, rank: i + 1 }));
 
-  const matchRounds = selectedCategory
-    ? [...new Set(selectedCategory.matches.map((m) => m.round))].sort((a, b) => a - b)
+  const selectedMatches = selectedCategory
+    ? selectedCategory.matches.filter((match) => match.roundFormatId === phaseId)
+    : [];
+  const matchRounds = selectedMatches.length > 0
+    ? [...new Set(selectedMatches.map((m) => m.round))].sort((a, b) => a - b)
     : [];
   const availableFormats = [...new Set(data.categories.map((category) => category.format ?? "SOLO"))];
 
@@ -273,7 +278,9 @@ export function LiveLeaderboard({
       ) : isNumeric ? (
         <div className="mt-lg border border-line">
           <div className="flex flex-wrap items-center justify-between gap-sm border-b border-line bg-paper-soft px-md py-sm">
-            <p className="font-display text-title-md uppercase">{selectedPhase?.label ?? "Scoring round"}</p>
+            <p className="font-display text-title-md uppercase">
+              {selectedPhase?.type === "CYPHER" ? "Cypher result" : selectedPhase?.type === "QUALIFIER" ? "Qualifier result" : selectedPhase?.label ?? "Scoring round"}
+            </p>
             <p className="font-mono text-[0.7rem] uppercase text-ink-muted">
               Numeric judge scores
             </p>
@@ -297,13 +304,16 @@ export function LiveLeaderboard({
                   >
                     {row.rank}
                   </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-body-md font-bold uppercase">{row.reg.name}</p>
-                     <p className="text-[0.7rem] uppercase text-ink-muted">
-                       {row.reg.members.length > 1 ? row.reg.members.map((member) => member.name).join(" · ") : (row.reg.crew ?? formatLabel(selectedCategory?.format))}
-                      {row.reg.seed != null ? ` / Seed #${row.reg.seed}` : ""}
-                    </p>
-                  </div>
+                   <div className="min-w-0 flex-1">
+                     <p className="truncate text-body-md font-bold uppercase">{row.reg.name}</p>
+                      <p className="text-[0.7rem] uppercase text-ink-muted">
+                        {row.reg.members.length > 1 ? row.reg.members.map((member) => member.name).join(" · ") : (row.reg.crew ?? formatLabel(selectedCategory?.format))}
+                       {row.reg.seed != null ? ` / Seed #${row.reg.seed}` : ""}
+                     </p>
+                   </div>
+                   <span className={`border px-sm py-xs font-mono text-[0.6rem] uppercase ${row.reg.status === "CONFIRMED" ? "border-accent text-accent" : "border-line text-ink-muted"}`}>
+                     {row.reg.status === "CONFIRMED" ? "Advanced" : "Eliminated"}
+                   </span>
                   <span className="font-mono text-title-md font-bold text-accent">{row.total}</span>
                   <span className="w-20 text-right text-xs uppercase text-ink-muted">
                     {row.judges} judge{row.judges === 1 ? "" : "s"}
@@ -330,7 +340,7 @@ export function LiveLeaderboard({
             </p>
           ) : (
             matchRounds.map((round) => {
-              const matches = selectedCategory.matches
+              const matches = selectedMatches
                 .filter((m) => m.round === round)
                 .sort((a, b) => a.position - b.position);
               return (
@@ -362,9 +372,9 @@ export function LiveLeaderboard({
                               {m.blueName}
                             </span>
                           </span>
-                          <span className="font-mono text-[0.7rem] uppercase text-ink-muted">
-                            Red {redVotes} · Blue {blueVotes}
-                          </span>
+                           <span className="font-mono text-[0.7rem] uppercase text-ink-muted">
+                             {m.scores.some((score) => score.winnerCorner) ? `Red ${redVotes} · Blue ${blueVotes}` : "Direct decision"}
+                           </span>
                           <span
                             className={`border px-md py-xs font-mono text-[0.7rem] uppercase ${
                               decided
