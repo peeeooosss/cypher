@@ -127,6 +127,7 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
   const [controlRoomKey, setControlRoomKey] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [notice, setNotice] = useState("");
+  const [phaseAction, setPhaseAction] = useState<string | null>(null);
 
   const refresh = () => router.refresh();
 
@@ -147,6 +148,25 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
       setRefreshing(false);
     }
   }, [event.id]);
+
+  const rewindCategory = async (categoryId: string) => {
+    if (!window.confirm("Go back to the previous phase? Current phase brackets, scores, and results will be deleted.")) return;
+    setPhaseAction(`${categoryId}:rewind`);
+    try {
+      const res = await fetch(`/api/categories/${categoryId}/rewind-phase`, { method: "POST" });
+      if (res.ok) {
+        setNotice("Returned to the previous phase");
+        await refreshControlRoom();
+      } else {
+        const error = await res.json().catch(() => null);
+        setNotice(error?.error ?? "Failed to rewind phase");
+      }
+    } catch {
+      setNotice("Failed to rewind phase");
+    } finally {
+      setPhaseAction(null);
+    }
+  };
 
   const visibleTabs: string[] = isWorkshopType(event.eventType)
     ? TABS.filter((tab) => tab !== "Judges" && tab !== "Prizes" && tab !== "Leaderboard" && tab !== "Control Room")
@@ -180,7 +200,7 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
         <CategoriesTab event={event} refresh={refreshControlRoom} refreshing={refreshing} />
       )}
       {resolvedTab === "Judges" && (
-        <JudgesTab event={event} refresh={refresh} />
+        <JudgesTab event={event} refresh={refreshControlRoom} />
       )}
       {resolvedTab === "Registrations" && (
         <RegistrationsTab event={event} />
@@ -255,19 +275,18 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
                 <div className="mt-lg flex flex-wrap gap-sm">
                   {category.currentPhaseOrder == null && category.rounds.some(r => r.phaseStatus === "PENDING") && (
                     <button className="border border-accent bg-accent px-lg py-sm font-bold uppercase text-paper"
+                      disabled={phaseAction !== null}
                       onClick={async () => {
+                        setPhaseAction(`${category.id}:start`);
                         const res = await fetch(`/api/categories/${category.id}/start-phase`, { method: "POST" });
                         if (res.ok) {
-                          setEvent({
-                            ...event,
-                            categories: event.categories.map(c =>
-                              c.id === category.id ? { ...c, currentPhaseOrder: 1, rounds: c.rounds.map((r, i) => i === 0 ? { ...r, phaseStatus: "ACTIVE" } : r) } : c
-                            ),
-                          });
-                          router.refresh();
+                          setNotice("Phase started");
+                          await refreshControlRoom();
                         } else {
-                          setNotice("Failed to start phase");
+                          const error = await res.json().catch(() => null);
+                          setNotice(error?.error ?? "Failed to start phase");
                         }
+                        setPhaseAction(null);
                       }}>
                       Start {category.rounds.find(r => r.phaseStatus === "PENDING")?.label ?? "Phase"}
                     </button>
@@ -276,32 +295,30 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
                   {category.currentPhaseOrder != null && category.rounds.find(r => r.order === category.currentPhaseOrder && r.phaseStatus === "ACTIVE") && (
                     <>
                       <button className="border border-accent px-lg py-sm font-bold uppercase text-accent hover:bg-accent hover:text-paper"
+                        disabled={phaseAction !== null}
                         onClick={async () => {
+                          setPhaseAction(`${category.id}:advance`);
                           const res = await fetch(`/api/categories/${category.id}/advance-phase`, { method: "POST" });
                           if (res.ok) {
-                            const nextOrder = (category.currentPhaseOrder ?? 0) + 1;
-                            const allComplete = nextOrder > category.rounds.length;
-                            setEvent({
-                              ...event,
-                              categories: event.categories.map(c =>
-                                c.id === category.id ? {
-                                  ...c,
-                                  currentPhaseOrder: allComplete ? null : nextOrder,
-                                  rounds: c.rounds.map(r => {
-                                    if (r.order === c.currentPhaseOrder) return { ...r, phaseStatus: "COMPLETE" };
-                                    if (!allComplete && r.order === nextOrder) return { ...r, phaseStatus: "ACTIVE" };
-                                    return r;
-                                  }),
-                                } : c
-                              ),
-                            });
-                            router.refresh();
+                            setNotice("Advanced to the next phase");
+                            await refreshControlRoom();
                           } else {
-                            setNotice("Failed to advance phase");
+                            const error = await res.json().catch(() => null);
+                            setNotice(error?.error ?? "Failed to advance phase");
                           }
+                          setPhaseAction(null);
                         }}>
-                        Advance to next phase
+                        {phaseAction === `${category.id}:advance` ? "Advancing..." : "Advance to next phase"}
                       </button>
+                      {category.rounds.some((round) => round.order < (category.currentPhaseOrder ?? 0)) && (
+                        <button
+                          className="border border-line px-lg py-sm font-bold uppercase text-ink hover:border-accent disabled:opacity-60"
+                          disabled={phaseAction !== null}
+                          onClick={() => void rewindCategory(category.id)}
+                        >
+                          {phaseAction === `${category.id}:rewind` ? "Rewinding..." : "Back to previous phase"}
+                        </button>
+                      )}
                       {["CYPHER", "QUALIFIER"].includes(category.rounds.find(r => r.order === category.currentPhaseOrder)!.type) && (
                         <span className="text-body-sm text-ink-muted">
                           {category.rounds.find(r => r.order === category.currentPhaseOrder)!.type === "CYPHER"
@@ -313,8 +330,48 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
                   )}
                 </div>
 
+                {category.currentPhaseOrder == null && category.rounds.length > 1 && category.rounds.every((round) => round.phaseStatus === "COMPLETE") && (
+                  <button
+                    className="mt-md border border-line px-lg py-sm font-bold uppercase text-ink hover:border-accent disabled:opacity-60"
+                    disabled={phaseAction !== null}
+                    onClick={() => void rewindCategory(category.id)}
+                  >
+                    {phaseAction === `${category.id}:rewind` ? "Rewinding..." : "Back to previous phase"}
+                  </button>
+                )}
+
+                {category.rounds.some((round) => round.type === "CYPHER") && (
+                  <button
+                    className="mt-md border border-accent px-lg py-sm font-bold uppercase text-accent hover:bg-accent hover:text-paper disabled:opacity-60"
+                    disabled={phaseAction !== null}
+                    onClick={async () => {
+                      if (!window.confirm("Reset this category to Cypher? All phase results, brackets, scores, and withdrawals will be cleared. Registrations will be restored and reseeded.")) return;
+                      setPhaseAction(`${category.id}:reset`);
+                      const res = await fetch(`/api/categories/${category.id}/reset-cypher`, { method: "POST" });
+                      if (res.ok) {
+                        setNotice("Category reset to Cypher with registrations reseeded");
+                        await refreshControlRoom();
+                      } else {
+                        const error = await res.json().catch(() => null);
+                        setNotice(error?.error ?? "Failed to reset category");
+                      }
+                      setPhaseAction(null);
+                    }}
+                  >
+                    {phaseAction === `${category.id}:reset` ? "Resetting..." : "Reset to Cypher"}
+                  </button>
+                )}
+
                 {category.currentPhaseOrder != null && ["CYPHER","QUALIFIER"].includes(category.rounds.find(r => r.order === category.currentPhaseOrder)!.type) && (
-                  <CypherDancerPicker key={`${category.id}-${controlRoomKey}`} eventId={event.id} categoryId={category.id} onResult={(ok) => setNotice(ok ? "Advancement confirmed" : "Failed to advance")} />
+                  <CypherDancerPicker
+                    key={`${category.id}-${controlRoomKey}`}
+                    eventId={event.id}
+                    categoryId={category.id}
+                    onResult={(ok, message) => {
+                      setNotice(ok ? "Advancement confirmed" : message ?? "Failed to advance");
+                      if (ok) void refreshControlRoom();
+                    }}
+                  />
                 )}
 
                 {category.currentPhaseOrder != null && (() => {
@@ -714,38 +771,17 @@ function CategoriesTab({
               <p className="font-mono text-[0.7rem] uppercase text-ink-muted">
                 Round phases
               </p>
-              <div className="mt-sm space-y-sm">
-                {category.rounds.map((round) => (
-                  <div
-                    key={round.id}
-                    className="flex flex-wrap items-center justify-between gap-sm border border-line bg-paper-soft px-md py-sm"
-                  >
-                    <div className="text-body-sm">
-                      <span className="font-mono uppercase text-accent">
-                        {round.type}
-                      </span>{" "}
-                      {round.label && (
-                        <span className="text-ink-muted">
-                          &mdash; {round.label}
-                        </span>
-                      )}
-                      <span className="ml-sm text-ink-muted">
-                        ({round.roundCount} round{round.roundCount > 1 ? "s" : ""}
-                        {round.roundDuration ? `, ${round.roundDuration}s` : ""}
-                        {round.advanceCount
-                          ? `, advance ${round.advanceCount}`
-                          : ""}
-                        )
-                      </span>
-                    </div>
-                    <DeleteRoundButton
+                <div className="mt-sm space-y-sm">
+                  {category.rounds.map((round) => (
+                    <RoundEditor
+                      key={round.id}
                       categoryId={category.id}
-                      roundId={round.id}
+                      eventType={event.eventType}
+                      round={round}
                       refresh={refresh}
                     />
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
             </div>
           )}
 
@@ -862,6 +898,159 @@ function CategoryFeeEditor({
         </button>
       </div>
       {error && <p className="mt-sm text-body-sm text-accent">{error}</p>}
+    </div>
+  );
+}
+
+function RoundEditor({
+  categoryId,
+  eventType,
+  round,
+  refresh,
+}: {
+  categoryId: string;
+  eventType: string | null;
+  round: Round;
+  refresh: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [type, setType] = useState<RoundType>(round.type);
+  const [label, setLabel] = useState(round.label ?? "");
+  const [roundCount, setRoundCount] = useState(String(round.roundCount));
+  const [roundDuration, setRoundDuration] = useState(round.roundDuration?.toString() ?? "");
+  const [advanceCount, setAdvanceCount] = useState(round.advanceCount?.toString() ?? "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  function openEditor() {
+    setType(round.type);
+    setLabel(round.label ?? "");
+    setRoundCount(String(round.roundCount));
+    setRoundDuration(round.roundDuration?.toString() ?? "");
+    setAdvanceCount(round.advanceCount?.toString() ?? "");
+    setError("");
+    setEditing(true);
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    setError("");
+    const res = await fetch(`/api/categories/${categoryId}/rounds/${round.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type,
+        label: label.trim() || null,
+        roundCount: Number(roundCount) || 1,
+        roundDuration: roundDuration ? Number(roundDuration) : null,
+        advanceCount: advanceCount ? Number(advanceCount) : null,
+      }),
+    });
+
+    if (!res.ok) {
+      const response = await res.json().catch(() => null);
+      setError(response?.error ?? "Failed to update phase");
+      setSaving(false);
+      return;
+    }
+
+    setSaving(false);
+    setEditing(false);
+    refresh();
+  }
+
+  if (!editing) {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-sm border border-line bg-paper-soft px-md py-sm">
+        <div className="text-body-sm">
+          <span className="font-mono uppercase text-accent">{round.type}</span>{" "}
+          {round.label && <span className="text-ink-muted">&mdash; {round.label}</span>}
+          <span className="ml-sm text-ink-muted">
+            ({round.roundCount} round{round.roundCount > 1 ? "s" : ""}
+            {round.roundDuration ? `, ${round.roundDuration}s` : ""}
+            {round.advanceCount != null ? `, advance ${round.advanceCount}` : ""})
+          </span>
+          {round.phaseStatus && round.phaseStatus !== "PENDING" && (
+            <span className="ml-sm font-mono text-[0.6rem] uppercase text-ink-muted">[{round.phaseStatus}]</span>
+          )}
+        </div>
+        <div className="flex gap-xs">
+          <button
+            className="border border-line px-sm py-xs text-[0.7rem] font-bold uppercase hover:border-accent"
+            onClick={openEditor}
+            type="button"
+          >
+            Edit phase
+          </button>
+          <DeleteRoundButton categoryId={categoryId} roundId={round.id} refresh={refresh} />
+        </div>
+      </div>
+    );
+  }
+
+  const phaseTypes = isCompetitionType(eventType) ? SINGLE_POINT_ROUND_TYPES : ROUND_TYPES;
+
+  return (
+    <div className="border border-accent bg-paper-soft p-md">
+      <div className="grid gap-sm sm:grid-cols-2">
+        <select
+          className="border border-line bg-paper px-md py-sm text-body-sm"
+          value={type}
+          onChange={(event) => setType(event.target.value as RoundType)}
+        >
+          {phaseTypes.map((phaseType) => (
+            <option key={phaseType} value={phaseType}>{phaseType}</option>
+          ))}
+        </select>
+        <input
+          className="border border-line bg-paper px-md py-sm text-body-sm"
+          value={label}
+          onChange={(event) => setLabel(event.target.value)}
+          placeholder="Label (e.g. Top 16)"
+        />
+        <input
+          className="border border-line bg-paper px-md py-sm text-body-sm"
+          type="number"
+          min={1}
+          value={roundCount}
+          onChange={(event) => setRoundCount(event.target.value)}
+          placeholder="Round count"
+        />
+        <input
+          className="border border-line bg-paper px-md py-sm text-body-sm"
+          type="number"
+          min={1}
+          value={roundDuration}
+          onChange={(event) => setRoundDuration(event.target.value)}
+          placeholder="Duration (seconds)"
+        />
+        <input
+          className="border border-line bg-paper px-md py-sm text-body-sm sm:col-span-2"
+          type="number"
+          min={0}
+          value={advanceCount}
+          onChange={(event) => setAdvanceCount(event.target.value)}
+          placeholder="Advance count"
+        />
+      </div>
+      {error && <p className="mt-sm text-body-sm text-accent">{error}</p>}
+      <div className="mt-md flex gap-sm">
+        <button
+          className="border border-accent bg-accent px-md py-xs text-[0.7rem] font-bold uppercase text-paper disabled:opacity-60"
+          disabled={saving}
+          onClick={() => void handleSave()}
+          type="button"
+        >
+          {saving ? "Saving..." : "Save phase"}
+        </button>
+        <button
+          className="border border-line px-md py-xs text-[0.7rem] font-bold uppercase hover:border-accent"
+          onClick={() => setEditing(false)}
+          type="button"
+        >
+          Cancel
+        </button>
+      </div>
     </div>
   );
 }
@@ -1415,7 +1604,7 @@ function JudgeSlotRow({
   );
 }
 
-function CypherDancerPicker({ eventId, categoryId, onResult }: { eventId: string; categoryId: string; onResult: (ok: boolean) => void }) {
+function CypherDancerPicker({ eventId, categoryId, onResult }: { eventId: string; categoryId: string; onResult: (ok: boolean, message?: string) => void }) {
   const router = useRouter();
   const [regs, setRegs] = useState<Array<{ id: string; user: { name: string | null }; teamName?: string | null; crew: string | null; seed: number | null; dancerScores: Array<{ score: number }>; members?: Array<{ status: string; user: { name: string | null; username: string | null } }> }>>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -1452,8 +1641,11 @@ function CypherDancerPicker({ eventId, categoryId, onResult }: { eventId: string
       if (res.ok) {
         setSelected(new Set());
         router.refresh();
+        onResult(true);
+      } else {
+        const error = await res.json().catch(() => null);
+        onResult(false, error?.error ?? "Failed to advance");
       }
-      onResult(res.ok);
     } finally {
       setBusy(false);
     }

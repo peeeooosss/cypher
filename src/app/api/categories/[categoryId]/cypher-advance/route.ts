@@ -5,7 +5,7 @@ import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { emitToSocket } from "@/lib/socket-emit";
 
-const cypherAdvanceSchema = z.object({ registrationIds: z.array(z.string().cuid()) });
+const cypherAdvanceSchema = z.object({ registrationIds: z.array(z.string().min(1)) });
 
 type Context = { params: Promise<{ categoryId: string }> };
 
