@@ -35,6 +35,44 @@ export function isEventFlatFeePaid(event: {
   return event.flatFeePaid;
 }
 
+export interface CommissionBreakdown {
+  categoryId: string;
+  name: string;
+  paidRegistrations: number;
+  entryFeeSum: number;
+  commission: number;
+}
+
+export interface CommissionCalculation {
+  commissionDue: number;
+  categories: CommissionBreakdown[];
+}
+
+export interface CommissionRegistration {
+  entryFee: number | null;
+  paid: boolean;
+  categoryEntryFee: number | null;
+}
+
+export function calculateCommission(registrations: CommissionRegistration[]): CommissionCalculation {
+  const breakdown: CommissionBreakdown[] = [];
+
+  let totalEntryFees = 0;
+
+  for (const r of registrations) {
+    if (!r.paid) continue;
+    const entryFee = r.entryFee ?? r.categoryEntryFee ?? 0;
+    totalEntryFees += entryFee;
+  }
+
+  const totalCommission = Math.round(totalEntryFees * COMMISSION_RATE);
+
+  return {
+    commissionDue: totalCommission,
+    categories: breakdown,
+  };
+}
+
 export function formatInr(amount: number): string {
   return `₹${amount.toLocaleString("en-IN")}`;
 }

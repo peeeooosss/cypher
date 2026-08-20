@@ -47,8 +47,9 @@ export default async function EventBillPage({ params }: PageProps) {
     select: {
       id: true,
       name: true,
+      entryFee: true,
       registrations: {
-        where: { status: "CONFIRMED" },
+        where: { paid: true },
         select: { entryFee: true },
       },
     },
@@ -56,7 +57,10 @@ export default async function EventBillPage({ params }: PageProps) {
   });
 
   const commissionBreakdown = categories.map((category) => {
-    const entryFeeSum = category.registrations.reduce((sum, r) => sum + (r.entryFee ?? 0), 0);
+    const entryFeeSum = category.registrations.reduce(
+      (sum, r) => sum + (r.entryFee ?? category.entryFee ?? 0),
+      0,
+    );
     return {
       id: category.id,
       name: category.name,
@@ -281,7 +285,7 @@ export default async function EventBillPage({ params }: PageProps) {
           <li>Pay the flat fee above to activate the event.</li>
           <li>Add categories, rounds, judges and prize pools.</li>
           <li>Publish the event so artists can register.</li>
-          <li>At the end, settle the 2.99% commission and complete the event.</li>
+           <li>At the end, settle the 2.99% commission on paid entry fees and complete the event.</li>
         </ol>
       </div>
     </main>

@@ -95,10 +95,16 @@ export async function PATCH(request: Request, { params }: EventRouteContext) {
 
   if (targetStatus === EventStatus.COMPLETED) {
     const registrations = await prisma.registration.findMany({
-      where: { category: { eventId }, status: "CONFIRMED" },
-      select: { entryFee: true },
+      where: {
+        category: { eventId },
+        paid: true,
+      },
+      select: { entryFee: true, category: { select: { entryFee: true } } },
     });
-    const totalEntryFees = registrations.reduce((sum, r) => sum + (r.entryFee ?? 0), 0);
+    const totalEntryFees = registrations.reduce(
+      (sum, r) => sum + (r.entryFee ?? r.category.entryFee ?? 0),
+      0,
+    );
     const commissionDue = Math.round(totalEntryFees * COMMISSION_RATE);
 
     if (commissionDue > 0 && ownedEvent.commissionPaymentStatus !== "VERIFIED") {

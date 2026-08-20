@@ -32,7 +32,7 @@ export async function GET(_: Request, { params }: Context) {
         entryFee: true,
         entryCurrency: true,
         registrations: {
-          where: { status: "CONFIRMED" },
+          where: { paid: true },
           select: { entryFee: true },
         },
       },
@@ -40,7 +40,10 @@ export async function GET(_: Request, { params }: Context) {
     });
 
     const breakdown = categories.map((category) => {
-      const entryFeeSum = category.registrations.reduce((sum, r) => sum + (r.entryFee ?? 0), 0);
+      const entryFeeSum = category.registrations.reduce(
+        (sum, r) => sum + (r.entryFee ?? category.entryFee ?? 0),
+        0,
+      );
       return {
         id: category.id,
         name: category.name,
