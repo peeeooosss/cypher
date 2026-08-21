@@ -159,6 +159,9 @@ model User {
   avatarUrl       String?
   isProfilePublic Boolean          @default(true)
   upiId           String?
+  studioName      String?
+  studioLogoUrl   String?
+  studioFoundedAt DateTime?
   style           String?
   crew            String?
   city            String?

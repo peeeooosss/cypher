@@ -19,7 +19,7 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
   const event = await prisma.event.findUnique({
     where: { slug },
     include: {
-      organizer: { select: { name: true } },
+      organizer: { select: { name: true, studioName: true, studioLogoUrl: true, studioFoundedAt: true } },
       categories: {
         include: { _count: { select: { registrations: true, matches: true } } },
         orderBy: { name: "asc" },
@@ -80,6 +80,20 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
             <div className="mt-lg max-w-3xl">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={event.posterUrl} alt={`${event.title} poster`} className="w-full border border-line" />
+            </div>
+          ) : null}
+          {event.organizer.studioLogoUrl ? (
+            <div className="mt-lg flex items-end gap-md">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={event.organizer.studioLogoUrl} alt="Studio logo" className="h-12 w-12 rounded-full border border-line object-cover" />
+              <div>
+                <p className="font-display text-title-md uppercase">{event.organizer.studioName ?? event.organizer.name ?? "Anonymous"}</p>
+                {event.organizer.studioFoundedAt ? (
+                  <p className="font-mono text-[0.65rem] uppercase tracking-[0.15em] text-ink-muted">
+                    Est. {new Date(event.organizer.studioFoundedAt).getFullYear()}
+                  </p>
+                ) : null}
+              </div>
             </div>
           ) : null}
           <div className="mt-lg flex flex-wrap gap-lg text-body-sm text-ink-muted">

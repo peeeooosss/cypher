@@ -513,12 +513,13 @@ function ConversationAction({ agreement }: { agreement: { status: string } }) {
 
   return (
     <div className="mt-md">
-      <Link
-        href="/organizer/gigs"
+      <button
+        type="button"
+        onClick={() => document.getElementById("messages-section")?.scrollIntoView({ behavior: "smooth" })}
         className="inline-block border border-accent bg-accent px-sm py-xs font-mono text-[0.6rem] uppercase tracking-[0.15em] text-paper hover:bg-accent/90"
       >
         Open chat
-      </Link>
+      </button>
     </div>
   );
 }

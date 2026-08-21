@@ -1,4 +1,5 @@
 import { CategoryForm, EventForm } from "@/components/event-form";
+import { OrganizerProfileForm } from "@/components/organizer-profile-form";
 import { SignOutButton } from "@/components/sign-out-button";
 import { UpiForm } from "@/components/upi-form";
 import { requireRole } from "@/lib/rbac";
@@ -12,7 +13,12 @@ export default async function OrganizerPage() {
   const user = await requireRole("ORGANIZER");
   const currentUser = await prisma.user.findUnique({
     where: { id: user.id },
-    select: { upiId: true },
+    select: {
+      upiId: true,
+      studioName: true,
+      studioLogoUrl: true,
+      studioFoundedAt: true,
+    },
   });
   const events = await prisma.event.findMany({
     where: { organizerId: user.id },
@@ -49,7 +55,19 @@ export default async function OrganizerPage() {
       </div>
 
       <div className="mt-section">
-        <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-ink-muted">Payments</p>
+        <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-ink-muted">Studio profile</p>
+        <div className="mt-lg">
+          <OrganizerProfileForm
+            initialProfile={{
+              studioName: currentUser?.studioName ?? null,
+              studioFoundedAt: currentUser?.studioFoundedAt ?? null,
+              studioLogoUrl: currentUser?.studioLogoUrl ?? null,
+            }}
+          />
+        </div>
+      </div>
+
+      <div className="mt-section">
         <div className="mt-lg">
           <UpiForm currentUpiId={currentUser?.upiId ?? null} />
         </div>

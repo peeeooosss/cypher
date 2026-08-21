@@ -73,7 +73,7 @@ export default async function OrganizerGigsPage() {
 
       <GigManager gigs={gigs} />
 
-      <section className="mt-section">
+      <section id="messages-section" className="mt-section">
         <div className="flex items-center justify-between">
           <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-ink-muted">
             Messages
