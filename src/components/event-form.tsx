@@ -31,6 +31,7 @@ export function EventForm() {
         eventType,
         posterUrl,
         venue: formData.get("venue") || undefined,
+        googleMapsUrl: formData.get("googleMapsUrl") || null,
         city: formData.get("city") || undefined,
         state: formData.get("state") || undefined,
         startsAt: formData.get("startsAt"),
@@ -79,6 +80,7 @@ export function EventForm() {
           </select>
         </label>
         <input className="border border-line bg-paper px-md py-sm" name="venue" placeholder="Venue" />
+        <input className="border border-line bg-paper px-md py-sm md:col-span-2" name="googleMapsUrl" type="url" placeholder="https://maps.app.goo.gl/... (Google Maps link for directions)" />
         <input className="border border-line bg-paper px-md py-sm" name="city" placeholder="City" />
         <input required className="border border-line bg-paper px-md py-sm md:col-span-2" name="startsAt" type="datetime-local" />
         <textarea className="border border-line bg-paper px-md py-sm md:col-span-2" name="description" placeholder="Event description — shown on the public event page" rows={4} />

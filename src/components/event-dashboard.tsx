@@ -70,6 +70,7 @@ type EventWithRelations = {
   eventType: string | null;
   posterUrl: string | null;
   venue: string | null;
+  googleMapsUrl: string | null;
   city: string | null;
   state: string | null;
   flatFee: number | null;
@@ -418,6 +419,7 @@ function OverviewTab({
     const title = form.get("title") as string;
     const slug = form.get("slug") as string;
     const venue = form.get("venue") as string;
+    const googleMapsUrl = form.get("googleMapsUrl") as string;
     const city = form.get("city") as string;
     const state = form.get("state") as string;
     const startsAt = form.get("startsAt") as string;
@@ -427,6 +429,7 @@ function OverviewTab({
     if (title && title !== event.title) body.title = title;
     if (slug && slug !== event.slug) body.slug = slug;
     body.venue = venue || null;
+    body.googleMapsUrl = googleMapsUrl || null;
     body.city = city || null;
     body.state = state || null;
     body.description = description || null;
@@ -534,6 +537,13 @@ function OverviewTab({
             name="venue"
             defaultValue={event.venue ?? ""}
             placeholder="Venue"
+          />
+          <input
+            className="border border-line bg-paper px-md py-sm text-body-sm md:col-span-2"
+            name="googleMapsUrl"
+            type="url"
+            defaultValue={event.googleMapsUrl ?? ""}
+            placeholder="https://maps.app.goo.gl/... (Google Maps link for directions)"
           />
           <input
             className="border border-line bg-paper px-md py-sm text-body-sm"

@@ -208,6 +208,7 @@ model Event {
   eventType      EventType?
   posterUrl      String?
   venue          String?
+  googleMapsUrl  String?
   city           String?
   state          String?
   startsAt       DateTime

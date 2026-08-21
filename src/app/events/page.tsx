@@ -67,6 +67,7 @@ export default async function EventsPage({ searchParams }: { searchParams: Searc
       status: true,
       eventType: true,
       posterUrl: true,
+      googleMapsUrl: true,
       categories: {
         select: { id: true, name: true, prizePool: { select: { totalAmount: true, currency: true } } },
         orderBy: { name: "asc" },

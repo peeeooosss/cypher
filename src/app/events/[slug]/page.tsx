@@ -119,6 +119,23 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
                 <p className="mt-xs">{event.venue}</p>
               </div>
             )}
+            {event.googleMapsUrl && (
+              <div>
+                <p className="font-mono text-[0.6rem] uppercase tracking-[0.2em] text-ink-muted">Directions</p>
+                <a
+                  href={event.googleMapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-xs inline-flex items-center gap-xs border border-accent bg-accent px-md py-xs font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper transition-opacity hover:opacity-80"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+                  </svg>
+                  Open in Google Maps
+                </a>
+              </div>
+            )}
             <div>
               <p className="font-mono text-[0.6rem] uppercase tracking-[0.2em] text-ink-muted">Organizer</p>
               <p className="mt-xs">{event.organizer.name ?? "Anonymous"}</p>

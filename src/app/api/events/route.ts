@@ -15,6 +15,7 @@ const eventSchema = z.object({
   eventType: z.enum(EventType),
   posterUrl: z.string().trim().max(3_000_000).nullable().optional(),
   venue: z.string().trim().max(200).optional(),
+  googleMapsUrl: z.string().trim().max(3000).nullable().optional(),
   city: z.string().trim().max(120).optional(),
   state: z.string().trim().max(120).optional().refine((s) => s === undefined || s === "" || isValidState(s), {
     message: "Invalid state",
