@@ -21,7 +21,7 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
     include: {
       organizer: { select: { name: true, studioName: true, studioLogoUrl: true, studioFoundedAt: true } },
       categories: {
-        include: { _count: { select: { registrations: true, matches: true } } },
+        include: { prizePool: true, _count: { select: { registrations: true, matches: true } } },
         orderBy: { name: "asc" },
       },
     },
@@ -52,6 +52,18 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
       ? `₹${category.entryFee} entry`
       : `${category.entryCurrency} ${category.entryFee} entry`;
   }
+
+  function formatPrize(prizePool: { totalAmount: number; currency: string } | null) {
+    if (!prizePool || prizePool.totalAmount <= 0) return null;
+    return prizePool.currency === "INR"
+      ? `₹${prizePool.totalAmount.toLocaleString("en-IN")} prize pool`
+      : `${prizePool.currency} ${prizePool.totalAmount.toLocaleString()} prize pool`;
+  }
+
+  const totalPrizePool = event.categories.reduce(
+    (sum, c) => sum + (c.prizePool?.totalAmount ?? 0),
+    0,
+  );
 
   return (
     <main className="min-h-screen bg-paper">
@@ -149,6 +161,11 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
                       <p className="mt-sm font-mono text-body-sm uppercase tracking-[0.1em] text-accent">
                         {formatFee(category)}
                       </p>
+                      {formatPrize(category.prizePool) && (
+                        <p className="mt-xs font-mono text-[0.65rem] uppercase tracking-[0.1em] text-green-600">
+                          {formatPrize(category.prizePool)}
+                        </p>
+                      )}
                       <div className="mt-sm flex flex-wrap gap-md text-body-sm text-ink-muted">
                         <span>{category._count.registrations} registered</span>
                         {category.maxCompetitors && (
@@ -178,6 +195,12 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
               <p className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Total categories</p>
               <p className="mt-xs text-body-md text-ink">{event.categories.length}</p>
             </div>
+            {totalPrizePool > 0 && (
+              <div>
+                <p className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Total prize pool</p>
+                <p className="mt-xs text-title-md font-bold text-accent">₹{totalPrizePool.toLocaleString("en-IN")}</p>
+              </div>
+            )}
             {isArtist && isOpen && (
               <Link
                 href={`/events/${event.slug}/register`}

@@ -16,7 +16,7 @@ type EventCardData = {
   eventType?: string | null;
   posterUrl?: string | null;
   _count?: { categories: number };
-  categories?: { id: string; name: string; format?: string | null }[];
+  categories?: { id: string; name: string; format?: string | null; prizePool?: { totalAmount: number; currency: string } | null }[];
 };
 
 export function EventCard({ event }: { event: EventCardData }) {
@@ -68,6 +68,15 @@ export function EventCard({ event }: { event: EventCardData }) {
               {event._count.categories} {event._count.categories === 1 ? "category" : "categories"}
             </p>
           )}
+          {event.categories && (() => {
+            const total = event.categories.reduce((s, c) => s + (c.prizePool?.totalAmount ?? 0), 0);
+            if (total <= 0) return null;
+            return (
+              <p className="mt-xs font-mono text-[0.65rem] font-bold uppercase tracking-[0.1em] text-green-600">
+                ₹{total.toLocaleString("en-IN")} prize pool
+              </p>
+            );
+          })()}
         </div>
       </Link>
       {(event.status === EventStatus.PUBLISHED || event.status === EventStatus.LIVE) && (
