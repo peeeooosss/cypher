@@ -56,7 +56,6 @@ export function EventCard({ event }: { event: EventCardData }) {
               target="_blank"
               rel="noopener noreferrer"
               className="mt-xs inline-flex items-center gap-xs font-mono text-[0.65rem] font-bold uppercase tracking-[0.1em] text-accent hover:underline"
-              onClick={(e) => e.stopPropagation()}
             >
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
