@@ -6,7 +6,7 @@ import Link from "next/link";
 import { formatDate } from "@/lib/format";
 import { SKILLS, SKILL_LABELS } from "@/lib/skills";
 import { GIG_CONNECTION_FEE, formatInr } from "@/lib/pricing";
-import { ManualPayment } from "@/components/manual-payment";
+import { PayuCheckout } from "@/components/payu-checkout";
 import { MessagesPanel } from "@/components/messages-panel";
 
 type GigView = {
@@ -336,14 +336,10 @@ export function MarketplaceDashboard({
                   app.agreement!.connectionPaymentStatus === "PENDING" ? (
                     <div className="mt-md border border-accent bg-accent/10 p-md">
                       <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent">
-                        Payment sent — waiting for confirmation
+                        PayU payment processing
                       </p>
                       <p className="mt-xs text-body-sm text-ink-muted">
-                        We&apos;re verifying your connection fee transfer
-                        {app.agreement!.connectionPaymentSentAt
-                          ? ` sent ${new Date(app.agreement!.connectionPaymentSentAt).toLocaleString()}`
-                          : ""}.
-                        Your private chat unlocks once confirmed.
+                        Your private chat unlocks automatically after PayU confirms the connection fee.
                       </p>
                     </div>
                   ) : (
@@ -351,13 +347,13 @@ export function MarketplaceDashboard({
                       <p className="text-body-sm">
                         Pay the connection fee to unlock your private chat with the organizer.
                       </p>
-                      <ManualPayment
-                        amount={GIG_CONNECTION_FEE}
-                        note={`Connection fee — ${app.gig.title}`}
-                        submitUrl={`/api/agreements/${app.agreement!.id}/connection/submit`}
-                        submitBody={{ method: "UPI" }}
-                        buttonLabel="I've paid — send for verification"
-                      />
+                      <div className="mt-md">
+                        <PayuCheckout
+                          type="GIG_CONNECTION"
+                          referenceId={app.agreement!.id}
+                          label={`Pay ${formatInr(GIG_CONNECTION_FEE)} with PayU`}
+                        />
+                      </div>
                     </div>
                   )
                 ) : (

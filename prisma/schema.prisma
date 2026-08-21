@@ -670,20 +670,27 @@ model Message {
 }
 
 model Payment {
-  id                String             @id @default(cuid())
-  type              PaymentType
-  referenceId       String
-  payerId           String
-  amountPaise       Int
-  currency          String             @default("INR")
-  razorpayOrderId   String             @unique
-  razorpayPaymentId String?
-  razorpaySignature String?
-  status            PaymentOrderStatus @default(PENDING)
-  payer             User               @relation(fields: [payerId], references: [id], onDelete: Cascade)
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  id                   String             @id @default(cuid())
+  type                 PaymentType
+  provider             String             @default("RAZORPAY")
+  referenceId          String
+  payerId              String
+  amountPaise          Int
+  currency             String             @default("INR")
+  merchantTransactionId String?            @unique
+  providerPaymentId    String?
+  providerSignature    String?
+  providerStatus       String?
+  metadata             Json?
+  razorpayOrderId      String?            @unique
+  razorpayPaymentId    String?
+  razorpaySignature    String?
+  status               PaymentOrderStatus @default(PENDING)
+  payer                User               @relation(fields: [payerId], references: [id], onDelete: Cascade)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
 
   @@index([payerId])
   @@index([type, referenceId])
+  @@index([provider, providerStatus])
 }

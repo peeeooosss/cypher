@@ -3,10 +3,8 @@ import Link from "next/link";
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { COMMISSION_RATE, formatInr, isEventFlatFeePaid } from "@/lib/pricing";
-import { ManualPayment } from "@/components/manual-payment";
+import { PayuCheckout } from "@/components/payu-checkout";
 import { SignOutButton } from "@/components/sign-out-button";
-import { whatsappLink, BILL_WHATSAPP_NUMBER } from "@/lib/payment";
-import type { PaymentStatus } from "@/generated/prisma/enums";
 
 export const dynamic = "force-dynamic";
 
@@ -73,8 +71,6 @@ export default async function EventBillPage({ params }: PageProps) {
 
   const feePaid = isEventFlatFeePaid(event);
   const flatAmount = event.flatFee ?? 0;
-  const flatStatus = event.flatFeePaymentStatus as PaymentStatus | null;
-  const commStatus = event.commissionPaymentStatus as PaymentStatus | null;
 
   return (
     <main className="min-h-screen bg-paper px-md py-section md:px-xl">
@@ -151,37 +147,11 @@ export default async function EventBillPage({ params }: PageProps) {
                 <p className="border border-accent bg-accent/10 px-md py-sm font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent">
                   Payment verified
                 </p>
-              ) : flatStatus === "PENDING" ? (
-                <div className="space-y-md">
-                  <div className="border border-accent bg-paper p-md">
-                    <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent">
-                      Payment sent — waiting for confirmation
-                    </p>
-                    <p className="mt-xs text-body-sm text-ink-muted">
-                      We&apos;re verifying your transfer
-                      {event.flatFeePaymentSentAt ? ` sent ${event.flatFeePaymentSentAt.toLocaleString()}` : ""}.
-                      This usually takes a few minutes. Refresh this page later.
-                    </p>
-                  </div>
-                  <a
-                    href={whatsappLink(
-                      BILL_WHATSAPP_NUMBER,
-                      `Hi CYPHR, I've sent ${formatInr(flatAmount)} for the flat fee on "${event.title}". Attaching the payment screenshot for verification.`,
-                    )}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block border border-line px-md py-sm text-center font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-ink hover:border-accent hover:text-accent"
-                  >
-                    Resend screenshot on WhatsApp
-                  </a>
-                </div>
               ) : (
-                <ManualPayment
-                  amount={flatAmount}
-                  note={`Flat fee — ${event.title}`}
-                  submitUrl={`/api/events/${event.id}/bill/submit`}
-                  submitBody={{ method: "UPI", type: "FLAT_FEE" }}
-                  buttonLabel="I've paid — send for verification"
+                <PayuCheckout
+                  type="EVENT_FLAT_FEE"
+                  referenceId={event.id}
+                  label={`Pay ${formatInr(flatAmount)} with PayU`}
                 />
               )}
             </div>
@@ -237,37 +207,11 @@ export default async function EventBillPage({ params }: PageProps) {
                     Continue to event dashboard
                   </Link>
                 </div>
-              ) : commStatus === "PENDING" ? (
-                <div className="space-y-md">
-                  <div className="border border-accent bg-paper p-md">
-                    <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent">
-                      Payment sent — waiting for confirmation
-                    </p>
-                    <p className="mt-xs text-body-sm text-ink-muted">
-                      We&apos;re verifying your transfer
-                      {event.commissionPaymentSentAt ? ` sent ${event.commissionPaymentSentAt.toLocaleString()}` : ""}.
-                      This usually takes a few minutes. Refresh this page later.
-                    </p>
-                  </div>
-                  <a
-                    href={whatsappLink(
-                      BILL_WHATSAPP_NUMBER,
-                      `Hi CYPHR, I've sent ${formatInr(commissionDue)} for the commission on "${event.title}". Attaching the payment screenshot for verification.`,
-                    )}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block border border-line px-md py-sm text-center font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-ink hover:border-accent hover:text-accent"
-                  >
-                    Resend screenshot on WhatsApp
-                  </a>
-                </div>
               ) : (
-                <ManualPayment
-                  amount={commissionDue}
-                  note={`Commission — ${event.title}`}
-                  submitUrl={`/api/events/${event.id}/bill/submit`}
-                  submitBody={{ method: "UPI", type: "COMMISSION" }}
-                  buttonLabel="I've paid — send for verification"
+                <PayuCheckout
+                  type="EVENT_COMMISSION"
+                  referenceId={event.id}
+                  label={`Pay ${formatInr(commissionDue)} with PayU`}
                 />
               )}
             </div>

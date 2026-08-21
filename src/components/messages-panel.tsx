@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { GIG_CONNECTION_FEE, formatInr } from "@/lib/pricing";
-import { whatsappLink, BILL_WHATSAPP_NUMBER, PAYMENT_UPI_ID, PAYMENT_NAME } from "@/lib/payment";
-import { UpiButtons } from "@/components/upi-buttons";
+import { PayuCheckout } from "@/components/payu-checkout";
 
 type ConversationSummary = {
   id: string;
@@ -39,7 +38,6 @@ export function MessagesPanel({ role }: { role: "ORGANIZER" | "ARTIST" }) {
   const [thread, setThread] = useState<Thread | null>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
   async function loadConversations() {
@@ -206,46 +204,19 @@ export function MessagesPanel({ role }: { role: "ORGANIZER" | "ARTIST" }) {
                 {thread.agreement?.connectionPaymentStatus === "PENDING" ? (
                   <div className="border border-accent bg-paper p-md">
                     <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent">
-                      Payment sent — waiting for confirmation
+                      PayU payment processing
                     </p>
                     <p className="mt-xs text-body-sm text-ink-muted">
-                      We&apos;re verifying your transfer{thread.agreement.connectionPaymentSentAt ? ` sent ${new Date(thread.agreement.connectionPaymentSentAt).toLocaleString()}` : ""}.
-                      Your chat unlocks automatically once confirmed.
+                      Your chat unlocks automatically after PayU confirms the connection fee.
                     </p>
                   </div>
                 ) : thread.agreement ? (
                   <div>
-                    <UpiButtons
-                      upiId={PAYMENT_UPI_ID}
-                      payeeName={PAYMENT_NAME}
-                      amount={GIG_CONNECTION_FEE}
-                      note={`Connection fee — ${activeConv.gigTitle ?? "chat"}`}
-                      verifier="the CYPHR team"
+                    <PayuCheckout
+                      type="GIG_CONNECTION"
+                      referenceId={thread.agreement.id}
+                      label={`Pay ${formatInr(GIG_CONNECTION_FEE)} with PayU`}
                     />
-                    <div className="mt-lg border-t border-line pt-md">
-                      <p className="text-body-sm text-ink-muted">
-                        Paid? Send it for verification. Keep your screenshot &mdash; you&apos;ll share it on WhatsApp as proof.
-                      </p>
-                        <button
-                        className="mt-md w-full border border-accent bg-accent px-lg py-md text-button-md font-bold uppercase text-paper disabled:cursor-wait disabled:opacity-60"
-                        disabled={submitting}
-                        type="button"
-                        onClick={() => void handleSubmitConnection(thread.agreement!.id, setSubmitting)}
-                      >
-                        {submitting ? "Submitting..." : "I've paid — send for verification"}
-                      </button>
-                      <a
-                        href={whatsappLink(
-                          BILL_WHATSAPP_NUMBER,
-                          `Hi CYPHR, I've paid ₹${GIG_CONNECTION_FEE} for the connection fee to chat with ${activeConv.otherParty} on "${activeConv.gigTitle ?? "gig"}". Attaching the payment screenshot for verification.`,
-                        )}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-md block border border-line px-md py-sm text-center font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-ink-muted hover:border-accent hover:text-accent"
-                      >
-                        Resend screenshot on WhatsApp
-                      </a>
-                    </div>
                   </div>
                 ) : null}
               </div>
@@ -309,19 +280,4 @@ export function MessagesPanel({ role }: { role: "ORGANIZER" | "ARTIST" }) {
       </div>
     </div>
   );
-}
-
-async function handleSubmitConnection(agreementId: string, setSubmitting: (v: boolean) => void) {
-  setSubmitting(true);
-  const res = await fetch(`/api/agreements/${agreementId}/connection/submit`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ method: "UPI" }),
-  });
-  setSubmitting(false);
-  if (res.ok) window.location.reload();
-  else {
-    const body = await res.json().catch(() => null);
-    alert(body?.error ?? "Failed to submit payment. Try again.");
-  }
 }
