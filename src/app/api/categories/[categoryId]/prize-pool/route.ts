@@ -9,15 +9,16 @@ type Context = { params: Promise<{ categoryId: string }> };
 const distributionEntrySchema = z.object({
   rank: z.number().int().min(1),
   label: z.string(),
-  pct: z.number().min(0).max(100),
+  percentage: z.number().min(0).max(100),
 });
 
 const createPrizePoolSchema = z.object({
   totalAmount: z.number().int().min(0),
   currency: z.string().default("USD"),
+  isPaid: z.boolean().optional(),
   distribution: z.array(distributionEntrySchema).refine(
     (entries) => {
-      const sum = entries.reduce((acc, e) => acc + e.pct, 0);
+      const sum = entries.reduce((acc, e) => acc + e.percentage, 0);
       return sum === 100;
     },
     { message: "Distribution percentages must sum to 100" },
@@ -29,7 +30,7 @@ const updatePrizePoolSchema = z.object({
   currency: z.string().optional(),
   distribution: z.array(distributionEntrySchema).refine(
     (entries) => {
-      const sum = entries.reduce((acc, e) => acc + e.pct, 0);
+      const sum = entries.reduce((acc, e) => acc + e.percentage, 0);
       return sum === 100;
     },
     { message: "Distribution percentages must sum to 100" },
@@ -68,7 +69,7 @@ export async function POST(request: Request, context: Context) {
   const body = createPrizePoolSchema.safeParse(await request.json());
   if (!body.success) return badRequest(body.error.issues[0].message);
 
-  const { totalAmount, currency, distribution } = body.data;
+  const { totalAmount, currency, distribution, isPaid } = body.data;
 
   const prizePool = await prisma.prizePool.create({
     data: {
@@ -76,6 +77,7 @@ export async function POST(request: Request, context: Context) {
       totalAmount,
       currency,
       distribution,
+      ...(isPaid !== undefined ? { isPaid } : {}),
     },
   });
 
