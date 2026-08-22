@@ -52,6 +52,7 @@ export default async function ArtistMarketplacePage() {
   const gigWorkEnabled =
     me?.gigWorkExpiresAt != null && me.gigWorkExpiresAt.getTime() > now.getTime();
   const gigWorkStatus = (me?.gigWorkPaymentStatus ?? "NONE") as "NONE" | "PENDING" | "VERIFIED";
+  const gigWorkExpiresAt = me?.gigWorkExpiresAt?.toISOString() ?? null;
 
   const gigViews = gigs.map((gig) => ({
     id: gig.id,
@@ -132,6 +133,7 @@ export default async function ArtistMarketplacePage() {
         applications={applicationViews}
         gigWorkEnabled={gigWorkEnabled}
         gigWorkStatus={gigWorkStatus}
+        gigWorkExpiresAt={gigWorkExpiresAt}
         unreadMessages={unreadMessages}
       />
     </main>

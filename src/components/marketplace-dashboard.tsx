@@ -80,12 +80,14 @@ export function MarketplaceDashboard({
   applications,
   gigWorkEnabled,
   gigWorkStatus = "NONE",
+  gigWorkExpiresAt = null,
   unreadMessages = 0,
 }: {
   gigs: GigView[];
   applications: ApplicationView[];
   gigWorkEnabled: boolean;
   gigWorkStatus?: "NONE" | "PENDING" | "VERIFIED";
+  gigWorkExpiresAt?: string | null;
   unreadMessages?: number;
 }) {
   const router = useRouter();
@@ -259,6 +261,15 @@ export function MarketplaceDashboard({
           <Link href="/artist/gig-bill" className="border border-accent bg-accent px-md py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper">
             Unlock — ₹99 / 3 mo
           </Link>
+        </div>
+      ) : gigWorkExpiresAt ? (
+        <div className="mt-lg border border-accent/40 bg-accent/5 p-lg">
+          <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent">
+            Marketplace access active
+          </p>
+          <p className="mt-xs text-body-sm text-ink-muted">
+            Expires {new Date(gigWorkExpiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}
+          </p>
         </div>
       ) : null}
 
