@@ -26,7 +26,7 @@ export default async function PaymentResultPage({ searchParams }: PageProps) {
 
   return (
     <main className="min-h-screen bg-paper px-md py-section md:px-xl">
-      <div className="mx-auto max-w-xl border border-line bg-paper-soft p-xl text-center">
+      <div className="mx-auto max-w-3xl border border-line bg-paper-soft p-xl text-center">
         <p className="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-accent">CYPHR payments</p>
         <h1 className="mt-lg font-display text-display-lg uppercase">{title}</h1>
         <p className="mt-md text-body-md text-ink-muted">{message}</p>
