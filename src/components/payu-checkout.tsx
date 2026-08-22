@@ -91,6 +91,7 @@ export function PayuCheckout({
       </button>
       {error ? <p className="text-body-sm text-accent">{error}</p> : null}
       <p className="text-[0.7rem] text-ink-muted">Secure checkout powered by PayU. You will be redirected to PayU to complete payment.</p>
+      <p className="text-[0.7rem] text-ink-muted">Paying on your phone? You can also use PhonePe, Google Pay, or Paytm via UPI. On desktop, scan the QR code.</p>
     </div>
   );
 }
