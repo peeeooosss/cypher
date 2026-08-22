@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatDate } from "@/lib/format";
 import { SKILLS, SKILL_LABELS } from "@/lib/skills";
-import { GIG_CONNECTION_FEE, formatInr } from "@/lib/pricing";
-import { PayuCheckout } from "@/components/payu-checkout";
+import { GIG_CONNECTION_FEE, GIG_WORK_FEE, formatInr } from "@/lib/pricing";
+import { ManualPayment } from "@/components/manual-payment";
 import { MessagesPanel } from "@/components/messages-panel";
+import { BILL_WHATSAPP_NUMBER, whatsappLink } from "@/lib/payment";
 
 type GigView = {
   id: string;
@@ -234,16 +235,17 @@ export function MarketplaceDashboard({
             <Link href="/artist/gig-bill" className="border border-accent px-md py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-accent hover:bg-accent hover:text-paper">
               View bill
             </Link>
-            <button
-              type="button"
+            <a
+              href={whatsappLink(
+                BILL_WHATSAPP_NUMBER,
+                `Hi CYPHR, I've sent ${formatInr(GIG_WORK_FEE)} for Gig Work access. Attaching the payment screenshot for verification.`,
+              )}
+              target="_blank"
+              rel="noopener noreferrer"
               className="border border-line px-md py-sm font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted hover:border-accent hover:text-accent"
-              onClick={async () => {
-                await fetch("/api/payments/payu/cancel", { method: "POST" });
-                router.refresh();
-              }}
             >
-              Cancel payment
-            </button>
+              Send screenshot
+            </a>
           </div>
         </div>
       ) : !gigWorkEnabled ? (
@@ -348,10 +350,10 @@ export function MarketplaceDashboard({
                   app.agreement!.connectionPaymentStatus === "PENDING" ? (
                     <div className="mt-md border border-accent bg-accent/10 p-md">
                       <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent">
-                        PayU payment processing
+                        Payment sent — waiting for confirmation
                       </p>
                       <p className="mt-xs text-body-sm text-ink-muted">
-                        Your private chat unlocks automatically after PayU confirms the connection fee.
+                        We&apos;re verifying your connection fee transfer. Your private chat unlocks once confirmed.
                       </p>
                     </div>
                   ) : (
@@ -360,10 +362,12 @@ export function MarketplaceDashboard({
                         Pay the connection fee to unlock your private chat with the organizer.
                       </p>
                       <div className="mt-md">
-                        <PayuCheckout
-                          type="GIG_CONNECTION"
-                          referenceId={app.agreement!.id}
-                          label={`Pay ${formatInr(GIG_CONNECTION_FEE)} with PayU`}
+                        <ManualPayment
+                          amount={GIG_CONNECTION_FEE}
+                          note={`Connection fee — ${app.gig.title}`}
+                          submitUrl={`/api/agreements/${app.agreement!.id}/connection/submit`}
+                          submitBody={{ method: "UPI" }}
+                          buttonLabel={`I've paid ${formatInr(GIG_CONNECTION_FEE)} — send for verification`}
                         />
                       </div>
                     </div>

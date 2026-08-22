@@ -2,9 +2,9 @@ import Link from "next/link";
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { formatInr, GIG_WORK_FEE } from "@/lib/pricing";
-import { PayuCheckout } from "@/components/payu-checkout";
-import { CancelPaymentButton } from "@/components/cancel-payment-button";
+import { ManualPayment } from "@/components/manual-payment";
 import { SignOutButton } from "@/components/sign-out-button";
+import { BILL_WHATSAPP_NUMBER, whatsappLink } from "@/lib/payment";
 import type { PaymentStatus } from "@/generated/prisma/enums";
 
 export const dynamic = "force-dynamic";
@@ -67,8 +67,8 @@ export default async function ArtistGigBillPage() {
             </div>
           </div>
           <p className="mt-md text-body-sm text-ink-muted">
-             Pay securely through PayU. After successful payment your access is enabled
-             immediately and lasts 3 months from the payment date.
+             Pay via UPI. After verification your access is enabled
+             and lasts 3 months from the payment date.
           </p>
         </div>
 
@@ -99,19 +99,33 @@ export default async function ArtistGigBillPage() {
               <div className="space-y-md">
                 <div className="border border-accent bg-paper p-md">
                   <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent">
-                    PayU payment processing
+                    Payment sent — waiting for confirmation
                   </p>
                   <p className="mt-xs text-body-sm text-ink-muted">
-                    Your marketplace access will activate automatically after PayU confirms the payment.
+                    We&apos;re verifying your transfer
+                    {me?.gigWorkPaymentSentAt ? ` sent ${me.gigWorkPaymentSentAt.toLocaleString()}` : ""}.
+                    This usually takes a few minutes. Refresh this page later.
                   </p>
                 </div>
-                <CancelPaymentButton />
+                <a
+                  href={whatsappLink(
+                    BILL_WHATSAPP_NUMBER,
+                    `Hi CYPHR, I've sent ${formatInr(amount)} for Gig Work access. Attaching the payment screenshot for verification.`,
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block border border-line px-md py-sm text-center font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-ink hover:border-accent hover:text-accent"
+                >
+                  Send screenshot on WhatsApp
+                </a>
               </div>
             ) : (
-              <PayuCheckout
-                type="GIG_WORK"
-                referenceId={user.id}
-                label={`Pay ${formatInr(amount)} with PayU`}
+              <ManualPayment
+                amount={amount}
+                note="Gig work access — 3 months marketplace"
+                submitUrl="/api/me/gig-work/bill-submit"
+                submitBody={{ method: "UPI" }}
+                buttonLabel={`I've paid ${formatInr(amount)} — send for verification`}
               />
             )}
           </div>

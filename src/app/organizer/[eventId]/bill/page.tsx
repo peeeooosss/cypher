@@ -3,7 +3,7 @@ import Link from "next/link";
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { COMMISSION_RATE, formatInr, isEventFlatFeePaid } from "@/lib/pricing";
-import { PayuCheckout } from "@/components/payu-checkout";
+import { ManualPayment } from "@/components/manual-payment";
 import { SignOutButton } from "@/components/sign-out-button";
 
 export const dynamic = "force-dynamic";
@@ -148,10 +148,12 @@ export default async function EventBillPage({ params }: PageProps) {
                   Payment verified
                 </p>
               ) : (
-                <PayuCheckout
-                  type="EVENT_FLAT_FEE"
-                  referenceId={event.id}
-                  label={`Pay ${formatInr(flatAmount)} with PayU`}
+                <ManualPayment
+                  amount={flatAmount}
+                  note={`Event flat fee — ${event.title}`}
+                  submitUrl={`/api/events/${event.id}/bill/submit`}
+                  submitBody={{ method: "UPI", type: "FLAT_FEE" }}
+                  buttonLabel={`I've paid ${formatInr(flatAmount)} — send for verification`}
                 />
               )}
             </div>
@@ -208,10 +210,12 @@ export default async function EventBillPage({ params }: PageProps) {
                   </Link>
                 </div>
               ) : (
-                <PayuCheckout
-                  type="EVENT_COMMISSION"
-                  referenceId={event.id}
-                  label={`Pay ${formatInr(commissionDue)} with PayU`}
+                <ManualPayment
+                  amount={commissionDue}
+                  note={`Event commission — ${event.title}`}
+                  submitUrl={`/api/events/${event.id}/bill/submit`}
+                  submitBody={{ method: "UPI", type: "COMMISSION" }}
+                  buttonLabel={`I've paid ${formatInr(commissionDue)} — send for verification`}
                 />
               )}
             </div>

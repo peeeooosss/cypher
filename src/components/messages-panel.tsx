@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { GIG_CONNECTION_FEE, formatInr } from "@/lib/pricing";
-import { PayuCheckout } from "@/components/payu-checkout";
+import { ManualPayment } from "@/components/manual-payment";
 
 type ConversationSummary = {
   id: string;
@@ -204,18 +204,20 @@ export function MessagesPanel({ role }: { role: "ORGANIZER" | "ARTIST" }) {
                 {thread.agreement?.connectionPaymentStatus === "PENDING" ? (
                   <div className="border border-accent bg-paper p-md">
                     <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent">
-                      PayU payment processing
+                      Payment sent — waiting for confirmation
                     </p>
                     <p className="mt-xs text-body-sm text-ink-muted">
-                      Your chat unlocks automatically after PayU confirms the connection fee.
+                      We&apos;re verifying your connection fee transfer. Your chat unlocks once confirmed.
                     </p>
                   </div>
                 ) : thread.agreement ? (
                   <div>
-                    <PayuCheckout
-                      type="GIG_CONNECTION"
-                      referenceId={thread.agreement.id}
-                      label={`Pay ${formatInr(GIG_CONNECTION_FEE)} with PayU`}
+                    <ManualPayment
+                      amount={GIG_CONNECTION_FEE}
+                      note={`Connection fee — ${thread.gigTitle ?? "Gig"}`}
+                      submitUrl={`/api/agreements/${thread.agreement.id}/connection/submit`}
+                      submitBody={{ method: "UPI" }}
+                      buttonLabel={`I've paid ${formatInr(GIG_CONNECTION_FEE)} — send for verification`}
                     />
                   </div>
                 ) : null}

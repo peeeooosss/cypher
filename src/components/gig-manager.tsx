@@ -6,7 +6,7 @@ import Link from "next/link";
 import { formatDate, formatExperience } from "@/lib/format";
 import { SKILLS, SKILL_LABELS, skillLabel } from "@/lib/skills";
 import { GIG_FLAT_FEE, formatInr } from "@/lib/pricing";
-import { PayuCheckout } from "@/components/payu-checkout";
+import { ManualPayment } from "@/components/manual-payment";
 
 type GigApplication = {
   id: string;
@@ -207,10 +207,12 @@ export function GigManager({ gigs }: { gigs: Gig[] }) {
                 <p className="text-body-sm text-accent">
                   This gig is saved as a draft. Pay the {formatInr(GIG_FLAT_FEE)} posting fee to publish it and let artists apply.
                 </p>
-                <PayuCheckout
-                  type="GIG_POST"
-                  referenceId={gig.id}
-                  label={`Pay ${formatInr(GIG_FLAT_FEE)} with PayU`}
+                <ManualPayment
+                  amount={GIG_FLAT_FEE}
+                  note={`Gig posting — ${gig.title}`}
+                  submitUrl={`/api/gigs/${gig.id}/pay`}
+                  submitBody={{ method: "UPI" }}
+                  buttonLabel={`I've paid ${formatInr(GIG_FLAT_FEE)} — send for verification`}
                 />
               </div>
             ) : null}
