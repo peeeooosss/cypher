@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { formatInr, GIG_WORK_FEE } from "@/lib/pricing";
 import { PayuCheckout } from "@/components/payu-checkout";
+import { CancelPaymentButton } from "@/components/cancel-payment-button";
 import { SignOutButton } from "@/components/sign-out-button";
 import type { PaymentStatus } from "@/generated/prisma/enums";
 
@@ -95,13 +96,16 @@ export default async function ArtistGigBillPage() {
                 </Link>
               </div>
             ) : status === "PENDING" ? (
-              <div className="border border-accent bg-paper p-md">
-                <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent">
-                  PayU payment processing
-                </p>
-                <p className="mt-xs text-body-sm text-ink-muted">
-                  Your marketplace access will activate automatically after PayU confirms the payment.
-                </p>
+              <div className="space-y-md">
+                <div className="border border-accent bg-paper p-md">
+                  <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent">
+                    PayU payment processing
+                  </p>
+                  <p className="mt-xs text-body-sm text-ink-muted">
+                    Your marketplace access will activate automatically after PayU confirms the payment.
+                  </p>
+                </div>
+                <CancelPaymentButton />
               </div>
             ) : (
               <PayuCheckout

@@ -230,9 +230,21 @@ export function MarketplaceDashboard({
               We received your payment and are verifying it. Your dashboard unlocks once confirmed.
             </p>
           </div>
-          <Link href="/artist/gig-bill" className="border border-accent px-md py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-accent hover:bg-accent hover:text-paper">
-            View bill
-          </Link>
+          <div className="flex flex-wrap gap-sm">
+            <Link href="/artist/gig-bill" className="border border-accent px-md py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-accent hover:bg-accent hover:text-paper">
+              View bill
+            </Link>
+            <button
+              type="button"
+              className="border border-line px-md py-sm font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted hover:border-accent hover:text-accent"
+              onClick={async () => {
+                await fetch("/api/payments/payu/cancel", { method: "POST" });
+                router.refresh();
+              }}
+            >
+              Cancel payment
+            </button>
+          </div>
         </div>
       ) : !gigWorkEnabled ? (
         <div className="mt-lg flex flex-wrap items-center justify-between gap-md border border-accent bg-accent/10 p-lg">

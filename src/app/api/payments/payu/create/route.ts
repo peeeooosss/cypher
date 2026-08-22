@@ -40,9 +40,24 @@ export async function POST(request: Request) {
 
     const existing = await prisma.payment.findFirst({
       where: { provider: "PAYU", type, referenceId, payerId: user.id, status: "PENDING" },
-      select: { id: true },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, createdAt: true, metadata: true },
     });
-    if (existing) return conflict("A payment is already in progress");
+    if (existing) {
+      const STALE_MS = 15 * 60 * 1000;
+      if (Date.now() - existing.createdAt.getTime() > STALE_MS) {
+        await prisma.payment.updateMany({
+          where: { id: existing.id, status: "PENDING" },
+          data: {
+            status: "FAILED",
+            providerStatus: "abandoned",
+            metadata: { ...(existing.metadata as Record<string, unknown>), processingError: "Abandoned — superseded by new attempt" },
+          },
+        });
+      } else {
+        return conflict("A payment is already in progress");
+      }
+    }
 
     const txnid = `cyphr_${Date.now()}_${cryptoRandomPart()}`.slice(0, 50);
     const payment = await prisma.payment.create({
