@@ -44,13 +44,21 @@ export async function POST(request: Request) {
       select: { id: true, metadata: true },
     });
     if (existing) {
-      await prisma.payment.updateMany({
-        where: { id: existing.id, status: "PENDING" },
-        data: {
-          status: "FAILED",
-          providerStatus: "abandoned",
-          metadata: { ...(existing.metadata as Record<string, unknown>), processingError: "Abandoned — superseded by new attempt" },
-        },
+      await prisma.$transaction(async (tx) => {
+        await tx.payment.updateMany({
+          where: { id: existing.id, status: "PENDING" },
+          data: {
+            status: "FAILED",
+            providerStatus: "abandoned",
+            metadata: { ...(existing.metadata as Record<string, unknown>), processingError: "Abandoned — superseded by new attempt" },
+          },
+        });
+        if (type === "GIG_WORK") {
+          await tx.user.update({
+            where: { id: user.id },
+            data: { gigWorkPaymentStatus: "NONE" },
+          });
+        }
       });
     }
 

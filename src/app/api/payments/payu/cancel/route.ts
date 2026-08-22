@@ -10,14 +10,23 @@ export async function POST() {
 
   const pending = await prisma.payment.findFirst({
     where: { provider: "PAYU", payerId: user.id, status: "PENDING" },
-    select: { id: true },
+    select: { id: true, type: true },
   });
 
   if (!pending) return NextResponse.json({ error: "No pending payment to cancel" }, { status: 404 });
 
-  await prisma.payment.updateMany({
-    where: { id: pending.id, status: "PENDING" },
-    data: { status: "FAILED", providerStatus: "cancelled", metadata: { processingError: "Cancelled by user" } },
+  await prisma.$transaction(async (tx) => {
+    await tx.payment.updateMany({
+      where: { id: pending.id, status: "PENDING" },
+      data: { status: "FAILED", providerStatus: "cancelled", metadata: { processingError: "Cancelled by user" } },
+    });
+
+    if (pending.type === "GIG_WORK") {
+      await tx.user.update({
+        where: { id: user.id },
+        data: { gigWorkPaymentStatus: "NONE" },
+      });
+    }
   });
 
   return NextResponse.json({ ok: true });
