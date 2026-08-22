@@ -19,11 +19,20 @@ function createRazorpayClient() {
   });
 }
 
-export const razorpay = globalForRazorpay.razorpay ?? createRazorpayClient();
-
-if (process.env.NODE_ENV !== "production") {
-  globalForRazorpay.razorpay = razorpay;
+function getRazorpay() {
+  if (globalForRazorpay.razorpay) return globalForRazorpay.razorpay;
+  const client = createRazorpayClient();
+  if (process.env.NODE_ENV !== "production") {
+    globalForRazorpay.razorpay = client;
+  }
+  return client;
 }
+
+export const razorpay = new Proxy<Razorpay>({} as Razorpay, {
+  get(_, prop, receiver) {
+    return Reflect.get(getRazorpay(), prop, receiver);
+  },
+});
 
 export function toPaise(rupees: number): number {
   return Math.round(rupees * 100);
