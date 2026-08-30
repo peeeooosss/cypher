@@ -3,6 +3,8 @@ import Link from "next/link";
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { EventDashboard } from "@/components/event-dashboard";
+import { EventDeleteButton } from "@/components/event-delete-button";
+import { EventStatus } from "@/generated/prisma/enums";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +61,11 @@ export default async function OrganizerEventPage({ params }: PageProps) {
             {event.startsAt.toLocaleString()} / {event.status} / {event.slug}
           </p>
         </div>
+        {event.status === EventStatus.DRAFT ? (
+          <div className="mt-md border-t border-line pt-md">
+            <EventDeleteButton eventId={event.id} />
+          </div>
+        ) : null}
       </div>
 
       <EventDashboard key={event.id} event={event} />
