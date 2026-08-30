@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { flatFeeForEventType, formatInr } from "@/lib/pricing";
+import { EVENT_TYPE_FEES, flatFeeForEventType, formatInr } from "@/lib/pricing";
 import { PosterUpload } from "@/components/poster-upload";
 import { BATTLE_FORMATS, CATEGORY_FORMAT_LABELS, COMPETITION_FORMATS, EVENT_TYPE_LABELS, EVENT_TYPE_LIST, defaultRosterSize, isCompetitionType, isWorkshopType } from "@/lib/event-types";
 import { CategoryFormat, EventType } from "@/generated/prisma/enums";
@@ -92,7 +92,7 @@ export function EventForm() {
             <p className="mt-xs font-display text-title-md text-accent">{eventType ? formatInr(flatFeeForEventType(eventType)) : "Select a type"}</p>
           </div>
           <p className="font-mono text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">
-            Workshop ₹99 · Underground battle ₹199 · Competition ₹249
+            Workshop {formatInr(EVENT_TYPE_FEES.WORKSHOP)} · Underground battle {formatInr(EVENT_TYPE_FEES.UNDERGROUND_BATTLE)} · Competition {formatInr(EVENT_TYPE_FEES.DANCE_COMPETITION)}
           </p>
         </div>
         <p className="mt-md border-t border-line pt-md text-body-sm text-ink-muted">

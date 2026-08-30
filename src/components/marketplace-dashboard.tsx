@@ -255,11 +255,11 @@ export function MarketplaceDashboard({
           <div>
             <p className="font-display text-title-sm uppercase">Unlock the Marketplace</p>
             <p className="mt-xs text-body-sm text-ink-muted">
-              Pay ₹99 once for 3 months of marketplace access — browse gigs, send proposals, receive offers, and chat with organizers.
+              Pay {formatInr(GIG_WORK_FEE)} once for 3 months of marketplace access — browse gigs, send proposals, receive offers, and chat with organizers.
             </p>
           </div>
           <Link href="/artist/gig-bill" className="border border-accent bg-accent px-md py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper">
-            Unlock — ₹99 / 3 mo
+            Unlock — {formatInr(GIG_WORK_FEE)} / 3 mo
           </Link>
         </div>
       ) : gigWorkExpiresAt ? (
