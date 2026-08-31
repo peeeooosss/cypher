@@ -17,6 +17,7 @@ const nullableString = (max: number) =>
 const updateMeSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
   upiId: nullableString(120),
+  whatsappNumber: nullableString(20),
   style: nullableString(80),
   crew: nullableString(120),
   city: nullableString(120),
@@ -51,6 +52,7 @@ export async function PATCH(request: Request) {
       name: true,
       email: true,
       upiId: true,
+      whatsappNumber: true,
       style: true,
       crew: true,
       city: true,

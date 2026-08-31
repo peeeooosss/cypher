@@ -15,6 +15,7 @@ export default async function OrganizerPage() {
     where: { id: user.id },
     select: {
       upiId: true,
+      whatsappNumber: true,
       studioName: true,
       studioLogoUrl: true,
       studioFoundedAt: true,
@@ -69,7 +70,7 @@ export default async function OrganizerPage() {
 
       <div className="mt-section">
         <div className="mt-lg">
-          <UpiForm currentUpiId={currentUser?.upiId ?? null} />
+          <UpiForm currentUpiId={currentUser?.upiId ?? null} currentWhatsappNumber={currentUser?.whatsappNumber ?? null} />
         </div>
       </div>
 

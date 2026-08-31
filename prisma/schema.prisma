@@ -159,6 +159,7 @@ model User {
   avatarUrl       String?
   isProfilePublic Boolean          @default(true)
   upiId           String?
+  whatsappNumber  String?
   studioName      String?
   studioLogoUrl   String?
   studioFoundedAt DateTime?

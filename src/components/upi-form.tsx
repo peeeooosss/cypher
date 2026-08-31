@@ -3,19 +3,21 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
-export function UpiForm({ currentUpiId }: { currentUpiId: string | null }) {
+export function UpiForm({ currentUpiId, currentWhatsappNumber }: { currentUpiId: string | null; currentWhatsappNumber: string | null }) {
   const router = useRouter();
-  const inputRef = useRef<HTMLInputElement>(null);
+  const upiInputRef = useRef<HTMLInputElement>(null);
+  const whatsappInputRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus("saving");
-    const value = (inputRef.current?.value ?? "").trim();
+    const upiId = (upiInputRef.current?.value ?? "").trim();
+    const whatsappNumber = (whatsappInputRef.current?.value ?? "").trim();
     const res = await fetch("/api/users/me", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ upiId: value }),
+      body: JSON.stringify({ upiId, whatsappNumber }),
     });
     if (res.ok) {
       setStatus("saved");
@@ -36,7 +38,7 @@ export function UpiForm({ currentUpiId }: { currentUpiId: string | null }) {
         </label>
         <input
           id="upi"
-          ref={inputRef}
+          ref={upiInputRef}
           type="text"
           defaultValue={currentUpiId ?? ""}
           placeholder="yourname@upi"
@@ -44,6 +46,23 @@ export function UpiForm({ currentUpiId }: { currentUpiId: string | null }) {
         />
         <p className="mt-xs text-body-sm text-ink-muted">
           Artists scan your QR on this UPI ID to pay entry fees. Leave empty to remove.
+        </p>
+      </div>
+      <div className="min-w-[220px] flex-1">
+        <label htmlFor="whatsapp" className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">
+          WhatsApp number
+        </label>
+        <input
+          id="whatsapp"
+          ref={whatsappInputRef}
+          type="tel"
+          inputMode="numeric"
+          defaultValue={currentWhatsappNumber ?? ""}
+          placeholder="9198XXXXXXXX (country code + number)"
+          className="mt-xs w-full border border-line bg-paper px-md py-sm font-mono text-body-sm outline-none focus:border-accent"
+        />
+        <p className="mt-xs text-body-sm text-ink-muted">
+          Artists send you their payment screenshot here for verification. Leave empty to remove.
         </p>
       </div>
       <button

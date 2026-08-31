@@ -6,6 +6,7 @@ import { formatFee } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/rbac";
 import { formatLabel } from "@/lib/event-types";
+import { whatsappLink } from "@/lib/payment";
 import { CategoryFormat } from "@/generated/prisma/enums";
 import { CartCategoryList } from "@/components/cart-claim";
 import { CartSubmit } from "@/components/cart-submit";
@@ -30,6 +31,7 @@ async function PaymentAside({
   organizerName,
   organizerEmail,
   organizerUpiId,
+  organizerWhatsapp,
   eventTitle,
   total,
   note,
@@ -38,6 +40,7 @@ async function PaymentAside({
   organizerName: string | null;
   organizerEmail: string | null;
   organizerUpiId: string | null;
+  organizerWhatsapp: string | null | undefined;
   eventTitle: string;
   total: number;
   note: string;
@@ -47,14 +50,20 @@ async function PaymentAside({
   let upiId: string | null = null;
   if (organizerUpiId) {
     upiId = organizerUpiId;
-    const params = new URLSearchParams({
+    const upiParams = new URLSearchParams({
       pa: organizerUpiId,
       pn: organizerName ?? "CYPHR Organizer",
       am: String(total),
       cu: "INR",
       tn: `${eventTitle} entry`,
     });
-    qrDataUrl = await QRCode.toDataURL(`upi://pay?${params.toString()}`, { width: 280, margin: 1 });
+    try {
+      qrDataUrl = await QRCode.toDataURL(`upi://pay?${upiParams.toString()}`, { width: 280, margin: 1 });
+    } catch (error) {
+      console.error(error);
+      qrDataUrl = null;
+      upiId = null;
+    }
   }
 
   return (
@@ -85,6 +94,19 @@ async function PaymentAside({
           />
           <p className="mt-lg text-body-sm leading-relaxed text-ink-muted">{note}</p>
           {children}
+          {organizerWhatsapp ? (
+            <Link
+              href={whatsappLink(
+                organizerWhatsapp,
+                `Hi ${organizerName ?? "Organizer"}, I've paid ${formatFee(total, "INR")} for ${eventTitle} entry. Sharing my payment screenshot for verification.`,
+              )}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-lg block w-full border border-accent bg-accent px-md py-sm text-body-sm font-bold uppercase text-paper hover:opacity-80"
+            >
+              Send payment screenshot on WhatsApp
+            </Link>
+          ) : null}
         </>
       ) : (
         <div className="mt-lg border border-line p-lg">
@@ -121,15 +143,18 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
     : [];
 
   if (draftCategoryIds.length > 0) {
+    if (!params.event) {
+      redirect("/events");
+    }
     const [event, memberUsers, captain] = await Promise.all([
       prisma.event.findUnique({
-        where: { id: params.event ?? "" },
+        where: { id: params.event },
         select: {
           id: true,
           slug: true,
           title: true,
           eventType: true,
-          organizer: { select: { name: true, email: true, upiId: true } },
+          organizer: { select: { name: true, email: true, upiId: true, whatsappNumber: true } },
           categories: {
             where: { id: { in: draftCategoryIds } },
             select: {
@@ -248,6 +273,7 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
               organizerName: organizer.name,
               organizerEmail: organizer.email,
               organizerUpiId: organizer.upiId,
+              organizerWhatsapp: organizer.whatsappNumber,
               eventTitle: event.title,
               total,
               note: "Pay the exact amount above, then tap I have paid and send your payment screenshot to the organizer. Invited members will be asked to confirm their spot.",
@@ -284,7 +310,7 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
                     id: true,
                     slug: true,
                     title: true,
-                    organizer: { select: { name: true, email: true, upiId: true } },
+                    organizer: { select: { name: true, email: true, upiId: true, whatsappNumber: true } },
                   },
                 },
               },
@@ -349,6 +375,9 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
                 paid: registration.paid,
                 paidClaimedAt: registration.paidClaimedAt?.toISOString() ?? null,
               }))}
+              eventTitle={event.title}
+              total={total}
+              organizerWhatsapp={organizer.whatsappNumber}
             />
             <div className="flex items-center justify-between gap-sm border-t border-line bg-paper-soft px-lg py-md">
               <span className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">
@@ -364,6 +393,7 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
             organizerName: organizer.name,
             organizerEmail: organizer.email,
             organizerUpiId: organizer.upiId,
+            organizerWhatsapp: organizer.whatsappNumber,
             eventTitle: event.title,
             total,
             note: rosterPending
