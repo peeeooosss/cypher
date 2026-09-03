@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { io } from "socket.io-client";
 import { formatLabel } from "@/lib/event-types";
+import { responseError } from "@/lib/client-error";
 
 type LeaderboardScore = { score: number; roundFormatId: string };
 type LeaderboardRegistration = {
@@ -34,7 +35,7 @@ type LeaderboardMatch = {
   winnerName: string | null;
   redMembers: string[];
   blueMembers: string[];
-  scores: { judgeName: string; winnerCorner: string | null; feedback: string | null; feedbackRed: string | null; feedbackBlue: string | null }[];
+  scores: { judgeName: string; winnerCorner: string | null }[];
 };
 type LeaderboardCategory = {
   categoryId: string;
@@ -74,13 +75,17 @@ export function LiveLeaderboard({
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/events/${eventId}/leaderboard`);
-    if (res.ok) {
+    try {
+      const res = await fetch(`/api/events/${eventId}/leaderboard`);
+      if (!res.ok) {
+        setError(await responseError(res, "Unable to load leaderboard"));
+        return;
+      }
       const json = (await res.json()) as LeaderboardData;
       setData(json);
       setError("");
-    } else {
-      setError("Unable to load leaderboard");
+    } catch {
+      setError("Network error. Please try again.");
     }
   }, [eventId]);
 
@@ -100,10 +105,10 @@ export function LiveLeaderboard({
             setPhaseId(active?.id ?? "");
           }
         } else {
-          setError("Unable to load leaderboard");
+          setError(await responseError(res, "Unable to load leaderboard"));
         }
       } catch {
-        setError("Unable to load leaderboard");
+        setError("Network error. Please try again.");
       }
     };
     void loadInitial();
@@ -353,9 +358,6 @@ export function LiveLeaderboard({
                   {matches.map((m) => {
                     const redVotes = m.scores.filter((s) => s.winnerCorner === "RED").length;
                     const blueVotes = m.scores.filter((s) => s.winnerCorner === "BLUE").length;
-                    const judgedScores = m.scores.filter(
-                      (s) => s.feedbackRed || s.feedbackBlue || s.feedback,
-                    );
                     const decided = m.status === "COMPLETE" && m.winnerName;
                     return (
                       <div key={m.id} className="border-b border-line px-md py-md">
@@ -389,34 +391,6 @@ export function LiveLeaderboard({
                          </div>
                          {(m.redMembers.length > 0 || m.blueMembers.length > 0) && (
                            <p className="mt-xs pl-10 text-[0.7rem] uppercase text-ink-muted">{m.redMembers.join(" · ") || "TBD"} vs {m.blueMembers.join(" · ") || "TBD"}</p>
-                         )}
-                        {judgedScores.length > 0 && (
-                          <ul className="mt-md space-y-xs pl-10">
-                            {judgedScores.map((s, i) => {
-                              const redFeedback = s.feedbackRed ?? (s.winnerCorner === "BLUE" ? s.feedback : null);
-                              const blueFeedback = s.feedbackBlue ?? (s.winnerCorner === "RED" ? s.feedback : null);
-                              return (
-                                <li key={i} className="text-body-sm text-ink-muted">
-                                  <span className="font-mono uppercase">{s.judgeName}</span>:
-                                  {redFeedback ? (
-                                    <span className="ml-xs">
-                                      <span className="font-bold uppercase text-accent">{m.redName}</span>
-                                      <span className="ml-xs italic">&ldquo;{redFeedback}&rdquo;</span>
-                                    </span>
-                                  ) : null}
-                                  {blueFeedback ? (
-                                    <span className="ml-xs">
-                                      <span className="font-bold uppercase text-[#2980FF]">{m.blueName}</span>
-                                      <span className="ml-xs italic">&ldquo;{blueFeedback}&rdquo;</span>
-                                    </span>
-                                  ) : null}
-                                  {!redFeedback && !blueFeedback ? (
-                                    <span className="ml-xs italic">&ldquo;{s.feedback}&rdquo;</span>
-                                  ) : null}
-                                </li>
-                              );
-                            })}
-                          </ul>
                         )}
                       </div>
                     );

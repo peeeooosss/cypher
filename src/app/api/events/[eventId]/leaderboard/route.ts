@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { notFound } from "@/lib/api";
+import { notFound, serverError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 
 type Context = { params: Promise<{ eventId: string }> };
 
 export async function GET(_: Request, { params }: Context) {
-  const { eventId } = await params;
+  try {
+    const { eventId } = await params;
 
   const event = await prisma.event.findUnique({
     where: { id: eventId },
@@ -57,9 +58,6 @@ export async function GET(_: Request, { params }: Context) {
               scores: {
                 select: {
                   winnerCorner: true,
-                  feedback: true,
-                  feedbackRed: true,
-                  feedbackBlue: true,
                   judgeSlot: { select: { name: true, code: true } },
                 },
               },
@@ -119,13 +117,14 @@ export async function GET(_: Request, { params }: Context) {
         scores: m.scores.map((s) => ({
           judgeName: s.judgeSlot.name ?? s.judgeSlot.code,
           winnerCorner: s.winnerCorner,
-          feedback: s.feedback,
-          feedbackRed: s.feedbackRed,
-          feedbackBlue: s.feedbackBlue,
         })),
       })),
     })),
   };
 
   return NextResponse.json(data);
+  } catch (error) {
+    console.error(error);
+    return serverError();
+  }
 }

@@ -2,14 +2,14 @@ import Link from "next/link";
 import { SignOutButton } from "@/components/sign-out-button";
 import { ArtistProfileForm, type ArtistProfile } from "@/components/artist-profile-form";
 import { ArtistAchievements, type Achievement } from "@/components/artist-achievements";
-import { ArtistAvailability } from "@/components/artist-availability";
+import { MarketplaceComingSoon } from "@/components/marketplace-coming-soon";
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { Pagination } from "@/components/pagination";
-import { formatLabel } from "@/lib/event-types";
 import { TeamInvitations } from "@/components/team-invitations";
 import { TeamEntries } from "@/components/team-entries";
-import { ArtistScoreboard, type BattleMatchBreakdown, type RosterRound } from "@/components/artist-scoreboard";
+import { ArtistEventCard } from "@/components/artist-event-card";
+import type { BattleMatchBreakdown, RosterRound } from "@/components/artist-scoreboard";
 
 export const dynamic = "force-dynamic";
 
@@ -71,6 +71,7 @@ export default async function ArtistPage({ searchParams }: PageProps) {
         country: true,
         experience: true,
         socialHandle: true,
+        keywords: true,
         referral: true,
         skills: true,
         gigWorkExpiresAt: true,
@@ -177,27 +178,8 @@ export default async function ArtistPage({ searchParams }: PageProps) {
         </div>
       </section>
 
-      <section className="mt-section border border-line bg-paper-soft p-lg">
-        <div className="flex flex-wrap items-center justify-between gap-md">
-          <div>
-            <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-ink-muted">Marketplace</p>
-            <p className="mt-sm text-body-sm text-ink-muted">
-              Browse freelance gigs, send proposals, receive offers and chat with organizers.
-            </p>
-          </div>
-          <Link
-            href="/artist/marketplace"
-            className="border border-accent bg-accent px-md py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper transition-opacity hover:opacity-80"
-          >
-            Open Marketplace
-          </Link>
-        </div>
-      </section>
-
-      <ArtistAvailability
-        minJudging={profile?.minJudgingPricePerDay ?? null}
-        minWorkshop={profile?.minWorkshopPricePerDay ?? null}
-      />
+       <MarketplaceComingSoon compact />
+       <MarketplaceComingSoon variant="rates" compact />
 
       {battleResults.length > 0 ? (
         <section className="mt-section">
@@ -259,75 +241,49 @@ export default async function ArtistPage({ searchParams }: PageProps) {
               ].sort((a, b) => a.round - b.round);
 
               return (
-                <article className="border border-line bg-paper-soft p-lg" key={reg.id}>
-                  <div className="flex flex-wrap items-start justify-between gap-sm">
-                    <div>
-                      <h3 className="font-display text-title-md uppercase">{reg.category.event.title}</h3>
-                      <p className="mt-xs text-body-sm text-ink-muted">{reg.category.name} · {formatLabel(reg.category.format)}</p>
-                    </div>
-                    <Link
-                      href={`/events/${reg.category.event.slug}${isLive ? "/live" : ""}`}
-                      className="border border-accent px-sm py-xs font-mono text-[0.65rem] font-bold uppercase tracking-[0.15em] text-accent hover:bg-accent hover:text-paper"
-                    >
-                      {isLive ? "Go live" : "View updates"}
-                    </Link>
-                  </div>
-                  <p className={`mt-xs font-mono text-[0.7rem] uppercase tracking-[0.1em] ${reg.paid ? "text-accent" : "text-ink-muted"}`}>
-                    {reg.entryFee && reg.entryFee > 0
-                      ? `${reg.entryCurrency === "INR" ? "₹" : `${reg.entryCurrency} `}${reg.entryFee} — ${reg.paid ? "Paid & confirmed" : reg.paidClaimedAt ? "Registered" : "Wait for verification"}`
-                      : "Free entry"}
-                  </p>
-                  <div className="mt-md space-y-sm border-t border-line pt-md">
-                    {allMatches.length === 0 ? (
-                      <p className="text-body-sm text-ink-muted">No matches yet.</p>
-                    ) : (
-                      allMatches.map((match) => {
-                        const isA = reg.matchesAsA.some((m) => m.id === match.id);
-                        const matchAny = match as unknown as {
-                          scoreA: number; scoreB: number;
-                          competitorA: { user: { name: string | null } } | null;
-                          competitorB: { user: { name: string | null } } | null;
-                          winner: { userId: string } | null;
-                          scores: { feedback: string | null; scoreA: number; scoreB: number }[];
-                          round: number;
-                          status: string;
-                        };
-                        const opponent = isA ? matchAny.competitorB : matchAny.competitorA;
-                        const myScore = isA ? matchAny.scoreA : matchAny.scoreB;
-                        const theirScore = isA ? matchAny.scoreB : matchAny.scoreA;
-                        const won = matchAny.winner?.userId === user.id;
-                        const feedbackText = matchAny.scores.flatMap((s) => (s.feedback ? [s.feedback] : [])).join(" | ");
-                        return (
-                          <div className="flex items-start justify-between gap-sm text-body-sm" key={match.id}>
-                            <div>
-                              <p className="font-bold uppercase">
-                                Round {matchAny.round} vs {opponent?.user.name ?? "TBD"}
-                              </p>
-                              <p className="text-ink-muted">
-                                Score: {myScore} — {theirScore} {matchAny.status === "COMPLETE" ? (won ? "W" : "L") : ""}
-                              </p>
-                              {feedbackText ? <p className="mt-xs text-ink-muted">{feedbackText}</p> : null}
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                  <ArtistScoreboard rosterRounds={rosterRounds} matches={battleMatches} />
-                  {!reg.paid && !reg.paidClaimedAt && reg.userId === user.id ? (
-                    <Link
-                      href={`/cart?event=${reg.category.event.id}&ids=${reg.id}`}
-                      className="mt-md inline-block border border-accent bg-accent px-md py-sm font-mono text-[0.65rem] font-bold uppercase tracking-[0.15em] text-paper transition-opacity hover:opacity-80"
-                    >
-                      {reg.members.length > 1 ? "Check roster & pay" : "Complete payment"}
-                    </Link>
-                  ) : null}
-                  {wins > 0 && reg.category.prizePool?.distribution ? (
-                    <div className="mt-md border-t border-line pt-md font-mono text-[0.7rem] uppercase text-accent">
-                      {wins} wins — {reg.category.prizePool.isPaid ? "Prize paid" : "Prize pending"}
-                    </div>
-                  ) : null}
-                </article>
+                <ArtistEventCard
+                  key={reg.id}
+                  eventTitle={reg.category.event.title}
+                  categoryName={reg.category.name}
+                  categoryFormat={reg.category.format}
+                  eventSlug={reg.category.event.slug}
+                  isLive={isLive}
+                  entryFee={reg.entryFee}
+                  entryCurrency={reg.entryCurrency}
+                  paid={reg.paid}
+                  paidClaimedAt={reg.paidClaimedAt}
+                  isOwner={reg.userId === user.id}
+                  userId={user.id}
+                  regId={reg.id}
+                  eventId={reg.category.event.id}
+                  memberCount={reg.members.length}
+                  matches={allMatches.map((m) => {
+                    const match = m as unknown as {
+                      id: string; round: number; position: number; status: string;
+                      scoreA: number; scoreB: number;
+                      competitorA: { user: { name: string | null } } | null;
+                      competitorB: { user: { name: string | null } } | null;
+                      winner: { id: string; userId: string } | null;
+                      scores: { feedback: string | null; feedbackRed: string | null; feedbackBlue: string | null; scoreA: number; scoreB: number; winnerCorner: string | null; judgeSlot: { name: string | null; code: string } }[];
+                    };
+                    return {
+                      id: match.id,
+                      round: match.round,
+                      position: match.position,
+                      status: match.status,
+                      scoreA: match.scoreA,
+                      scoreB: match.scoreB,
+                      competitorA: match.competitorA,
+                      competitorB: match.competitorB,
+                      winner: match.winner,
+                      scores: match.scores,
+                    };
+                  })}
+                  rosterRounds={rosterRounds}
+                  battleMatches={battleMatches}
+                  wins={wins}
+                  prizePool={reg.category.prizePool}
+                />
               );
             })}
           </div>
