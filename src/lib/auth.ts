@@ -44,6 +44,10 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
+        if (!user.emailVerifiedAt) {
+          return null;
+        }
+
         return {
           id: user.id,
           email: user.email,

@@ -11,7 +11,7 @@ import {
   RegistrationMemberStatus,
 } from "../src/generated/prisma/enums";
 
-const password = process.env.SEED_PASSWORD ?? "password";
+const password = process.env.SEED_PASSWORD ?? "Cypher@2026";
 const connectionString = process.env.DATABASE_URL;
 
 if (!connectionString) {
@@ -43,17 +43,17 @@ await prisma.category.deleteMany({});
 await prisma.battleMatch.deleteMany({});
 await prisma.event.deleteMany({});
 await prisma.gig.deleteMany({});
-await prisma.user.deleteMany({ where: { role: { not: UserRole.ADMIN } } });
+await prisma.user.deleteMany({});
 
 console.log("Database wiped.");
 
 // ============================================================
-// 2. ADMIN — upsert so it survives the wipe
+// 2. ADMIN — fresh after full wipe
 // ============================================================
 await prisma.user.upsert({
-  where: { email: "admin@callout.local" },
-  update: { name: "CYPHR Admin", role: UserRole.ADMIN, passwordHash },
-  create: { email: "admin@callout.local", name: "CYPHR Admin", role: UserRole.ADMIN, passwordHash },
+  where: { email: "admin@joincyphr.in" },
+  update: { name: "CYPHR Admin", role: UserRole.ADMIN, passwordHash, emailVerifiedAt: now },
+  create: { email: "admin@joincyphr.in", name: "CYPHR Admin", role: UserRole.ADMIN, passwordHash, emailVerifiedAt: now },
 });
 
 // ============================================================
@@ -61,20 +61,22 @@ await prisma.user.upsert({
 // ============================================================
 const organizer1 = await prisma.user.create({
   data: {
-    email: "organizer1@callout.local",
+    email: "organizer@joincyphr.in",
     name: "Mumbai Cypher Collective",
     role: UserRole.ORGANIZER,
     passwordHash,
+    emailVerifiedAt: now,
     upiId: "mumbaicypher@upi",
   },
 });
 
 const organizer2 = await prisma.user.create({
   data: {
-    email: "organizer2@callout.local",
+    email: "organizer2@joincyphr.in",
     name: "Northeast Groove Society",
     role: UserRole.ORGANIZER,
     passwordHash,
+    emailVerifiedAt: now,
     upiId: "negroove@upi",
   },
 });
@@ -115,14 +117,15 @@ const artistDefs: Array<{
 ];
 
 const artists = [];
-for (const def of artistDefs) {
+for (const [idx, def] of artistDefs.entries()) {
   const user = await prisma.user.create({
     data: {
-      email: `${def.username}@callout.local`,
+      email: idx === 0 ? "artist@joincyphr.in" : `${def.username}@artists.joincyphr.in`,
       name: def.name,
       username: def.username,
       role: UserRole.ARTIST,
       passwordHash,
+      emailVerifiedAt: now,
       style: def.style,
       crew: def.crew,
       city: def.city,
@@ -552,83 +555,7 @@ for (const [artistIdx, cat] of workshopRegs) {
 console.log("Created all registrations.");
 
 // ============================================================
-// 7. GIGS (marketplace)
-// ============================================================
-const gigData = [
-  {
-    title: "DJ for Saturday cypher night",
-    description: "Need a DJ comfortable with open-format battles — quick cuts, scratch-friendly, can read a crowd in a 2x2 floor setup. 4-hour set.",
-    skillsRequired: ["DJ" as Skill, "DANCER" as Skill],
-    location: "The Underground, Mumbai",
-    budget: 8000,
-    startsAt: future(5),
-    status: "OPEN" as const,
-  },
-  {
-    title: "Choreographer for music video",
-    description: "Looking for a choreographer to build and rehearse a 90-second routine for an upcoming hip-hop single. 3 shoot days, travel covered.",
-    skillsRequired: ["CHOREOGRAPHER" as Skill, "DANCER" as Skill],
-    location: "Delhi",
-    budget: 25000,
-    startsAt: future(12),
-    status: "OPEN" as const,
-  },
-  {
-    title: "MC / host for open-mic cypher",
-    description: "Host our monthly open-mic cypher — warm up the room, hype the battles, keep energy between rounds. Two-hour show.",
-    skillsRequired: ["MC" as Skill],
-    location: "Shillong",
-    budget: 6000,
-    startsAt: future(18),
-    status: "OPEN" as const,
-  },
-  {
-    title: "Guitarist for live beat set",
-    description: "One-off live set with a hip-hop producer — need a guitarist who can improvise over beats and keep up with tempo changes. Bring your own pedal board.",
-    skillsRequired: ["GUITARIST" as Skill, "VOCALIST" as Skill],
-    location: "Guwahati",
-    budget: 12000,
-    startsAt: future(8),
-    status: "OPEN" as const,
-  },
-  {
-    title: "Dancers for festival performance",
-    description: "Festival stage in front of ~2000 people. Need 4 dancers for a 6-minute routine. Rehearsals paid. All styles welcome.",
-    skillsRequired: ["DANCER" as Skill, "PERFORMER" as Skill],
-    location: "Mumbai",
-    budget: 15000,
-    startsAt: future(25),
-    status: "FILLED" as const,
-  },
-  {
-    title: "Beatboxer for workshop demo",
-    description: "Need a beatboxer to do a 30-minute demo at a hip-hop workshop. Show basic techniques, loop station use, and crowd interaction.",
-    skillsRequired: ["BEATBOXER" as Skill],
-    location: "Pune",
-    budget: 5000,
-    startsAt: future(14),
-    status: "OPEN" as const,
-  },
-];
-
-const gigs = [];
-for (const def of gigData) {
-  const gig = await prisma.gig.create({
-    data: {
-      organizerId: organizer1.id,
-      ...def,
-      currency: "INR",
-      feePaid: true,
-      feePaidAt: now,
-    },
-  });
-  gigs.push(gig);
-}
-
-console.log("Created 6 gigs.");
-
-// ============================================================
-// 8. ARTIST ACHIEVEMENTS
+// 7. ARTIST ACHIEVEMENTS
 // ============================================================
 const achievementData = [
   { artistIdx: 0, title: "Champion", competition: "Mumbai Street Clash 2025", placement: "1st", year: 2025, prize: 30000 },
@@ -652,28 +579,18 @@ for (const def of achievementData) {
   });
 }
 
-// ============================================================
-// 9. GIG APPLICATIONS
-// ============================================================
-await prisma.gigApplication.create({
-  data: { gigId: gigs[0].id, artistId: artists[4].id, message: "I spin open-format battles weekly and can scratch between rounds. 4-hour set is no problem.", status: "ACCEPTED" },
-});
-await prisma.gigApplication.create({
-  data: { gigId: gigs[1].id, artistId: artists[3].id, message: "Choreographed 3 music videos this year. Tight shoot schedules are my thing.", status: "PENDING" },
-});
-await prisma.gigApplication.create({
-  data: { gigId: gigs[3].id, artistId: artists[10].id, message: "I play guitar over lo-fi hip-hop beats regularly. Happy to improvise and adapt on the fly.", status: "PENDING" },
-});
-
-console.log("Created achievements + gig applications.");
+console.log("Created achievements. No gigs seeded — organizers can post them when ready.");
 
 // ============================================================
 // DONE
 // ============================================================
 console.log("\n=== Seed Complete ===");
-console.log("1 admin | 2 organizers | 20 artists");
+console.log("1 admin   → admin@joincyphr.in");
+console.log("2 orgs    → organizer@joincyphr.in | organizer2@joincyphr.in");
+console.log("1 artist  → artist@joincyphr.in (+19 background artists)");
+console.log(`password  → ${password}`);
 console.log("4 events: Battle + Dance Comp + Music Comp + Workshop");
 console.log("50+ registrations across all events");
-console.log("6 gigs | 5 achievements | 3 gig applications");
+console.log("0 gigs | 5 achievements | 0 gig applications");
 
 await prisma.$disconnect();

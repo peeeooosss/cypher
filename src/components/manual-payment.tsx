@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { UpiButtons } from "@/components/upi-buttons";
+import { PendingVerification } from "@/components/pending-verification";
 import { PAYMENT_UPI_ID, PAYMENT_NAME } from "@/lib/payment";
+import { formatInr } from "@/lib/pricing";
 
 export function ManualPayment({
   amount,
@@ -22,23 +24,34 @@ export function ManualPayment({
 }) {
   const router = useRouter();
   const [sending, setSending] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
 
   async function handleSubmit() {
     setSending(true);
     setError("");
-    const res = await fetch(submitUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(submitBody ?? {}),
-    });
-    setSending(false);
-    if (res.ok) {
-      router.refresh();
-      return;
+    try {
+      const res = await fetch(submitUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(submitBody ?? {}),
+      });
+      if (res.ok) {
+        setSubmitted(true);
+        router.refresh();
+        return;
+      }
+      const body = await res.json().catch(() => null);
+      setError(body?.error ?? "Failed to submit. Try again.");
+    } catch {
+      setError("Network error. Please check your connection and try again.");
+    } finally {
+      setSending(false);
     }
-    const body = await res.json().catch(() => null);
-    setError(body?.error ?? "Failed to submit. Try again.");
+  }
+
+  if (submitted) {
+    return <PendingVerification label={formatInr(amount)} context={note} />;
   }
 
   return (

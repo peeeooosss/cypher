@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getAdminOrganizers, requireAdmin } from "@/lib/admin";
 import { AdminSuspendButton } from "@/components/admin-suspend-button";
+import { AdminDeleteButton } from "@/components/admin-delete-button";
 
 export const dynamic = "force-dynamic";
 
@@ -49,7 +50,10 @@ export default async function AdminOrganizersPage() {
                     )}
                   </td>
                   <td className="px-md py-sm">
-                    <AdminSuspendButton userId={organizer.id} isSuspended={organizer.isSuspended} />
+                    <div className="flex flex-wrap items-center gap-sm">
+                      <AdminSuspendButton userId={organizer.id} isSuspended={organizer.isSuspended} />
+                      <AdminDeleteButton userId={organizer.id} apiPath="/api/admin/organizers" />
+                    </div>
                   </td>
                 </tr>
               ))}

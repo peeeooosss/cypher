@@ -5,6 +5,8 @@ export const metadata = {
 };
 
 import Link from "next/link";
+import { StepGuide } from "@/components/step-guide";
+import { organizerGuideTabs } from "@/lib/guide-content";
 
 const features = [
   {
@@ -112,6 +114,22 @@ export default function ForOrganizersPage() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      <section className="border-b border-line">
+        <div className="mx-auto max-w-7xl px-md py-section md:px-xl">
+          <p className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">
+            How to use
+          </p>
+          <h2 className="mt-md max-w-4xl font-display text-display-lg uppercase">
+            Run your event, step by step.
+          </h2>
+          <p className="mt-sm max-w-3xl text-body-sm leading-relaxed text-ink-muted">
+            Everything from signing up to running the Control Room and releasing
+            prizes. Pick a topic to follow along.
+          </p>
+          <StepGuide tabs={organizerGuideTabs} />
         </div>
       </section>
 

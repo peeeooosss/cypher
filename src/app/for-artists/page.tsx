@@ -6,6 +6,8 @@ export const metadata = {
 
 import Link from "next/link";
 import { ArtistSlider } from "@/components/artist-slider";
+import { StepGuide } from "@/components/step-guide";
+import { artistGuideTabs } from "@/lib/guide-content";
 
 const features = [
   {
@@ -115,6 +117,22 @@ export default function ForArtistsPage() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      <section className="border-b border-line">
+        <div className="mx-auto max-w-7xl px-md py-section md:px-xl">
+          <p className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">
+            How to use
+          </p>
+          <h2 className="mt-md max-w-4xl font-display text-display-lg uppercase">
+            Get on the floor, step by step.
+          </h2>
+          <p className="mt-sm max-w-3xl text-body-sm leading-relaxed text-ink-muted">
+            From signing up to paying your entry and landing gigs. Pick a topic to
+            follow along.
+          </p>
+          <StepGuide tabs={artistGuideTabs} />
         </div>
       </section>
 

@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { notFound } from "@/lib/api";
+import { notFound, serverError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 
 type Context = { params: Promise<{ categoryId: string }> };
 
 export async function GET(_: Request, { params }: Context) {
-  const { categoryId } = await params;
+  try {
+    const { categoryId } = await params;
 
   const category = await prisma.category.findUnique({
     where: { id: categoryId },
@@ -22,5 +23,9 @@ export async function GET(_: Request, { params }: Context) {
     orderBy: { createdAt: "asc" },
   });
 
-  return NextResponse.json(slots);
+    return NextResponse.json(slots);
+  } catch (error) {
+    console.error(error);
+    return serverError();
+  }
 }

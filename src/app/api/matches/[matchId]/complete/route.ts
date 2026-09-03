@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { badRequest, forbidden, notFound, unauthorized } from "@/lib/api";
+import { badRequest, forbidden, serverError, unauthorized } from "@/lib/api";
 import { BracketError, completeMatch } from "@/lib/bracket";
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
@@ -50,10 +50,10 @@ export async function POST(request: Request, { params }: MatchRouteContext) {
     return NextResponse.json(completed);
   } catch (error) {
     if (error instanceof BracketError) {
-      return notFound(error.message);
+      return badRequest(error.message);
     }
 
     console.error(error);
-    return NextResponse.json({ error: "Unable to complete match" }, { status: 500 });
+    return serverError();
   }
 }

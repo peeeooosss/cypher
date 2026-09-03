@@ -4,6 +4,8 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SKILLS, SKILL_LABELS } from "@/lib/skills";
 import { DANCE_STYLES, EXPERIENCE_OPTIONS, isDanceStyle } from "@/lib/styles";
+import { responseError } from "@/lib/client-error";
+import { useUploadThing } from "@/lib/uploadthing";
 
 export type ArtistProfile = {
   name: string | null;
@@ -15,6 +17,7 @@ export type ArtistProfile = {
   country: string | null;
   experience: string | null;
   socialHandle: string | null;
+  keywords: string | null;
   referral: string | null;
   skills: string[];
 };
@@ -28,6 +31,7 @@ const PROFILE_FIELDS: Array<{
   { name: "city", label: "City", placeholder: "e.g. Guwahati" },
   { name: "country", label: "Country", placeholder: "e.g. India" },
   { name: "socialHandle", label: "Social handle", placeholder: "@yourname" },
+  { name: "keywords", label: "Keywords / tags — helps people find you", placeholder: "e.g. breaking, popping, Mumbai, House battles" },
   { name: "referral", label: "How did you hear about us?", placeholder: "e.g. Instagram, Friend" },
 ];
 
@@ -44,6 +48,11 @@ export function ArtistProfileForm({ profile }: { profile: ArtistProfile }) {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(profile.avatarUrl ?? null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarState, setAvatarState] = useState<"idle" | "uploading" | "error">("idle");
+  const [avatarError, setAvatarError] = useState("");
+  const [profileError, setProfileError] = useState("");
+  const { startUpload } = useUploadThing("avatarUploader", {
+    onUploadError: (uploadError) => setAvatarError(uploadError.message || "Failed to upload photo."),
+  });
 
   function toggleSkill(skill: string) {
     setSkills((prev) =>
@@ -53,55 +62,82 @@ export function ArtistProfileForm({ profile }: { profile: ArtistProfile }) {
 
   async function handleAvatarFile(file: File | undefined) {
     setAvatarState("idle");
+    setAvatarError("");
     if (!file) return;
     if (!ALLOWED_TYPES.has(file.type)) {
       setAvatarState("error");
+      setAvatarError("Only JPG, PNG, or WebP up to 5MB");
       return;
     }
     if (file.size > MAX_FILE_BYTES) {
       setAvatarState("error");
+      setAvatarError("Only JPG, PNG, or WebP up to 5MB");
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      setAvatarPreview(String(reader.result ?? ""));
-    };
-    reader.readAsDataURL(file);
+    setAvatarPreview(URL.createObjectURL(file));
 
     setAvatarState("uploading");
-    const formData = new FormData();
-    formData.append("file", file);
 
-    const res = await fetch("/api/users/me/avatar", {
-      method: "POST",
-      body: formData,
-    });
+    try {
+      const uploaded = await startUpload([file]);
+      const result = uploaded?.[0];
+      if (!result) {
+        setAvatarError("Failed to upload photo.");
+        setAvatarState("error");
+        return;
+      }
 
-    if (res.ok) {
+      const res = await fetch("/api/users/me/avatar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ avatarUrl: result.ufsUrl, avatarFileKey: result.key }),
+      });
+
+      if (!res.ok) {
+        setAvatarError(await responseError(res, "Failed to upload photo."));
+        setAvatarState("error");
+        return;
+      }
       const data = await res.json();
       setAvatarUrl(data.avatarUrl);
       setAvatarPreview(null);
       setAvatarState("idle");
       router.refresh();
-    } else {
+    } catch {
+      setAvatarError("Network error. Please try again.");
       setAvatarState("error");
+    } finally {
+      setAvatarState((state) => state === "uploading" ? "error" : state);
     }
   }
 
   async function handleRemoveAvatar() {
-    setAvatarState("idle");
-    const res = await fetch("/api/users/me/avatar", { method: "DELETE" });
-    if (res.ok) {
+    setAvatarState("uploading");
+    setAvatarError("");
+    try {
+      const res = await fetch("/api/users/me/avatar", { method: "DELETE" });
+      if (!res.ok) {
+        setAvatarError(await responseError(res, "Failed to remove photo."));
+        setAvatarState("error");
+        return;
+      }
       setAvatarUrl(null);
       setAvatarPreview(null);
+      setAvatarState("idle");
       router.refresh();
+    } catch {
+      setAvatarError("Network error. Please try again.");
+      setAvatarState("error");
+    } finally {
+      setAvatarState((state) => state === "uploading" ? "error" : state);
     }
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus("saving");
+    setProfileError("");
     const form = new FormData(event.currentTarget);
     const body: Record<string, unknown> = { isProfilePublic };
 
@@ -115,17 +151,25 @@ export function ArtistProfileForm({ profile }: { profile: ArtistProfile }) {
     body.experience = String(form.get("experience") ?? "").trim();
     body.skills = skills;
 
-    const res = await fetch("/api/users/me", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    try {
+      const res = await fetch("/api/users/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
 
-    if (res.ok) {
+      if (!res.ok) {
+        setProfileError(await responseError(res, "Failed to save profile."));
+        setStatus("error");
+        return;
+      }
       setStatus("saved");
       router.refresh();
-    } else {
+    } catch {
+      setProfileError("Network error. Please try again.");
       setStatus("error");
+    } finally {
+      setStatus((current) => current === "saving" ? "error" : current);
     }
   }
 
@@ -140,9 +184,9 @@ export function ArtistProfileForm({ profile }: { profile: ArtistProfile }) {
         {status === "saved" && (
           <span className="font-mono text-[0.7rem] uppercase text-accent">Saved</span>
         )}
-        {status === "error" && (
-          <span className="font-mono text-[0.7rem] uppercase text-red-600">Failed to save</span>
-        )}
+         {status === "error" && (
+           <span className="font-mono text-[0.7rem] uppercase text-red-600">{profileError || "Failed to save"}</span>
+         )}
       </div>
       <p className="mt-xs text-body-sm text-ink-muted">
         These details are sent to organizers with every registration.
@@ -182,16 +226,17 @@ export function ArtistProfileForm({ profile }: { profile: ArtistProfile }) {
           {avatarUrl ? (
             <button
               type="button"
-              onClick={() => void handleRemoveAvatar()}
-              className="block border border-line px-md py-xs font-mono text-[0.7rem] uppercase text-ink-muted transition-colors hover:border-red-500 hover:text-red-500"
+             onClick={() => void handleRemoveAvatar()}
+               disabled={avatarState === "uploading"}
+               className="block border border-line px-md py-xs font-mono text-[0.7rem] uppercase text-ink-muted transition-colors hover:border-red-500 hover:text-red-500"
             >
               Remove photo
             </button>
           ) : null}
-          {avatarState === "error" ? (
-            <p className="font-mono text-[0.65rem] uppercase text-red-600">
-              Only JPG, PNG, or WebP up to 5MB
-            </p>
+           {avatarState === "error" ? (
+             <p className="font-mono text-[0.65rem] uppercase text-red-600">
+               {avatarError || "Only JPG, PNG, or WebP up to 5MB"}
+             </p>
           ) : null}
         </div>
       </div>

@@ -9,6 +9,7 @@ import { GIG_CONNECTION_FEE, GIG_WORK_FEE, formatInr } from "@/lib/pricing";
 import { ManualPayment } from "@/components/manual-payment";
 import { MessagesPanel } from "@/components/messages-panel";
 import { BILL_WHATSAPP_NUMBER, whatsappLink } from "@/lib/payment";
+import { responseError } from "@/lib/client-error";
 
 type GigView = {
   id: string;
@@ -96,6 +97,7 @@ export function MarketplaceDashboard({
   const [applyingTo, setApplyingTo] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [notice, setNotice] = useState("");
+  const [busyAction, setBusyAction] = useState<string | null>(null);
 
   const appliedGigIds = useMemo(
     () => new Set(applications.map((a) => a.gig.id)),
@@ -162,44 +164,63 @@ export function MarketplaceDashboard({
 
   async function handleApply(gigId: string) {
     setNotice("");
-    const res = await fetch(`/api/gigs/${gigId}/apply`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: message.trim() || null }),
-    });
-    if (res.ok) {
+    setBusyAction(`apply:${gigId}`);
+    try {
+      const res = await fetch(`/api/gigs/${gigId}/apply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: message.trim() || null }),
+      });
+      if (!res.ok) {
+        setNotice(await responseError(res, "Failed to apply."));
+        return;
+      }
       setApplyingTo(null);
       setMessage("");
       router.refresh();
-    } else {
-      const body = await res.json().catch(() => null);
-      setNotice(body?.error ?? "Failed to apply.");
+    } catch {
+      setNotice("Network error. Please try again.");
+    } finally {
+      setBusyAction(null);
     }
   }
 
   async function runAgreement(agreementId: string, path: "accept" | "decline") {
     setNotice("");
-    const res = await fetch(`/api/agreements/${agreementId}/${path}`, { method: "POST" });
-    if (res.ok) {
+    setBusyAction(`${path}:${agreementId}`);
+    try {
+      const res = await fetch(`/api/agreements/${agreementId}/${path}`, { method: "POST" });
+      if (!res.ok) {
+        setNotice(await responseError(res, "Action failed."));
+        return;
+      }
       if (path === "accept") setTab("active");
       router.refresh();
-    } else {
-      const body = await res.json().catch(() => null);
-      setNotice(body?.error ?? "Action failed.");
+    } catch {
+      setNotice("Network error. Please try again.");
+    } finally {
+      setBusyAction(null);
     }
   }
 
   async function updateStatus(agreementId: string, action: string) {
     setNotice("");
-    const res = await fetch(`/api/agreements/${agreementId}/status`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action }),
-    });
-    if (res.ok) router.refresh();
-    else {
-      const body = await res.json().catch(() => null);
-      setNotice(body?.error ?? "Action failed.");
+    setBusyAction(`${action}:${agreementId}`);
+    try {
+      const res = await fetch(`/api/agreements/${agreementId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      if (!res.ok) {
+        setNotice(await responseError(res, "Action failed."));
+        return;
+      }
+      router.refresh();
+    } catch {
+      setNotice("Network error. Please try again.");
+    } finally {
+      setBusyAction(null);
     }
   }
 
@@ -278,7 +299,8 @@ export function MarketplaceDashboard({
           filtered={filtered}
           selectedSkills={selectedSkills}
           appliedGigIds={appliedGigIds}
-          gigWorkEnabled={gigWorkEnabled}
+           gigWorkEnabled={gigWorkEnabled}
+           busyAction={busyAction}
           applyingTo={applyingTo}
           message={message}
           toggleSkill={toggleSkill}
@@ -325,14 +347,16 @@ export function MarketplaceDashboard({
                   <button
                     type="button"
                     className="border border-accent bg-accent px-md py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper"
-                    onClick={() => void runAgreement(app.agreement!.id, "accept")}
+                     disabled={busyAction !== null}
+                     onClick={() => void runAgreement(app.agreement!.id, "accept")}
                   >
                     Accept offer
                   </button>
                   <button
                     type="button"
                     className="border border-line px-md py-sm font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted hover:border-accent hover:text-accent"
-                    onClick={() => void runAgreement(app.agreement!.id, "decline")}
+                     disabled={busyAction !== null}
+                     onClick={() => void runAgreement(app.agreement!.id, "decline")}
                   >
                     Decline
                   </button>
@@ -388,14 +412,16 @@ export function MarketplaceDashboard({
                     <button
                       type="button"
                       className="border border-line px-md py-sm font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted hover:border-accent hover:text-accent"
-                      onClick={() => void updateStatus(app.agreement!.id, "WORK_COMPLETE")}
+                       disabled={busyAction !== null}
+                       onClick={() => void updateStatus(app.agreement!.id, "WORK_COMPLETE")}
                     >
                       Mark work completed
                     </button>
                     <button
                       type="button"
                       className="border border-line px-md py-sm font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted hover:border-accent hover:text-accent"
-                      onClick={() => void updateStatus(app.agreement!.id, "REPORT_PAID")}
+                       disabled={busyAction !== null}
+                       onClick={() => void updateStatus(app.agreement!.id, "REPORT_PAID")}
                     >
                       Report payment received
                     </button>
@@ -455,6 +481,7 @@ function BrowseTab(props: {
   selectedSkills: string[];
   appliedGigIds: Set<string>;
   gigWorkEnabled: boolean;
+  busyAction: string | null;
   applyingTo: string | null;
   message: string;
   toggleSkill: (s: string) => void;
@@ -462,7 +489,7 @@ function BrowseTab(props: {
   setMessage: (m: string) => void;
   handleApply: (id: string) => void;
 }) {
-  const { filtered, selectedSkills, appliedGigIds, gigWorkEnabled, applyingTo, message, toggleSkill, setApplyingTo, setMessage, handleApply } = props;
+  const { filtered, selectedSkills, appliedGigIds, gigWorkEnabled, busyAction, applyingTo, message, toggleSkill, setApplyingTo, setMessage, handleApply } = props;
 
   return (
     <>
@@ -530,11 +557,12 @@ function BrowseTab(props: {
                       />
                       <div className="flex gap-sm">
                         <button
-                          type="button"
-                          className="border border-accent bg-accent px-md py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper"
-                          onClick={() => void handleApply(gig.id)}
-                        >
-                          Submit proposal
+                           type="button"
+                           className="border border-accent bg-accent px-md py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper"
+                           disabled={busyAction === `apply:${gig.id}`}
+                           onClick={() => void handleApply(gig.id)}
+                         >
+                           {busyAction === `apply:${gig.id}` ? "Submitting..." : "Submit proposal"}
                         </button>
                         <button
                           type="button"

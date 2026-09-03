@@ -1,58 +1,50 @@
 import { NextResponse } from "next/server";
-import { put, del } from "@vercel/blob";
+import { z } from "zod";
 import { badRequest, unauthorized } from "@/lib/api";
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
+import { deleteUploadThingFile } from "@/lib/uploadthing-server";
+import { isUploadThingUrl } from "@/lib/uploadthing-url";
 
 export const runtime = "nodejs";
 
-const MAX_FILE_BYTES = 5 * 1024 * 1024;
-const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const avatarSchema = z.object({
+  avatarUrl: z.string().url().refine(isUploadThingUrl, "Invalid UploadThing URL"),
+  avatarFileKey: z.string().trim().min(1).max(255),
+});
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return unauthorized();
 
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+  if (!process.env.UPLOADTHING_TOKEN) {
     return NextResponse.json(
       { error: "Image storage is not configured. Contact support." },
       { status: 500 },
     );
   }
 
-  const formData = await request.formData().catch(() => null);
-  const file = formData?.get("file");
-
-  if (!(file instanceof File)) {
-    return badRequest("No file provided");
-  }
-
-  if (!ALLOWED_TYPES.has(file.type)) {
-    return badRequest("Only JPG, PNG, or WebP images are allowed");
-  }
-
-  if (file.size > MAX_FILE_BYTES) {
-    return badRequest("Image is too large. Keep it under 5MB");
-  }
-
-  if (file.size === 0) {
-    return badRequest("Image is empty");
-  }
-
-  const extension =
-    file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+  const parsed = avatarSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return badRequest("Invalid uploaded image");
 
   try {
-    const blob = await put(`avatars/${user.id}/${Date.now()}.${extension}`, file, {
-      access: "public",
-      addRandomSuffix: true,
+    const existing = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { avatarFileKey: true },
     });
 
     const updated = await prisma.user.update({
       where: { id: user.id },
-      data: { avatarUrl: blob.url },
+      data: {
+        avatarUrl: parsed.data.avatarUrl,
+        avatarFileKey: parsed.data.avatarFileKey,
+      },
       select: { avatarUrl: true },
     });
+
+    if (existing?.avatarFileKey && existing.avatarFileKey !== parsed.data.avatarFileKey) {
+      await deleteUploadThingFile(existing.avatarFileKey);
+    }
 
     return NextResponse.json({ avatarUrl: updated.avatarUrl });
   } catch (error) {
@@ -67,21 +59,14 @@ export async function DELETE() {
 
   const me = await prisma.user.findUnique({
     where: { id: user.id },
-    select: { avatarUrl: true },
+    select: { avatarFileKey: true },
   });
-
-  if (me?.avatarUrl && me.avatarUrl.startsWith("https://") && process.env.BLOB_READ_WRITE_TOKEN) {
-    try {
-      await del(me.avatarUrl);
-    } catch (error) {
-      console.error(error);
-    }
-  }
 
   await prisma.user.update({
     where: { id: user.id },
-    data: { avatarUrl: null },
+    data: { avatarUrl: null, avatarFileKey: null },
   });
+  await deleteUploadThingFile(me?.avatarFileKey);
 
   return NextResponse.json({ avatarUrl: null });
 }

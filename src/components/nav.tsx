@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import { useState } from "react";
 
 const navLinks = [
@@ -88,14 +88,13 @@ export function Nav() {
                   {session?.user?.name?.charAt(0) ?? "?"}
                 </div>
               )}
-              <form action="/api/auth/signout" method="POST" className="inline-block">
-                <button
-                  type="submit"
-                  className="border border-line px-md py-xs font-mono text-[0.7rem] uppercase tracking-[0.15em] transition-colors hover:border-accent hover:text-accent cursor-pointer"
-                >
-                  Sign out
-                </button>
-              </form>
+              <button
+                type="button"
+                onClick={() => signOut({ callbackUrl: "/" })}
+                className="border border-line px-md py-xs font-mono text-[0.7rem] uppercase tracking-[0.15em] transition-colors hover:border-accent hover:text-accent cursor-pointer"
+              >
+                Sign out
+              </button>
             </div>
           ) : (
             <Link
@@ -144,14 +143,16 @@ export function Nav() {
               </Link>
             ))}
             {status === "authenticated" ? (
-              <form action="/api/auth/signout" method="POST">
-                <button
-                  type="submit"
-                  className="font-mono text-[0.75rem] uppercase tracking-[0.15em] text-ink-muted cursor-pointer"
-                >
-                  Sign out
-                </button>
-              </form>
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  void signOut({ callbackUrl: "/" });
+                }}
+                className="font-mono text-[0.75rem] uppercase tracking-[0.15em] text-ink-muted cursor-pointer"
+              >
+                Sign out
+              </button>
             ) : (
               <Link
                 href="/login"

@@ -13,29 +13,29 @@ const bodySchema = z.object({
 });
 
 export async function POST(_: Request, { params }: Context) {
-  const { eventId } = await params;
-  const user = await getCurrentUser();
-
-  if (!user) {
-    return unauthorized();
-  }
-
-  if (user.role !== "ORGANIZER") {
-    return forbidden();
-  }
-
-  if (!(await getEventForOwner(eventId, user.id))) {
-    return notFound("Event");
-  }
-
-  let body: z.infer<typeof bodySchema>;
   try {
-    body = bodySchema.parse(await _.json());
-  } catch {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
-  }
+    const { eventId } = await params;
+    const user = await getCurrentUser();
 
-  try {
+    if (!user) {
+      return unauthorized();
+    }
+
+    if (user.role !== "ORGANIZER") {
+      return forbidden();
+    }
+
+    if (!(await getEventForOwner(eventId, user.id))) {
+      return notFound("Event");
+    }
+
+    let body: z.infer<typeof bodySchema>;
+    try {
+      body = bodySchema.parse(await _.json());
+    } catch {
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    }
+
     const event = await prisma.event.findFirst({
       where: { id: eventId, organizerId: user.id },
       select: {

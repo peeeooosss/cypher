@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { badRequest, forbidden, notFound, unauthorized } from "@/lib/api";
+import { badRequest, forbidden, notFound, serverError, unauthorized } from "@/lib/api";
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { RoundType } from "@/generated/prisma/enums";
@@ -26,58 +26,68 @@ const createRoundSchema = z.object({
 });
 
 export async function GET(_request: Request, context: Context) {
-  const { categoryId } = await context.params;
+  try {
+    const { categoryId } = await context.params;
 
-  const category = await prisma.category.findUnique({ where: { id: categoryId } });
-  if (!category) return notFound("Category");
+    const category = await prisma.category.findUnique({ where: { id: categoryId } });
+    if (!category) return notFound("Category");
 
-  const rounds = await prisma.roundFormat.findMany({
-    where: { categoryId },
-    orderBy: { order: "asc" },
-  });
+    const rounds = await prisma.roundFormat.findMany({
+      where: { categoryId },
+      orderBy: { order: "asc" },
+    });
 
-  return NextResponse.json(rounds);
+    return NextResponse.json(rounds);
+  } catch (error) {
+    console.error(error);
+    return serverError();
+  }
 }
 
 export async function POST(request: Request, context: Context) {
-  const user = await getCurrentUser();
-  if (!user) return unauthorized();
+  try {
+    const user = await getCurrentUser();
+    if (!user) return unauthorized();
 
-  const { categoryId } = await context.params;
+    const { categoryId } = await context.params;
 
-  const category = await prisma.category.findUnique({
-    where: { id: categoryId },
-    include: { event: { select: { organizerId: true, eventType: true } } },
-  });
-  if (!category) return notFound("Category");
-  if (category.event.organizerId !== user.id) return forbidden();
+    const category = await prisma.category.findUnique({
+      where: { id: categoryId },
+      include: { event: { select: { organizerId: true, eventType: true } } },
+    });
+    if (!category) return notFound("Category");
+    if (category.event.organizerId !== user.id) return forbidden();
 
-  const body = createRoundSchema.safeParse(await request.json());
-  if (!body.success) return badRequest(body.error.issues[0].message);
+    const body = createRoundSchema.safeParse(await request.json());
+    if (!body.success) return badRequest(body.error.issues[0].message);
 
-  const { type, label, roundCount, roundDuration, advanceCount } = body.data;
+    const { type, label, roundCount, roundDuration, advanceCount } = body.data;
 
-  if (isCompetitionType(category.event.eventType) && BATTLE_ROUND_TYPES.includes(type)) {
-    return badRequest("Competition events use single-point scoring (CYPHER/QUALIFIER) — no 1v1 battle rounds");
+    if (isCompetitionType(category.event.eventType) && BATTLE_ROUND_TYPES.includes(type)) {
+      return badRequest("Competition events use single-point scoring (CYPHER/QUALIFIER) — no 1v1 battle rounds");
+    }
+
+    const maxOrder = await prisma.roundFormat.aggregate({
+      where: { categoryId },
+      _max: { order: true },
+    });
+    const order = (maxOrder._max.order ?? -1) + 1;
+
+    const round = await prisma.roundFormat.create({
+      data: {
+        categoryId,
+        type,
+        label,
+        roundCount,
+        roundDuration,
+        advanceCount,
+        order,
+      },
+    });
+
+    return NextResponse.json(round, { status: 201 });
+  } catch (error) {
+    console.error(error);
+    return serverError();
   }
-
-  const maxOrder = await prisma.roundFormat.aggregate({
-    where: { categoryId },
-    _max: { order: true },
-  });
-  const order = (maxOrder._max.order ?? -1) + 1;
-
-  const round = await prisma.roundFormat.create({
-    data: {
-      categoryId,
-      type,
-      label,
-      roundCount,
-      roundDuration,
-      advanceCount,
-      order,
-    },
-  });
-
-  return NextResponse.json(round, { status: 201 });
 }

@@ -7,6 +7,7 @@ import { formatDate, formatExperience } from "@/lib/format";
 import { SKILLS, SKILL_LABELS, skillLabel } from "@/lib/skills";
 import { GIG_FLAT_FEE, formatInr } from "@/lib/pricing";
 import { ManualPayment } from "@/components/manual-payment";
+import { responseError } from "@/lib/client-error";
 
 type GigApplication = {
   id: string;
@@ -53,6 +54,7 @@ export function GigManager({ gigs }: { gigs: Gig[] }) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [busyAction, setBusyAction] = useState<string | null>(null);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
 
   function toggleSkill(skill: string) {
@@ -69,47 +71,75 @@ export function GigManager({ gigs }: { gigs: Gig[] }) {
     const budget = Number(form.get("budget"));
     const startsAt = form.get("startsAt") as string;
 
-    const res = await fetch("/api/gigs", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: form.get("title"),
-        description: form.get("description"),
-        skillsRequired: selectedSkills,
-        location: form.get("location") || undefined,
-        budget: budget > 0 ? budget : undefined,
-        currency: form.get("currency") || "INR",
-        startsAt: startsAt ? new Date(startsAt).toISOString() : undefined,
-      }),
-    });
+    try {
+      const res = await fetch("/api/gigs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: form.get("title"),
+          description: form.get("description"),
+          skillsRequired: selectedSkills,
+          location: form.get("location") || undefined,
+          budget: budget > 0 ? budget : undefined,
+          currency: form.get("currency") || "INR",
+          startsAt: startsAt ? new Date(startsAt).toISOString() : undefined,
+        }),
+      });
 
-    setIsSubmitting(false);
-    if (res.ok) {
+      if (!res.ok) {
+        setError(await responseError(res, "Failed to create gig."));
+        return;
+      }
       event.currentTarget.reset();
       setSelectedSkills([]);
       router.refresh();
-    } else {
-      const body = await res.json().catch(() => null);
-      setError(body?.error ?? "Failed to create gig.");
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
   async function updateGigStatus(gigId: string, status: string) {
-    const res = await fetch(`/api/gigs/${gigId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-    if (res.ok) router.refresh();
+    setBusyAction(`status:${gigId}`);
+    setError("");
+    try {
+      const res = await fetch(`/api/gigs/${gigId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) {
+        setError(await responseError(res, "Failed to update gig."));
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setBusyAction(null);
+    }
   }
 
   async function rejectApplication(gigId: string, applicationId: string) {
-    const res = await fetch(`/api/gigs/${gigId}/applications/${applicationId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "REJECTED" }),
-    });
-    if (res.ok) router.refresh();
+    setBusyAction(`reject:${applicationId}`);
+    setError("");
+    try {
+      const res = await fetch(`/api/gigs/${gigId}/applications/${applicationId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "REJECTED" }),
+      });
+      if (!res.ok) {
+        setError(await responseError(res, "Failed to reject application."));
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setBusyAction(null);
+    }
   }
 
   return (
@@ -191,7 +221,8 @@ export function GigManager({ gigs }: { gigs: Gig[] }) {
                       <button
                         type="button"
                         className="border border-line px-sm py-xs font-mono text-[0.65rem] uppercase text-ink-muted hover:border-accent hover:text-accent"
-                        onClick={() => void updateGigStatus(gig.id, "CLOSED")}
+                         disabled={busyAction !== null}
+                         onClick={() => void updateGigStatus(gig.id, "CLOSED")}
                       >
                         Close
                       </button>
@@ -308,7 +339,8 @@ export function GigManager({ gigs }: { gigs: Gig[] }) {
                               <button
                                 type="button"
                                 className="border border-line px-sm py-xs font-mono text-[0.65rem] uppercase text-ink-muted hover:border-accent hover:text-accent"
-                                onClick={() => void rejectApplication(gig.id, application.id)}
+                                 disabled={busyAction !== null}
+                                 onClick={() => void rejectApplication(gig.id, application.id)}
                               >
                                 Reject
                               </button>
@@ -373,25 +405,29 @@ function OfferForm({
     const amount = Number(form.get("offerAmount"));
     const workDate = form.get("workDate") as string;
 
-    const res = await fetch(`/api/gigs/${gig.id}/applications/${applicationId}/offer`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        offerAmount: amount > 0 ? amount : undefined,
-        workDate: workDate ? new Date(workDate).toISOString() : undefined,
-        location: form.get("location") || undefined,
-        scope: form.get("scope") || undefined,
-        deliverables: form.get("deliverables") || undefined,
-        paymentTerms: form.get("paymentTerms") || undefined,
-        cancellationTerms: form.get("cancellationTerms") || undefined,
-      }),
-    });
-    setSending(false);
-    if (res.ok) {
+    try {
+      const res = await fetch(`/api/gigs/${gig.id}/applications/${applicationId}/offer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          offerAmount: amount > 0 ? amount : undefined,
+          workDate: workDate ? new Date(workDate).toISOString() : undefined,
+          location: form.get("location") || undefined,
+          scope: form.get("scope") || undefined,
+          deliverables: form.get("deliverables") || undefined,
+          paymentTerms: form.get("paymentTerms") || undefined,
+          cancellationTerms: form.get("cancellationTerms") || undefined,
+        }),
+      });
+      if (!res.ok) {
+        setNotice(await responseError(res, "Failed to send offer."));
+        return;
+      }
       router.refresh();
-    } else {
-      const body = await res.json().catch(() => null);
-      setNotice(body?.error ?? "Failed to send offer.");
+    } catch {
+      setNotice("Network error. Please try again.");
+    } finally {
+      setSending(false);
     }
   }
 
@@ -437,14 +473,28 @@ function AgreementStatus({ application }: { application: GigApplication }) {
   const router = useRouter();
   const agreement = application.agreement!;
   const label = agreementLabel(agreement.status);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
   async function confirmPaid() {
-    const res = await fetch(`/api/agreements/${agreement.id}/status`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "CONFIRM_PAID" }),
-    });
-    if (res.ok) router.refresh();
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/agreements/${agreement.id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "CONFIRM_PAID" }),
+      });
+      if (!res.ok) {
+        setError(await responseError(res, "Failed to confirm payment."));
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -459,11 +509,13 @@ function AgreementStatus({ application }: { application: GigApplication }) {
         <button
           type="button"
           className="mt-sm border border-line px-sm py-xs font-mono text-[0.65rem] uppercase text-ink-muted hover:border-accent hover:text-accent"
-          onClick={() => void confirmPaid()}
+           disabled={busy}
+           onClick={() => void confirmPaid()}
         >
-          Confirm payment sent
-        </button>
-      ) : null}
+           {busy ? "Confirming..." : "Confirm payment sent"}
+         </button>
+       ) : null}
+      {error ? <p className="mt-xs text-body-sm text-accent">{error}</p> : null}
     </div>
   );
 }

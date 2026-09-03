@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatFee } from "@/lib/format";
+import { responseError } from "@/lib/client-error";
 
 export type Achievement = {
   id: string;
@@ -18,43 +19,64 @@ export type Achievement = {
 export function ArtistAchievements({ achievements }: { achievements: Achievement[] }) {
   const router = useRouter();
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setNotice("");
     setIsSubmitting(true);
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const prize = Number(form.get("prize"));
     const year = Number(form.get("year"));
 
-    const res = await fetch("/api/artists/me/achievements", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: form.get("title"),
-        competition: form.get("competition") || null,
-        placement: form.get("placement") || null,
-        year: year > 0 ? year : null,
-        prize: prize > 0 ? prize : null,
-        currency: form.get("currency") || "INR",
-        note: form.get("note") || null,
-      }),
-    });
+    try {
+      const res = await fetch("/api/artists/me/achievements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: form.get("title"),
+          competition: form.get("competition") || null,
+          placement: form.get("placement") || null,
+          year: year > 0 ? year : null,
+          prize: prize > 0 ? prize : null,
+          currency: form.get("currency") || "INR",
+          note: form.get("note") || null,
+        }),
+      });
 
-    setIsSubmitting(false);
-    if (res.ok) {
-      event.currentTarget.reset();
+      if (!res.ok) {
+        setError(await responseError(res, "Failed to add achievement."));
+        return;
+      }
+      formElement.reset();
+      setNotice("Achievement added.");
       router.refresh();
-    } else {
-      const body = await res.json().catch(() => null);
-      setError(body?.error ?? "Failed to add achievement.");
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
   async function handleDelete(id: string) {
-    const res = await fetch(`/api/artists/me/achievements/${id}`, { method: "DELETE" });
-    if (res.ok) router.refresh();
+    setDeletingId(id);
+    setError("");
+    try {
+      const res = await fetch(`/api/artists/me/achievements/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        setError(await responseError(res, "Failed to remove achievement."));
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   return (
@@ -74,6 +96,7 @@ export function ArtistAchievements({ achievements }: { achievements: Achievement
           <textarea className="border border-line bg-paper px-md py-sm text-body-sm sm:col-span-2" name="note" rows={3} placeholder="Note (optional)" />
         </div>
         {error ? <p className="mt-md text-body-sm text-accent">{error}</p> : null}
+        {notice ? <p className="mt-md text-body-sm text-accent">{notice}</p> : null}
         <button
           className="mt-lg border border-accent bg-accent px-lg py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper disabled:opacity-60"
           disabled={isSubmitting}
@@ -118,9 +141,10 @@ export function ArtistAchievements({ achievements }: { achievements: Achievement
               <button
                 type="button"
                 className="mt-md border border-line px-sm py-xs font-mono text-[0.65rem] uppercase text-ink-muted hover:border-accent hover:text-accent"
-                onClick={() => void handleDelete(achievement.id)}
+                 disabled={deletingId !== null}
+                 onClick={() => void handleDelete(achievement.id)}
               >
-                Remove
+                 {deletingId === achievement.id ? "Removing..." : "Remove"}
               </button>
             </article>
           ))

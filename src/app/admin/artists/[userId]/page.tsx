@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getAdminArtist, requireAdmin } from "@/lib/admin";
 import { AdminArtistActions } from "@/components/admin-artist-actions";
+import { AdminDeleteButton } from "@/components/admin-delete-button";
 import { formatInr } from "@/lib/pricing";
 import { formatExperience } from "@/lib/format";
 
@@ -75,6 +76,7 @@ export default async function AdminArtistDetailPage({ params }: PageProps) {
             isSuspended={artist.isSuspended}
             gigWorkEnabled={gigWorkActive || (artist.gigWorkEnabledAt != null && artist.gigWorkExpiresAt == null)}
           />
+          <AdminDeleteButton userId={artist.id} apiPath="/api/admin/artists" />
         </div>
       </div>
 

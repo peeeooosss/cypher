@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { badRequest, forbidden, notFound, unauthorized } from "@/lib/api";
+import { badRequest, forbidden, notFound, serverError, unauthorized } from "@/lib/api";
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 
@@ -15,62 +15,72 @@ const templateSchema = z.object({
 });
 
 export async function PATCH(request: Request, { params }: Context) {
-  const { id } = await params;
-  const user = await getCurrentUser();
+  try {
+    const { id } = await params;
+    const user = await getCurrentUser();
 
-  if (!user) {
-    return unauthorized();
+    if (!user) {
+      return unauthorized();
+    }
+
+    if (user.role !== "ORGANIZER") {
+      return forbidden();
+    }
+
+    const owned = await prisma.feedbackTemplate.findFirst({
+      where: { id, organizerId: user.id },
+      select: { id: true },
+    });
+
+    if (!owned) {
+      return notFound("Feedback template");
+    }
+
+    const parsed = templateSchema.safeParse(await request.json().catch(() => null));
+
+    if (!parsed.success) {
+      return badRequest(parsed.error.issues[0]?.message ?? "Invalid template data");
+    }
+
+    const template = await prisma.feedbackTemplate.update({
+      where: { id },
+      data: parsed.data,
+    });
+
+    return NextResponse.json(template);
+  } catch (error) {
+    console.error(error);
+    return serverError();
   }
-
-  if (user.role !== "ORGANIZER") {
-    return forbidden();
-  }
-
-  const owned = await prisma.feedbackTemplate.findFirst({
-    where: { id, organizerId: user.id },
-    select: { id: true },
-  });
-
-  if (!owned) {
-    return notFound("Feedback template");
-  }
-
-  const parsed = templateSchema.safeParse(await request.json().catch(() => null));
-
-  if (!parsed.success) {
-    return badRequest(parsed.error.issues[0]?.message ?? "Invalid template data");
-  }
-
-  const template = await prisma.feedbackTemplate.update({
-    where: { id },
-    data: parsed.data,
-  });
-
-  return NextResponse.json(template);
 }
 
 export async function DELETE(_: Request, { params }: Context) {
-  const { id } = await params;
-  const user = await getCurrentUser();
+  try {
+    const { id } = await params;
+    const user = await getCurrentUser();
 
-  if (!user) {
-    return unauthorized();
+    if (!user) {
+      return unauthorized();
+    }
+
+    if (user.role !== "ORGANIZER") {
+      return forbidden();
+    }
+
+    const owned = await prisma.feedbackTemplate.findFirst({
+      where: { id, organizerId: user.id },
+      select: { id: true },
+    });
+
+    if (!owned) {
+      return notFound("Feedback template");
+    }
+
+    await prisma.feedbackTemplate.delete({ where: { id } });
+
+    return new NextResponse(null, { status: 204 });
+  } catch (error) {
+    console.error(error);
+    return serverError();
   }
-
-  if (user.role !== "ORGANIZER") {
-    return forbidden();
-  }
-
-  const owned = await prisma.feedbackTemplate.findFirst({
-    where: { id, organizerId: user.id },
-    select: { id: true },
-  });
-
-  if (!owned) {
-    return notFound("Feedback template");
-  }
-
-  await prisma.feedbackTemplate.delete({ where: { id } });
-
-  return new NextResponse(null, { status: 204 });
 }

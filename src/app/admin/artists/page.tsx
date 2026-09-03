@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getAdminArtists, requireAdmin } from "@/lib/admin";
+import { AdminDeleteButton } from "@/components/admin-delete-button";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,7 @@ export default async function AdminArtistsPage() {
                  <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">Entries / teams</th>
                 <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">Gig work</th>
                 <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">Status</th>
+                <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -71,6 +73,9 @@ export default async function AdminArtistsPage() {
                       ) : (
                         <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Active</span>
                       )}
+                    </td>
+                    <td className="px-md py-sm">
+                      <AdminDeleteButton userId={artist.id} apiPath="/api/admin/artists" />
                     </td>
                   </tr>
                 );

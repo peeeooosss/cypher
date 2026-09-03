@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { COMMISSION_RATE, formatInr, isEventFlatFeePaid } from "@/lib/pricing";
 import { ManualPayment } from "@/components/manual-payment";
+import { PendingVerification } from "@/components/pending-verification";
 import { SignOutButton } from "@/components/sign-out-button";
 
 export const dynamic = "force-dynamic";
@@ -147,6 +148,8 @@ export default async function EventBillPage({ params }: PageProps) {
                 <p className="border border-accent bg-accent/10 px-md py-sm font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent">
                   Payment verified
                 </p>
+              ) : event.flatFeePaymentStatus === "PENDING" ? (
+                <PendingVerification label={formatInr(flatAmount)} context={`Event flat fee — ${event.title}`} />
               ) : (
                 <ManualPayment
                   amount={flatAmount}
@@ -209,6 +212,8 @@ export default async function EventBillPage({ params }: PageProps) {
                     Continue to event dashboard
                   </Link>
                 </div>
+              ) : event.commissionPaymentStatus === "PENDING" ? (
+                <PendingVerification label={formatInr(commissionDue)} context={`Event commission — ${event.title}`} />
               ) : (
                 <ManualPayment
                   amount={commissionDue}

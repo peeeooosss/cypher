@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { Skill } from "@/generated/prisma/enums";
-import { badRequest, unauthorized } from "@/lib/api";
+import { badRequest, serverError, unauthorized } from "@/lib/api";
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 
@@ -24,6 +24,7 @@ const updateMeSchema = z.object({
   country: nullableString(120),
   experience: nullableString(50),
   socialHandle: nullableString(120),
+  keywords: nullableString(500),
   referral: nullableString(200),
   skills: z.array(z.enum(Skill)).max(20).optional(),
   minJudgingPricePerDay: z.number().int().min(0).max(1000000).nullable().optional(),
@@ -32,41 +33,47 @@ const updateMeSchema = z.object({
 });
 
 export async function PATCH(request: Request) {
-  const user = await getCurrentUser();
+  try {
+    const user = await getCurrentUser();
 
-  if (!user) {
-    return unauthorized();
+    if (!user) {
+      return unauthorized();
+    }
+
+    const parsed = updateMeSchema.safeParse(await request.json().catch(() => null));
+
+    if (!parsed.success) {
+      return badRequest(parsed.error.issues[0]?.message ?? "Invalid data");
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: user.id },
+      data: parsed.data,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        upiId: true,
+        whatsappNumber: true,
+        style: true,
+        crew: true,
+        city: true,
+        country: true,
+        experience: true,
+        socialHandle: true,
+        keywords: true,
+        referral: true,
+        skills: true,
+        minJudgingPricePerDay: true,
+        minWorkshopPricePerDay: true,
+        avatarUrl: true,
+        isProfilePublic: true,
+      },
+    });
+
+    return NextResponse.json(updated);
+  } catch (error) {
+    console.error(error);
+    return serverError();
   }
-
-  const parsed = updateMeSchema.safeParse(await request.json().catch(() => null));
-
-  if (!parsed.success) {
-    return badRequest(parsed.error.issues[0]?.message ?? "Invalid data");
-  }
-
-  const updated = await prisma.user.update({
-    where: { id: user.id },
-    data: parsed.data,
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      upiId: true,
-      whatsappNumber: true,
-      style: true,
-      crew: true,
-      city: true,
-      country: true,
-      experience: true,
-      socialHandle: true,
-      referral: true,
-      skills: true,
-      minJudgingPricePerDay: true,
-      minWorkshopPricePerDay: true,
-      avatarUrl: true,
-      isProfilePublic: true,
-    },
-  });
-
-  return NextResponse.json(updated);
 }

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { responseError } from "@/lib/client-error";
 
 export function SendBillButton({ eventId, mode = "FLAT_FEE" }: { eventId: string; mode?: "FLAT_FEE" | "COMMISSION" }) {
   const router = useRouter();
@@ -11,18 +12,22 @@ export function SendBillButton({ eventId, mode = "FLAT_FEE" }: { eventId: string
   async function handleSubmit() {
     setSending(true);
     setError("");
-    const res = await fetch(`/api/events/${eventId}/bill/submit`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ method: "UPI", type: mode }),
-    });
-    setSending(false);
-    if (res.ok) {
+    try {
+      const res = await fetch(`/api/events/${eventId}/bill/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ method: "UPI", type: mode }),
+      });
+      if (!res.ok) {
+        setError(await responseError(res, "Failed to submit. Try again."));
+        return;
+      }
       router.refresh();
-      return;
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setSending(false);
     }
-    const body = await res.json().catch(() => null);
-    setError(body?.error ?? "Failed to submit. Try again.");
   }
 
   return (

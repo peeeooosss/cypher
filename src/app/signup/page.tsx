@@ -1,9 +1,8 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
 import { DANCE_STYLES, EXPERIENCE_OPTIONS } from "@/lib/styles";
+import { EmailVerifyForm } from "@/components/email-verify-form";
 
 type Role = "ORGANIZER" | "ARTIST";
 
@@ -16,10 +15,15 @@ const ARTIST_PROFILE_FIELDS = [
 ] as const;
 
 export default function SignupPage() {
-  const router = useRouter();
   const [role, setRole] = useState<Role>("ARTIST");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [email, setEmail] = useState("");
+  const [verifySent, setVerifySent] = useState(false);
+  const [verifyError, setVerifyError] = useState("");
+  const [verifySending, setVerifySending] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [accountCreated, setAccountCreated] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -27,12 +31,17 @@ export default function SignupPage() {
     setIsSubmitting(true);
 
     const formData = new FormData(event.currentTarget);
-    const email = String(formData.get("email") ?? "").trim();
     const password = String(formData.get("password") ?? "");
     const confirmPassword = String(formData.get("confirmPassword") ?? "");
 
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!emailVerified) {
+      setError("Please verify your email before creating the account.");
       setIsSubmitting(false);
       return;
     }
@@ -72,17 +81,33 @@ export default function SignupPage() {
       return;
     }
 
-    const result = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
+    setAccountCreated(true);
+    setIsSubmitting(false);
+  }
 
-    if (result?.ok) {
-      router.push(role === "ARTIST" ? "/artist" : "/organizer");
-      router.refresh();
-    } else {
-      router.push("/login?signup=success");
+  async function handleVerifyRequest() {
+    setVerifyError("");
+    if (!/.+@.+\..+/.test(email)) {
+      setVerifyError("Enter a valid email address first.");
+      return;
+    }
+    setVerifySending(true);
+    try {
+      const response = await fetch("/api/auth/verify/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        setVerifyError(data?.error ?? "Unable to send the code. Please try again.");
+      } else {
+        setVerifySent(true);
+      }
+    } catch {
+      setVerifyError("Unable to send the code right now. Please try again.");
+    } finally {
+      setVerifySending(false);
     }
   }
 
@@ -148,13 +173,39 @@ export default function SignupPage() {
           </label>
           <label className="block w-full text-body-sm font-bold uppercase">
             Email
-            <input
-              required
-              autoComplete="email"
-              className="mt-sm block w-full border border-line bg-paper px-md py-md text-body-md outline-none focus:border-accent"
-              name="email"
-              type="email"
-            />
+            <div className="mt-sm flex gap-sm">
+              <input
+                required
+                autoComplete="email"
+                className="block w-full border border-line bg-paper px-md py-md text-body-md outline-none focus:border-accent"
+                name="email"
+                type="email"
+                value={email}
+                disabled={emailVerified}
+                onChange={(event) => {
+                  setEmail(event.target.value);
+                  setEmailVerified(false);
+                  setVerifySent(false);
+                  setVerifyError("");
+                }}
+              />
+              <button
+                type="button"
+                className={`shrink-0 border px-md py-md text-button-md font-bold uppercase ${
+                  emailVerified
+                    ? "border-accent text-accent"
+                    : "border-line bg-paper text-ink hover:border-accent hover:text-accent"
+                } disabled:cursor-not-allowed disabled:opacity-60`}
+                disabled={verifySending || emailVerified}
+                onClick={() => void handleVerifyRequest()}
+              >
+                {emailVerified ? "Verified ✓" : verifySending ? "Sending..." : "Verify email"}
+              </button>
+            </div>
+            {verifyError ? <span className="mt-xs block text-button-sm text-accent">{verifyError}</span> : null}
+            {emailVerified ? (
+              <span className="mt-xs block text-button-sm text-accent">Email verified. You can now create your account.</span>
+            ) : null}
           </label>
           <label className="block w-full text-body-sm font-bold uppercase">
             Password
@@ -243,14 +294,49 @@ export default function SignupPage() {
 
           {error ? <p className="text-body-sm text-accent">{error}</p> : null}
 
-          <button
-            className="w-full border border-accent bg-accent px-lg py-md text-button-md font-bold uppercase text-paper disabled:cursor-wait disabled:opacity-60"
-            disabled={isSubmitting}
-            type="submit"
-          >
-            {isSubmitting ? "Creating account..." : "Create account"}
-          </button>
+          {accountCreated ? (
+            <div className="border border-accent p-md text-body-sm">
+              <p className="font-bold uppercase text-accent">Account created. Welcome to the circle.</p>
+              <p className="mt-sm text-ink-muted">Your email is verified — sign in to get started.</p>
+              <a
+                className="mt-md inline-block border border-accent bg-accent px-lg py-md text-button-md font-bold uppercase text-paper"
+                href="/login"
+              >
+                Sign in
+              </a>
+            </div>
+          ) : (
+            <>
+              <button
+                className="w-full border border-accent bg-accent px-lg py-md text-button-md font-bold uppercase text-paper disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={isSubmitting || !emailVerified}
+                type="submit"
+              >
+                {isSubmitting ? "Creating account..." : emailVerified ? "Create account" : "Verify email to continue"}
+              </button>
+              {!emailVerified && verifySent ? (
+                <p className="text-center text-body-sm text-ink-muted">Enter the code below to unlock account creation.</p>
+              ) : null}
+              {!emailVerified && !verifySent ? (
+                <p className="text-center text-body-sm text-ink-muted">
+                  Click &ldquo;Verify email&rdquo; next to your email to receive a 6-digit code.
+                </p>
+              ) : null}
+            </>
+          )}
         </form>
+
+        {verifySent && !emailVerified && !accountCreated ? (
+          <div className="mt-lg">
+            <EmailVerifyForm
+              email={email}
+              showEmailLine={false}
+              verifyEndpoint="/api/auth/verify/confirm"
+              resendEndpoint="/api/auth/verify/request"
+              onVerified={() => setEmailVerified(true)}
+            />
+          </div>
+        ) : null}
 
         <p className="mt-xl text-body-sm text-ink-muted">
           Already have an account?{" "}

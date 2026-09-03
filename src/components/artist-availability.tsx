@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatDate } from "@/lib/format";
+import { responseError } from "@/lib/client-error";
 
 type Availability = {
   id: string;
@@ -23,6 +24,7 @@ export function ArtistAvailability({
   const [workshop, setWorkshop] = useState(minWorkshop ?? 0);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState("");
+  const [availabilityBusy, setAvailabilityBusy] = useState<string | null>(null);
 
   const [availability, setAvailability] = useState<Availability[]>([]);
   const [dateFrom, setDateFrom] = useState("");
@@ -30,53 +32,95 @@ export function ArtistAvailability({
   const [note, setNote] = useState("");
 
   useEffect(() => {
-    fetch("/api/me/availability")
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data) => setAvailability(Array.isArray(data) ? data : []))
-      .catch(() => {});
+    const load = async () => {
+      try {
+        const res = await fetch("/api/me/availability");
+        if (!res.ok) {
+          setNotice(await responseError(res, "Failed to load availability."));
+          return;
+        }
+        const data = await res.json();
+        setAvailability(Array.isArray(data) ? data : []);
+      } catch {
+        setNotice("Network error. Please try again.");
+      }
+    };
+    void load();
   }, []);
 
   async function savePrices() {
     setSaving(true);
     setNotice("");
-    const res = await fetch("/api/users/me", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        minJudgingPricePerDay: judging > 0 ? judging : null,
-        minWorkshopPricePerDay: workshop > 0 ? workshop : null,
-      }),
-    });
-    setSaving(false);
-    if (res.ok) {
+    try {
+      const res = await fetch("/api/users/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          minJudgingPricePerDay: judging > 0 ? judging : null,
+          minWorkshopPricePerDay: workshop > 0 ? workshop : null,
+        }),
+      });
+      if (!res.ok) {
+        setNotice(await responseError(res, "Failed to save prices."));
+        return;
+      }
       setNotice("Prices saved.");
       router.refresh();
-    } else {
-      setNotice("Failed to save prices.");
+    } catch {
+      setNotice("Network error. Please try again.");
+    } finally {
+      setSaving(false);
     }
   }
 
   async function addAvailability(e: React.FormEvent) {
     e.preventDefault();
     if (!dateFrom || !dateTo) return;
-    const res = await fetch("/api/me/availability", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dateFrom: new Date(dateFrom).toISOString(), dateTo: new Date(dateTo).toISOString(), note: note || undefined }),
-    });
-    if (res.ok) {
+    setAvailabilityBusy("add");
+    setNotice("");
+    try {
+      const res = await fetch("/api/me/availability", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dateFrom: new Date(dateFrom).toISOString(), dateTo: new Date(dateTo).toISOString(), note: note || undefined }),
+      });
+      if (!res.ok) {
+        setNotice(await responseError(res, "Failed to add availability."));
+        return;
+      }
       setDateFrom("");
       setDateTo("");
       setNote("");
       router.refresh();
-      const list = await fetch("/api/me/availability").then((r) => r.json());
+      const listRes = await fetch("/api/me/availability");
+      if (!listRes.ok) {
+        setNotice(await responseError(listRes, "Availability added, but the list could not be refreshed."));
+        return;
+      }
+      const list = await listRes.json();
       setAvailability(Array.isArray(list) ? list : []);
+    } catch {
+      setNotice("Network error. Please try again.");
+    } finally {
+      setAvailabilityBusy(null);
     }
   }
 
   async function removeAvailability(id: string) {
-    await fetch(`/api/me/availability/${id}`, { method: "DELETE" });
-    setAvailability((prev) => prev.filter((a) => a.id !== id));
+    setAvailabilityBusy(id);
+    setNotice("");
+    try {
+      const res = await fetch(`/api/me/availability/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        setNotice(await responseError(res, "Failed to remove availability."));
+        return;
+      }
+      setAvailability((prev) => prev.filter((a) => a.id !== id));
+    } catch {
+      setNotice("Network error. Please try again.");
+    } finally {
+      setAvailabilityBusy(null);
+    }
   }
 
   return (
@@ -138,7 +182,8 @@ export function ArtistAvailability({
                 <button
                   type="button"
                   className="border border-line px-sm py-xs font-mono text-[0.65rem] uppercase text-ink-muted hover:border-accent hover:text-accent"
-                  onClick={() => void removeAvailability(a.id)}
+                   disabled={availabilityBusy !== null}
+                   onClick={() => void removeAvailability(a.id)}
                 >
                   Remove
                 </button>
@@ -157,8 +202,8 @@ export function ArtistAvailability({
             <input className="mt-xs border border-line bg-paper px-sm py-xs" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
           </label>
           <input className="border border-line bg-paper px-sm py-xs" placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
-          <button type="submit" className="border border-accent bg-accent px-md py-xs font-mono text-[0.65rem] font-bold uppercase text-paper">
-            Add dates
+            <button type="submit" disabled={availabilityBusy !== null} className="border border-accent bg-accent px-md py-xs font-mono text-[0.65rem] font-bold uppercase text-paper disabled:opacity-60">
+            {availabilityBusy === "add" ? "Adding..." : "Add dates"}
           </button>
         </form>
       </div>

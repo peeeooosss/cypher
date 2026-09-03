@@ -1,59 +1,69 @@
-# CallOut Deployment
+# CYPHR Deployment
 
-## Netlify Next.js application
+CYPHR is deployed in two parts:
 
-The repository includes `netlify.toml` and the official Netlify Next.js plugin. Connect the GitHub repository in Netlify with these settings:
+1. **Vercel** — hosts the Next.js application, all `/api/*` routes, and the public site.
+2. **Railway** — hosts the separate Socket.io server for live battle scoring (long-lived WebSocket connections that Vercel serverless cannot hold).
 
-- Base directory: leave blank if the repository root is this project.
-- Build command: `npm run netlify:build`.
-- Publish directory: `.next`.
-- Node version: `22`.
+## Vercel (Next.js app + API)
 
-The build command generates Prisma Client, applies committed production migrations, and builds Next.js.
+Connect the GitHub repository (`peeeooosss/cypher`) in Vercel. Deployment is automatic from the `main` branch.
 
-Required environment variables:
+- Framework preset: **Next.js**
+- Build command: `prisma generate && next build` (see `vercel.json`)
+- Also managed via CLI: `vercel --prod`
 
-- `DATABASE_URL`: Neon pooled connection string for application queries.
-- `DIRECT_URL`: Neon direct connection string for Prisma migrations.
-- `NEXTAUTH_URL`: the full Netlify site URL, including `https://`.
-- `NEXTAUTH_SECRET`: a unique random value generated with `openssl rand -base64 32`.
-- `NEXT_PUBLIC_APP_URL`: the full Netlify site URL, including `https://`.
-- `NEXT_PUBLIC_SOCKET_URL`: public URL of the separately hosted Socket.io service, including `https://`.
+Required environment variables (set in Vercel under **Settings → Environment Variables**):
 
-Do not add `.env` or database credentials to GitHub. Set these values in Netlify under **Site configuration > Environment variables** for the production deploy context.
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | Neon pooled connection string for app queries |
+| `DIRECT_URL` | Neon direct connection string for Prisma migrations |
+| `NEXTAUTH_URL` | Full site URL, including `https://` |
+| `NEXTAUTH_SECRET` | Unique random value (`openssl rand -base64 32`) |
+| `NEXT_PUBLIC_APP_URL` | Full site URL, including `https://` |
+| `NEXT_PUBLIC_SOCKET_URL` | Public URL of the Socket.io service (Railway), including `https://` |
+| `UPLOADTHING_TOKEN` | UploadThing server token for image uploads |
+| `RESEND_API_KEY` | Resend API key for signup verification emails |
+| `RESEND_FROM` | Verified Resend sender, e.g. `admin@tryauraai.in` |
+| `NEXT_PUBLIC_PAYMENT_UPI_ID` | UPI ID for manual payments |
+| `NEXT_PUBLIC_PAYMENT_NAME` | Payee name for manual payments |
+| `NEXT_PUBLIC_BILL_WHATSAPP_NUMBER` | WhatsApp number for bill/confirmation messages |
 
-For a manual migration outside a Netlify deploy:
+Do not commit `.env` or database credentials to GitHub.
+
+For a manual migration outside a deploy:
 
 ```bash
 npx prisma generate
 npx prisma migrate deploy
 ```
 
-## Socket.io service
+## Railway (Socket.io server)
 
-Run the Socket.io process on a Node.js host that supports long-lived connections, such as Railway, Render, or Fly.io.
+The live scoring WebSocket server lives in `server/socket.ts` and runs as a persistent Node process. It is deployed via the `Dockerfile` in the repo (`npm ci` + `npx prisma generate` + `tsx server/socket.ts`).
 
-```bash
-npm ci
-npx prisma generate
-npm run socket
-```
+Set these variables in the Railway service:
 
-Netlify Functions are not a suitable host for this persistent Socket.io process. Set `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXT_PUBLIC_APP_URL`, and `SOCKET_PORT` in the external service environment. Configure the service's CORS origin through `NEXT_PUBLIC_APP_URL` and expose the service URL as `NEXT_PUBLIC_SOCKET_URL` to the Netlify site.
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | Neon connection string (the socket server queries the DB) |
+| `NEXTAUTH_SECRET` | Same secret as Vercel (used to verify judge/organizer JWT cookies) |
+| `NEXT_PUBLIC_APP_URL` | CORS origin — the full Vercel site URL |
+| `REDIS_URL` | Optional — enables Socket.io pub/sub horizontal scaling across multiple instances |
 
-The Netlify site serves the Next.js app and API routes; the external Node service serves live scoring WebSockets.
+The socket server listens on `PORT` (set automatically by Railway). Expose the resulting URL as `NEXT_PUBLIC_SOCKET_URL` on Vercel.
 
-## Load testing
+## Database (Neon)
 
-The load scenario requires an isolated live event, match, and authenticated session cookie. Never point it at production without an approved test window.
+- Neon Postgres powers everything (schema in `prisma/schema.prisma`).
+- Schema changes: `prisma migrate deploy` + `npx prisma generate` before build.
+- Local dev uses `@prisma/adapter-pg`; production uses the Neon serverless adapter.
 
-```bash
-SOCKET_URL=https://socket.example.com \
-EVENT_ID=... \
-MATCH_ID=... \
-AUTH_COOKIE='next-auth.session-token=...' \
-```
+## Payments
+
+Payments are handled **manually** (offline UPI). No Razorpay or PayU gateway is used. The relevant components are `manual-payment.tsx`, `upi-buttons.tsx`, and `upi-form.tsx`, configured via the `NEXT_PUBLIC_PAYMENT_*` and `NEXT_PUBLIC_BILL_WHATSAPP_NUMBER` variables above.
 
 ## Media storage
 
-Artist avatars, event banners, and video submissions still need an S3-compatible storage integration such as Cloudflare R2 or Amazon S3. Do not store uploaded media in the application filesystem.
+Artist avatars, studio logos, and event posters use UploadThing. Existing image URLs remain valid and are not migrated automatically.

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { io } from "socket.io-client";
+import { responseError } from "@/lib/client-error";
 
 type Competitor = { teamName?: string | null; user: { name: string | null }; members?: { user: { name: string | null; username: string | null } }[] } | null;
 
@@ -103,6 +104,7 @@ export function ScoringInterface({
     () => Object.fromEntries(data.category.registrations.map((reg) => [reg.id, null])),
   );
   const [dancerFeedback, setDancerFeedback] = useState<Record<string, string>>(() => initialDancerFeedback(data.category.registrations, slotId));
+  const [error, setError] = useState("");
 
   const eventId = data.category.event.id;
 
@@ -114,13 +116,21 @@ export function ScoringInterface({
     registrations.length > 0;
 
   const fetchFullData = useCallback(async () => {
-    const res = await fetch(`/api/judge-slots/${code}`);
-    if (!res.ok) return;
-    const slot = await res.json();
-    if (Array.isArray(slot.matches)) setLiveMatches(slot.matches);
-    if (slot.category?.rounds) setRounds(slot.category.rounds);
-    if (slot.category?.currentPhaseOrder != null) setCurrentPhaseOrder(slot.category.currentPhaseOrder);
-    if (slot.category?.registrations) setRegistrations(slot.category.registrations);
+    try {
+      const res = await fetch(`/api/judge-slots/${code}`);
+      if (!res.ok) {
+        setError(await responseError(res, "Failed to refresh scoring data."));
+        return;
+      }
+      const slot = await res.json();
+      if (Array.isArray(slot.matches)) setLiveMatches(slot.matches);
+      if (slot.category?.rounds) setRounds(slot.category.rounds);
+      if (slot.category?.currentPhaseOrder != null) setCurrentPhaseOrder(slot.category.currentPhaseOrder);
+      if (slot.category?.registrations) setRegistrations(slot.category.registrations);
+      setError("");
+    } catch {
+      setError("Network error. Please try again.");
+    }
   }, [code]);
 
   // Socket connection
@@ -216,22 +226,28 @@ export function ScoringInterface({
     if (!matchScore || matchScore.scoreA === null || matchScore.scoreB === null) return;
 
     setSubmitting((prev) => ({ ...prev, [matchId]: true }));
+    setError("");
+    try {
+      const res = await fetch(`/api/matches/${matchId}/score`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          scoreA: matchScore.scoreA,
+          scoreB: matchScore.scoreB,
+          judgeCode: code,
+        }),
+      });
 
-    const res = await fetch(`/api/matches/${matchId}/score`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        scoreA: matchScore.scoreA,
-        scoreB: matchScore.scoreB,
-        judgeCode: code,
-      }),
-    });
-
-    if (res.ok) {
+      if (!res.ok) {
+        setError(await responseError(res, "Failed to submit score."));
+        return;
+      }
       setSubmittedIds((prev) => new Set(prev).add(matchId));
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setSubmitting((prev) => ({ ...prev, [matchId]: false }));
     }
-
-    setSubmitting((prev) => ({ ...prev, [matchId]: false }));
   }
 
   async function submitDancerScore(registrationId: string) {
@@ -239,23 +255,29 @@ export function ScoringInterface({
     if (score == null) return;
 
     setSubmitting((prev) => ({ ...prev, [registrationId]: true }));
+    setError("");
+    try {
+      const res = await fetch(`/api/judge-slots/${code}/dancer-score`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          registrationId,
+          score,
+          feedback: dancerFeedback[registrationId] || undefined,
+        }),
+      });
 
-    const res = await fetch(`/api/judge-slots/${code}/dancer-score`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        registrationId,
-        score,
-        feedback: dancerFeedback[registrationId] || undefined,
-      }),
-    });
-
-    if (res.ok) {
+      if (!res.ok) {
+        setError(await responseError(res, "Failed to submit score."));
+        return;
+      }
       setMyDancerScores((prev) => ({ ...prev, [registrationId]: { score } }));
       setDraftScores((prev) => ({ ...prev, [registrationId]: null }));
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setSubmitting((prev) => ({ ...prev, [registrationId]: false }));
     }
-
-    setSubmitting((prev) => ({ ...prev, [registrationId]: false }));
   }
 
   const SCORE_OPTIONS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -275,6 +297,7 @@ export function ScoringInterface({
           className={`h-2 w-2 rounded-full ${connectionStatus === "live" ? "bg-accent" : "bg-line"}`}
         />
       </div>
+      {error ? <p className="mb-lg text-body-sm text-accent">{error}</p> : null}
 
       {isRosterMode ? (
         <div>

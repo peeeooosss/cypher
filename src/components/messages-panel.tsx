@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { GIG_CONNECTION_FEE, formatInr } from "@/lib/pricing";
 import { ManualPayment } from "@/components/manual-payment";
+import { responseError } from "@/lib/client-error";
 
 type ConversationSummary = {
   id: string;
@@ -39,20 +40,41 @@ export function MessagesPanel({ role }: { role: "ORGANIZER" | "ARTIST" }) {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState("");
 
   async function loadConversations() {
-    const res = await fetch("/api/conversations");
-    if (res.ok) setConversations(await res.json());
-    setLoaded(true);
+    try {
+      const res = await fetch("/api/conversations");
+      if (!res.ok) {
+        setError(await responseError(res, "Failed to load conversations."));
+        return;
+      }
+      setConversations(await res.json());
+      setError("");
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setLoaded(true);
+    }
   }
 
   useEffect(() => {
     let cancelled = false;
     async function poll() {
-      const res = await fetch("/api/conversations");
-      if (cancelled) return;
-      if (res.ok) setConversations(await res.json());
-      setLoaded(true);
+      try {
+        const res = await fetch("/api/conversations");
+        if (cancelled) return;
+        if (!res.ok) {
+          setError(await responseError(res, "Failed to load conversations."));
+          return;
+        }
+        setConversations(await res.json());
+        setError("");
+      } catch {
+        if (!cancelled) setError("Network error. Please try again.");
+      } finally {
+        if (!cancelled) setLoaded(true);
+      }
     }
     void poll();
     const interval = setInterval(() => void poll(), 10000);
@@ -64,24 +86,40 @@ export function MessagesPanel({ role }: { role: "ORGANIZER" | "ARTIST" }) {
 
   async function openConversation(id: string) {
     setActiveId(id);
-    const res = await fetch(`/api/conversations/${id}`);
-    if (res.ok) setThread(await res.json());
-    else setThread(null);
+    setError("");
+    try {
+      const res = await fetch(`/api/conversations/${id}`);
+      if (!res.ok) {
+        setThread(null);
+        setError(await responseError(res, "Failed to load conversation."));
+        return;
+      }
+      setThread(await res.json());
+    } catch {
+      setThread(null);
+      setError("Network error. Please try again.");
+    }
   }
 
   useEffect(() => {
     if (!activeId) return;
     let cancelled = false;
     async function pollThread() {
-      const res = await fetch(`/api/conversations/${activeId}`);
-      if (cancelled) return;
-      if (res.ok) {
+      try {
+        const res = await fetch(`/api/conversations/${activeId}`);
+        if (cancelled) return;
+        if (!res.ok) {
+          setError(await responseError(res, "Failed to load conversation."));
+          return;
+        }
         const t: Thread = await res.json();
         setThread((prev) => {
           if (!prev) return t;
           if (t.locked) return t;
           return { ...t, messages: dedupeMessages(prev.messages, t.messages) };
         });
+      } catch {
+        if (!cancelled) setError("Network error. Please try again.");
       }
     }
     void pollThread();
@@ -106,22 +144,32 @@ export function MessagesPanel({ role }: { role: "ORGANIZER" | "ARTIST" }) {
     e.preventDefault();
     if (!thread || !draft.trim()) return;
     setSending(true);
-    const res = await fetch(`/api/conversations/${thread.id}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body: draft.trim() }),
-    });
-    setSending(false);
-    if (res.ok) {
+    setError("");
+    try {
+      const res = await fetch(`/api/conversations/${thread.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body: draft.trim() }),
+      });
+      if (!res.ok) {
+        setError(await responseError(res, "Failed to send message."));
+        return;
+      }
       setDraft("");
       await loadConversations();
       if (activeId) {
         const tRes = await fetch(`/api/conversations/${activeId}`);
-        if (tRes.ok) {
-          const t: Thread = await tRes.json();
-          setThread(t);
+        if (!tRes.ok) {
+          setError(await responseError(tRes, "Message sent, but the conversation could not be refreshed."));
+          return;
         }
+        const t: Thread = await tRes.json();
+        setThread(t);
       }
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setSending(false);
     }
   }
 
@@ -185,6 +233,7 @@ export function MessagesPanel({ role }: { role: "ORGANIZER" | "ARTIST" }) {
       </div>
 
       <div className="border border-line bg-paper-soft p-md">
+        {error ? <p className="mb-md text-body-sm text-accent">{error}</p> : null}
         {!thread && !activeConv ? (
           <p className="text-body-sm text-ink-muted">Select a conversation to view messages.</p>
         ) : activeConv && thread?.locked ? (

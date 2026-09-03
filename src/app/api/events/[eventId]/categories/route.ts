@@ -21,14 +21,19 @@ const categorySchema = z.object({
 type CategoryRouteContext = { params: Promise<{ eventId: string }> };
 
 export async function GET(_: Request, { params }: CategoryRouteContext) {
-  const { eventId } = await params;
-  const categories = await prisma.category.findMany({
-    where: { eventId },
-    include: { _count: { select: { registrations: true, matches: true } } },
-    orderBy: { createdAt: "asc" },
-  });
+  try {
+    const { eventId } = await params;
+    const categories = await prisma.category.findMany({
+      where: { eventId },
+      include: { _count: { select: { registrations: true, matches: true } } },
+      orderBy: { createdAt: "asc" },
+    });
 
-  return NextResponse.json(categories);
+    return NextResponse.json(categories);
+  } catch (error) {
+    console.error(error);
+    return serverError();
+  }
 }
 
 export async function POST(request: Request, { params }: CategoryRouteContext) {
@@ -82,39 +87,45 @@ export async function POST(request: Request, { params }: CategoryRouteContext) {
       return badRequest(`${format} entries require exactly ${roster.min} member${roster.min === 1 ? "" : "s"}`);
     }
 
-    const category = await prisma.category.create({
-      data: {
-        ...categoryData,
-        format,
-        minMembers,
-        maxMembers,
-        event: { connect: { id: eventId } },
-      },
-    });
-
-    if (isCompetitionType(event?.eventType)) {
-      await prisma.roundFormat.createMany({
-        data: [
-          { categoryId: category.id, order: 1, type: "QUALIFIER", label: "Qualifiers", phaseStatus: "PENDING" },
-          { categoryId: category.id, order: 2, type: "QUALIFIER", label: "Finals", phaseStatus: "PENDING" },
-        ],
-      });
-    }
-
-    if (prizeAmount && prizeAmount > 0) {
-      await prisma.prizePool.create({
+    const category = await prisma.$transaction(async (transaction) => {
+      const created = await transaction.category.create({
         data: {
-          categoryId: category.id,
-          totalAmount: prizeAmount,
-          currency: parsed.data.entryCurrency ?? "INR",
-          distribution: [
-            { rank: 1, label: "1st place", percentage: 60 },
-            { rank: 2, label: "2nd place", percentage: 30 },
-            { rank: 3, label: "3rd place", percentage: 10 },
-          ],
+          ...categoryData,
+          format,
+          minMembers,
+          maxMembers,
+          event: { connect: { id: eventId } },
         },
       });
-    }
+
+      if (isCompetitionType(event?.eventType)) {
+        await transaction.roundFormat.createMany({
+          data: [
+            { categoryId: created.id, order: 1, type: "QUALIFIER", label: "Qualifiers", phaseStatus: "PENDING" },
+            { categoryId: created.id, order: 2, type: "QUALIFIER", label: "Finals", phaseStatus: "PENDING" },
+          ],
+        });
+      }
+
+      if (prizeAmount && prizeAmount > 0) {
+        await transaction.prizePool.upsert({
+          where: { categoryId: created.id },
+          create: {
+            categoryId: created.id,
+            totalAmount: prizeAmount,
+            currency: parsed.data.entryCurrency ?? "INR",
+            distribution: [
+              { rank: 1, label: "1st place", percentage: 60 },
+              { rank: 2, label: "2nd place", percentage: 30 },
+              { rank: 3, label: "3rd place", percentage: 10 },
+            ],
+          },
+          update: {},
+        });
+      }
+
+      return created;
+    });
 
     return NextResponse.json(category, { status: 201 });
   } catch (error) {

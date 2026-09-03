@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { responseError } from "@/lib/client-error";
 
 export function AdminSuspendButton({ userId, isSuspended }: { userId: string; isSuspended: boolean }) {
   const router = useRouter();
@@ -11,18 +12,22 @@ export function AdminSuspendButton({ userId, isSuspended }: { userId: string; is
   async function toggle() {
     setBusy(true);
     setError("");
-    const res = await fetch(`/api/admin/organizers/${userId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isSuspended: !isSuspended }),
-    });
-    setBusy(false);
-    if (!res.ok) {
-      const body = await res.json().catch(() => null);
-      setError(body?.error ?? "Failed");
-      return;
+    try {
+      const res = await fetch(`/api/admin/organizers/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isSuspended: !isSuspended }),
+      });
+      if (!res.ok) {
+        setError(await responseError(res, "Failed"));
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setBusy(false);
     }
-    router.refresh();
   }
 
   return (

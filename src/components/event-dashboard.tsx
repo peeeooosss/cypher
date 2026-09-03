@@ -8,6 +8,7 @@ import { PosterUpload } from "@/components/poster-upload";
 import { formatInr, isEventFlatFeePaid } from "@/lib/pricing";
 import { BATTLE_FORMATS, CATEGORY_FORMAT_LABELS, COMPETITION_FORMATS, EVENT_TYPE_LABELS, EVENT_TYPE_LIST, defaultRosterSize, formatLabel, isCompetitionType, isWorkshopType, SINGLE_POINT_ROUND_TYPES } from "@/lib/event-types";
 import { INDIAN_STATES } from "@/lib/states";
+import { responseError } from "@/lib/client-error";
 import type { CategoryFormat, EventStatus, RoundType, RegistrationStatus, PaymentStatus } from "@/generated/prisma/enums";
 
 type Round = {
@@ -69,6 +70,7 @@ type EventWithRelations = {
   description: string | null;
   eventType: string | null;
   posterUrl: string | null;
+  posterFileKey: string | null;
   venue: string | null;
   googleMapsUrl: string | null;
   city: string | null;
@@ -141,7 +143,7 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
         setEvent({ ...data, startsAt: new Date(data.startsAt) });
         setControlRoomKey((k) => k + 1);
       } else {
-        setNotice("Failed to refresh control room");
+        setNotice(await responseError(res, "Failed to refresh control room"));
       }
     } catch {
       setNotice("Failed to refresh control room");
@@ -159,8 +161,7 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
         setNotice("Returned to the previous phase");
         await refreshControlRoom();
       } else {
-        const error = await res.json().catch(() => null);
-        setNotice(error?.error ?? "Failed to rewind phase");
+        setNotice(await responseError(res, "Failed to rewind phase"));
       }
     } catch {
       setNotice("Failed to rewind phase");
@@ -279,15 +280,19 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
                       disabled={phaseAction !== null}
                       onClick={async () => {
                         setPhaseAction(`${category.id}:start`);
-                        const res = await fetch(`/api/categories/${category.id}/start-phase`, { method: "POST" });
-                        if (res.ok) {
-                          setNotice("Phase started");
-                          await refreshControlRoom();
-                        } else {
-                          const error = await res.json().catch(() => null);
-                          setNotice(error?.error ?? "Failed to start phase");
+                        try {
+                          const res = await fetch(`/api/categories/${category.id}/start-phase`, { method: "POST" });
+                          if (res.ok) {
+                            setNotice("Phase started");
+                            await refreshControlRoom();
+                          } else {
+                            setNotice(await responseError(res, "Failed to start phase"));
+                          }
+                        } catch {
+                          setNotice("Network error. Please try again.");
+                        } finally {
+                          setPhaseAction(null);
                         }
-                        setPhaseAction(null);
                       }}>
                       Start {category.rounds.find(r => r.phaseStatus === "PENDING")?.label ?? "Phase"}
                     </button>
@@ -299,15 +304,19 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
                         disabled={phaseAction !== null}
                         onClick={async () => {
                           setPhaseAction(`${category.id}:advance`);
-                          const res = await fetch(`/api/categories/${category.id}/advance-phase`, { method: "POST" });
-                          if (res.ok) {
-                            setNotice("Advanced to the next phase");
-                            await refreshControlRoom();
-                          } else {
-                            const error = await res.json().catch(() => null);
-                            setNotice(error?.error ?? "Failed to advance phase");
+                          try {
+                            const res = await fetch(`/api/categories/${category.id}/advance-phase`, { method: "POST" });
+                            if (res.ok) {
+                              setNotice("Advanced to the next phase");
+                              await refreshControlRoom();
+                            } else {
+                              setNotice(await responseError(res, "Failed to advance phase"));
+                            }
+                          } catch {
+                            setNotice("Network error. Please try again.");
+                          } finally {
+                            setPhaseAction(null);
                           }
-                          setPhaseAction(null);
                         }}>
                         {phaseAction === `${category.id}:advance` ? "Advancing..." : "Advance to next phase"}
                       </button>
@@ -320,9 +329,9 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
                           {phaseAction === `${category.id}:rewind` ? "Rewinding..." : "Back to previous phase"}
                         </button>
                       )}
-                      {["CYPHER", "QUALIFIER"].includes(category.rounds.find(r => r.order === category.currentPhaseOrder)!.type) && (
+                      {["CYPHER", "QUALIFIER"].includes(category.rounds.find((r) => r.order === category.currentPhaseOrder)?.type ?? "") && (
                         <span className="text-body-sm text-ink-muted">
-                          {category.rounds.find(r => r.order === category.currentPhaseOrder)!.type === "CYPHER"
+                          {category.rounds.find((r) => r.order === category.currentPhaseOrder)?.type === "CYPHER"
                              ? "Cypher round — no battles. Pick the entries who advance below."
                              : "Qualifier round — pick the entries who advance below."}
                         </span>
@@ -347,23 +356,27 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
                     disabled={phaseAction !== null}
                     onClick={async () => {
                       if (!window.confirm("Reset this category to Cypher? All phase results, brackets, scores, and withdrawals will be cleared. Registrations will be restored and reseeded.")) return;
-                      setPhaseAction(`${category.id}:reset`);
-                      const res = await fetch(`/api/categories/${category.id}/reset-cypher`, { method: "POST" });
-                      if (res.ok) {
-                        setNotice("Category reset to Cypher with registrations reseeded");
-                        await refreshControlRoom();
-                      } else {
-                        const error = await res.json().catch(() => null);
-                        setNotice(error?.error ?? "Failed to reset category");
-                      }
-                      setPhaseAction(null);
+                       setPhaseAction(`${category.id}:reset`);
+                       try {
+                         const res = await fetch(`/api/categories/${category.id}/reset-cypher`, { method: "POST" });
+                         if (res.ok) {
+                           setNotice("Category reset to Cypher with registrations reseeded");
+                           await refreshControlRoom();
+                         } else {
+                           setNotice(await responseError(res, "Failed to reset category"));
+                         }
+                       } catch {
+                         setNotice("Network error. Please try again.");
+                       } finally {
+                         setPhaseAction(null);
+                       }
                     }}
                   >
                     {phaseAction === `${category.id}:reset` ? "Resetting..." : "Reset to Cypher"}
                   </button>
                 )}
 
-                {category.currentPhaseOrder != null && ["CYPHER","QUALIFIER"].includes(category.rounds.find(r => r.order === category.currentPhaseOrder)!.type) && (
+                {category.currentPhaseOrder != null && ["CYPHER", "QUALIFIER"].includes(category.rounds.find((r) => r.order === category.currentPhaseOrder)?.type ?? "") && (
                   <CypherDancerPicker
                     key={`${category.id}-${controlRoomKey}`}
                     eventId={event.id}
@@ -436,41 +449,54 @@ function OverviewTab({
     body.eventType = eventType || null;
     if (startsAt) body.startsAt = new Date(startsAt).toISOString();
 
-    const res = await fetch(`/api/events/${event.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => null);
-      setError(err?.error ?? "Failed to save");
+    try {
+      const res = await fetch(`/api/events/${event.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        setError(await responseError(res, "Failed to save"));
+        return;
+      }
+      const updated = await res.json();
+      setEvent({ ...event, ...updated, startsAt: new Date(updated.startsAt) });
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
       setSaving(false);
-      return;
     }
-    const updated = await res.json();
-    setEvent({ ...event, ...updated, startsAt: new Date(updated.startsAt) });
-    setSaving(false);
   }
 
   async function handleStatusChange(status: EventStatus) {
     setError("");
-    const res = await fetch(`/api/events/${event.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => null);
-      if (err?.code === "COMMISSION_REQUIRED") {
-        setError(err?.error ?? "Commission required");
-        router.push(`/organizer/${event.id}/bill#commission`);
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/events/${event.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) {
+        const err = (await res.json().catch(() => null)) as { code?: string; error?: unknown } | null;
+        if (err?.code === "COMMISSION_REQUIRED") {
+          setError(typeof err.error === "string" ? err.error : "Commission required");
+          router.push(`/organizer/${event.id}/bill#commission`);
+          return;
+        }
+        setError(typeof err?.error === "string" ? err.error : "Failed to update status");
         return;
       }
-      setError(err?.error ?? "Failed to update status");
-      return;
+      const updated = await res.json();
+      setEvent({ ...event, ...updated, startsAt: new Date(updated.startsAt) });
+      if (Array.isArray(updated.bracketWarnings) && updated.bracketWarnings.length > 0) {
+        setError(`Brackets were not generated — ${updated.bracketWarnings.join("; ")}. Generate them from the Control Room once rosters are ready.`);
+      }
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setSaving(false);
     }
-    const updated = await res.json();
-    setEvent({ ...event, ...updated, startsAt: new Date(updated.startsAt) });
   }
 
   const totalRegistrations = event.categories.reduce(
@@ -597,15 +623,21 @@ function OverviewTab({
           <div className="mt-xs max-w-64">
             <PosterUpload
               initial={event.posterUrl}
-              onChange={async (value) => {
-                const res = await fetch(`/api/events/${event.id}`, {
-                  method: "PATCH",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ posterUrl: value }),
-                });
-                if (res.ok) {
+              onChange={async (value, fileKey) => {
+                try {
+                  const res = await fetch(`/api/events/${event.id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ posterUrl: value, posterFileKey: fileKey }),
+                  });
+                  if (!res.ok) {
+                    setError(await responseError(res, "Failed to update poster"));
+                    return;
+                  }
                   const updated = await res.json();
                   setEvent({ ...event, ...updated, startsAt: new Date(updated.startsAt) });
+                } catch {
+                  setError("Network error. Please try again.");
                 }
               }}
             />
@@ -623,7 +655,7 @@ function OverviewTab({
                   key={s}
                   type="button"
                   title={blocked ? "Pay the flat fee first" : undefined}
-                  disabled={blocked}
+                  disabled={blocked || saving}
                   className={`border px-md py-sm text-button-md font-bold uppercase disabled:cursor-not-allowed disabled:opacity-40 ${
                     event.status === s
                       ? "border-accent bg-accent text-paper"
@@ -831,24 +863,27 @@ function CategoryFeeEditor({
   async function handleSave() {
     setError("");
     setSaving(true);
-    const res = await fetch(`/api/categories/${category.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        entryFee: fee ? Number(fee) : null,
-        entryCurrency: currency || "INR",
-        format,
-      }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => null);
-      setError(err?.error ?? "Failed to update price");
+    try {
+      const res = await fetch(`/api/categories/${category.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entryFee: fee ? Number(fee) : null,
+          entryCurrency: currency || "INR",
+          format,
+        }),
+      });
+      if (!res.ok) {
+        setError(await responseError(res, "Failed to update price"));
+        return;
+      }
+      setEditing(false);
+      refresh();
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
       setSaving(false);
-      return;
     }
-    setSaving(false);
-    setEditing(false);
-    refresh();
   }
 
   if (!editing) {
@@ -953,28 +988,31 @@ function RoundEditor({
   async function handleSave() {
     setSaving(true);
     setError("");
-    const res = await fetch(`/api/categories/${categoryId}/rounds/${round.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type,
-        label: label.trim() || null,
-        roundCount: Number(roundCount) || 1,
-        roundDuration: roundDuration ? Number(roundDuration) : null,
-        advanceCount: advanceCount ? Number(advanceCount) : null,
-      }),
-    });
+    try {
+      const res = await fetch(`/api/categories/${categoryId}/rounds/${round.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type,
+          label: label.trim() || null,
+          roundCount: Number(roundCount) || 1,
+          roundDuration: roundDuration ? Number(roundDuration) : null,
+          advanceCount: advanceCount ? Number(advanceCount) : null,
+        }),
+      });
 
-    if (!res.ok) {
-      const response = await res.json().catch(() => null);
-      setError(response?.error ?? "Failed to update phase");
+      if (!res.ok) {
+        setError(await responseError(res, "Failed to update phase"));
+        return;
+      }
+
+      setEditing(false);
+      refresh();
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
       setSaving(false);
-      return;
     }
-
-    setSaving(false);
-    setEditing(false);
-    refresh();
   }
 
   if (!editing) {
@@ -1083,22 +1121,37 @@ function DeleteRoundButton({
   refresh: () => void;
 }) {
   const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState("");
   async function handleDelete() {
     setDeleting(true);
-    await fetch(`/api/categories/${categoryId}/rounds/${roundId}`, {
-      method: "DELETE",
-    });
-    refresh();
+    setError("");
+    try {
+      const res = await fetch(`/api/categories/${categoryId}/rounds/${roundId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        setError(await responseError(res, "Failed to delete phase"));
+        return;
+      }
+      refresh();
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setDeleting(false);
+    }
   }
   return (
-    <button
-      className="border border-line px-sm py-xs text-[0.7rem] font-bold uppercase text-accent hover:border-accent disabled:opacity-60"
-      disabled={deleting}
-      onClick={handleDelete}
-      type="button"
-    >
-      {deleting ? "..." : "Delete"}
-    </button>
+    <div>
+      <button
+        className="border border-line px-sm py-xs text-[0.7rem] font-bold uppercase text-accent hover:border-accent disabled:opacity-60"
+        disabled={deleting}
+        onClick={() => void handleDelete()}
+        type="button"
+      >
+        {deleting ? "..." : "Delete"}
+      </button>
+      {error ? <p className="mt-xs text-[0.65rem] text-accent">{error}</p> : null}
+    </div>
   );
 }
 
@@ -1120,30 +1173,33 @@ function AddRoundForm({
     setError("");
     setSubmitting(true);
     const form = new FormData(e.currentTarget);
-    const res = await fetch(`/api/categories/${categoryId}/rounds`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: form.get("type"),
-        label: form.get("label") || undefined,
-        roundCount: Number(form.get("roundCount")) || 1,
-        roundDuration: form.get("roundDuration")
-          ? Number(form.get("roundDuration"))
-          : undefined,
-        advanceCount: form.get("advanceCount")
-          ? Number(form.get("advanceCount"))
-          : undefined,
-      }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => null);
-      setError(err?.error ?? "Failed to add round");
+    try {
+      const res = await fetch(`/api/categories/${categoryId}/rounds`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: form.get("type"),
+          label: form.get("label") || undefined,
+          roundCount: Number(form.get("roundCount")) || 1,
+          roundDuration: form.get("roundDuration")
+            ? Number(form.get("roundDuration"))
+            : undefined,
+          advanceCount: form.get("advanceCount")
+            ? Number(form.get("advanceCount"))
+            : undefined,
+        }),
+      });
+      if (!res.ok) {
+        setError(await responseError(res, "Failed to add round"));
+        return;
+      }
+      setOpen(false);
+      refresh();
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
       setSubmitting(false);
-      return;
     }
-    setSubmitting(false);
-    setOpen(false);
-    refresh();
   }
 
   if (!open) {
@@ -1246,30 +1302,33 @@ function AddCategoryForm({
     setError("");
     setSubmitting(true);
     const form = new FormData(e.currentTarget);
-    const res = await fetch(`/api/events/${eventId}/categories`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: form.get("name"),
-        format,
-        maxCompetitors: form.get("maxCompetitors")
-          ? Number(form.get("maxCompetitors"))
-          : null,
-        entryFee: form.get("entryFee") ? Number(form.get("entryFee")) : null,
-        prizeAmount: form.get("prizeAmount")
-          ? Number(form.get("prizeAmount"))
-          : null,
-      }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => null);
-      setError(err?.error ?? "Failed to add category");
+    try {
+      const res = await fetch(`/api/events/${eventId}/categories`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.get("name"),
+          format,
+          maxCompetitors: form.get("maxCompetitors")
+            ? Number(form.get("maxCompetitors"))
+            : null,
+          entryFee: form.get("entryFee") ? Number(form.get("entryFee")) : null,
+          prizeAmount: form.get("prizeAmount")
+            ? Number(form.get("prizeAmount"))
+            : null,
+        }),
+      });
+      if (!res.ok) {
+        setError(await responseError(res, "Failed to add category"));
+        return;
+      }
+      setOpen(false);
+      refresh();
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
       setSubmitting(false);
-      return;
     }
-    setSubmitting(false);
-    setOpen(false);
-    refresh();
   }
 
   if (!open) {
@@ -1425,8 +1484,16 @@ function JudgeCodeForm({
     if (mode !== "directory" || query.trim().length < 2) return;
     let active = true;
     const timer = setTimeout(async () => {
-      const res = await fetch(`/api/artists/search?q=${encodeURIComponent(query.trim())}`);
-      if (res.ok && active) setResults(await res.json());
+      try {
+        const res = await fetch(`/api/artists/search?q=${encodeURIComponent(query.trim())}`);
+        if (!res.ok) {
+          if (active) setError(await responseError(res, "Failed to search artists."));
+          return;
+        }
+        if (active) setResults(await res.json());
+      } catch {
+        if (active) setError("Network error. Please try again.");
+      }
     }, 300);
     return () => {
       active = false;
@@ -1453,13 +1520,17 @@ function JudgeCodeForm({
       return;
     }
 
-    const res = await fetch(`/api/events/${eventId}/judge-slots`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    try {
+      const res = await fetch(`/api/events/${eventId}/judge-slots`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
 
-    if (res.ok) {
+      if (!res.ok) {
+        setError(await responseError(res, "Failed to generate code."));
+        return;
+      }
       const data = await res.json();
       setGeneratedCode(data.code);
       setSelected(null);
@@ -1467,11 +1538,11 @@ function JudgeCodeForm({
       setQuery("");
       setResults([]);
       refresh();
-    } else {
-      const err = await res.json().catch(() => null);
-      setError(err?.error ?? "Failed to generate code.");
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setGenerating(false);
     }
-    setGenerating(false);
   }
 
   async function copyCode() {
@@ -1586,16 +1657,27 @@ function JudgeSlotRow({
   refresh: () => void;
 }) {
   const [toggling, setToggling] = useState(false);
+  const [error, setError] = useState("");
 
   async function handleToggle() {
     setToggling(true);
-    await fetch(`/api/judge-slots/${slot.code}/toggle`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isActive: !slot.isActive }),
-    });
-    setToggling(false);
-    refresh();
+    setError("");
+    try {
+      const res = await fetch(`/api/judge-slots/${slot.code}/toggle`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: !slot.isActive }),
+      });
+      if (!res.ok) {
+        setError(await responseError(res, "Failed to update judge slot"));
+        return;
+      }
+      refresh();
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setToggling(false);
+    }
   }
 
   return (
@@ -1605,6 +1687,7 @@ function JudgeSlotRow({
         {slot.name && (
           <span className="ml-sm text-ink-muted">{slot.name}</span>
         )}
+        {error ? <p className="mt-xs text-[0.65rem] text-accent">{error}</p> : null}
       </div>
       <button
         className={`border px-md py-xs text-[0.7rem] font-bold uppercase disabled:opacity-60 ${
@@ -1613,7 +1696,7 @@ function JudgeSlotRow({
             : "border-accent bg-accent text-paper"
         }`}
         disabled={toggling}
-        onClick={handleToggle}
+        onClick={() => void handleToggle()}
         type="button"
       >
         {slot.isActive ? "Deactivate" : "Activate"}
@@ -1627,14 +1710,24 @@ function CypherDancerPicker({ eventId, categoryId, onResult }: { eventId: string
   const [regs, setRegs] = useState<Array<{ id: string; user: { name: string | null }; teamName?: string | null; crew: string | null; seed: number | null; dancerScores: Array<{ score: number }>; members?: Array<{ status: string; user: { name: string | null; username: string | null } }> }>>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      const res = await fetch(`/api/events/${eventId}/registrations?categoryId=${categoryId}&status=CONFIRMED`);
-      if (res.ok && !cancelled) {
+      try {
+        const res = await fetch(`/api/events/${eventId}/registrations?categoryId=${categoryId}&status=CONFIRMED`);
+        if (!res.ok) {
+          if (!cancelled) setError(await responseError(res, "Failed to load entries."));
+          return;
+        }
         const data = await res.json();
-        setRegs(Array.isArray(data) ? data : []);
+        if (!cancelled) {
+          setRegs(Array.isArray(data) ? data : []);
+          setError("");
+        }
+      } catch {
+        if (!cancelled) setError("Network error. Please try again.");
       }
     };
     void load();
@@ -1650,6 +1743,7 @@ function CypherDancerPicker({ eventId, categoryId, onResult }: { eventId: string
 
   const advance = async () => {
     setBusy(true);
+    setError("");
     try {
       const res = await fetch(`/api/categories/${categoryId}/cypher-advance`, {
         method: "POST",
@@ -1661,9 +1755,10 @@ function CypherDancerPicker({ eventId, categoryId, onResult }: { eventId: string
         router.refresh();
         onResult(true);
       } else {
-        const error = await res.json().catch(() => null);
-        onResult(false, error?.error ?? "Failed to advance");
+        onResult(false, await responseError(res, "Failed to advance"));
       }
+    } catch {
+      onResult(false, "Network error. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -1672,9 +1767,10 @@ function CypherDancerPicker({ eventId, categoryId, onResult }: { eventId: string
   return (
     <div className="mt-lg border-t border-line pt-md">
        <p className="font-mono text-[0.7rem] uppercase text-ink-muted mb-xs">Select entries to advance</p>
-      <p className="mb-md text-body-sm text-ink-muted">
-         Tick complete entries that move to the next round, then confirm.
-      </p>
+       <p className="mb-md text-body-sm text-ink-muted">
+          Tick complete entries that move to the next round, then confirm.
+       </p>
+       {error ? <p className="mb-md text-body-sm text-accent">{error}</p> : null}
       {[...regs]
         .sort((a, b) => {
           const ta = a.dancerScores.reduce((s, d) => s + d.score, 0);
@@ -1708,8 +1804,9 @@ function CypherDancerPicker({ eventId, categoryId, onResult }: { eventId: string
 function RegistrationsTab({ event }: { event: EventWithRelations }) {
   const [categoryId, setCategoryId] = useState(event.categories[0]?.id ?? "");
   const [registrations, setRegistrations] = useState<RegistrationRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(event.categories.length > 0);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (!categoryId) return;
@@ -1717,10 +1814,17 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
     const load = async () => {
       try {
         const res = await fetch(`/api/events/${event.id}/registrations?categoryId=${categoryId}`);
+        if (!res.ok) {
+          if (!cancelled) setError(await responseError(res, "Failed to load registrations."));
+          return;
+        }
         const data = await res.json();
-        if (!cancelled) setRegistrations(Array.isArray(data) ? data : []);
+        if (!cancelled) {
+          setRegistrations(Array.isArray(data) ? data : []);
+          setError("");
+        }
       } catch {
-        if (!cancelled) setRegistrations([]);
+        if (!cancelled) setError("Network error. Please try again.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -1733,9 +1837,20 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
     if (!categoryId) return;
     let cancelled = false;
     const load = async () => {
-      const res = await fetch(`/api/events/${event.id}/registrations?categoryId=${categoryId}`);
-      const data = await res.json();
-      if (!cancelled) setRegistrations(Array.isArray(data) ? data : []);
+      try {
+        const res = await fetch(`/api/events/${event.id}/registrations?categoryId=${categoryId}`);
+        if (!res.ok) {
+          if (!cancelled) setError(await responseError(res, "Failed to refresh registrations."));
+          return;
+        }
+        const data = await res.json();
+        if (!cancelled && Array.isArray(data)) {
+          setRegistrations(data);
+          setError("");
+        }
+      } catch {
+        if (!cancelled) setError("Network error. Please try again.");
+      }
     };
     const interval = window.setInterval(() => void load(), 5000);
     return () => { cancelled = true; window.clearInterval(interval); };
@@ -1745,8 +1860,15 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
     setRefreshing(true);
     try {
       const res = await fetch(`/api/events/${event.id}/registrations?categoryId=${categoryId}`);
+      if (!res.ok) {
+        setError(await responseError(res, "Failed to refresh registrations."));
+        return;
+      }
       const data = await res.json();
       setRegistrations(Array.isArray(data) ? data : []);
+      setError("");
+    } catch {
+      setError("Network error. Please try again.");
     } finally {
       setRefreshing(false);
     }
@@ -1772,6 +1894,7 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
         <span className="text-body-sm text-ink-muted">
           ({registrations.length} registrations)
         </span>
+        {error ? <span className="text-body-sm text-accent">{error}</span> : null}
         <button
           className="ml-auto border border-line px-md py-sm font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted transition-colors hover:border-accent hover:text-accent disabled:cursor-wait disabled:opacity-60"
           disabled={refreshing}
@@ -1830,8 +1953,22 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
                   onUpdate={() => {
                     const url = `/api/events/${event.id}/registrations?categoryId=${categoryId}`;
                     fetch(url)
-                      .then((r) => r.json())
-                      .then((data) => setRegistrations(data));
+                      .then(async (r) => {
+                        if (!r.ok) {
+                          setError(await responseError(r, "Failed to refresh registrations."));
+                          return [];
+                        }
+                        return r.json();
+                      })
+                      .then((data) => {
+                        if (Array.isArray(data)) {
+                          setRegistrations(data);
+                          setError("");
+                        }
+                      })
+                      .catch(() => {
+                        setError("Network error. Please try again.");
+                      });
                   }}
                 />
               ))}
@@ -1852,38 +1989,39 @@ function RegistrationRow({
 }) {
   const [seed, setSeed] = useState(registration.seed?.toString() ?? "");
   const [updating, setUpdating] = useState(false);
+  const [error, setError] = useState("");
+
+  async function patchRegistration(body: Record<string, unknown>) {
+    setUpdating(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/registrations/${registration.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => null);
+        setError(errBody?.error ?? "Action failed. Please try again.");
+      }
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setUpdating(false);
+      onUpdate();
+    }
+  }
 
   async function handlePaid() {
-    setUpdating(true);
-    await fetch(`/api/registrations/${registration.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ paid: true }),
-    });
-    setUpdating(false);
-    onUpdate();
+    await patchRegistration({ paid: true });
   }
 
   async function handleWithdraw() {
-    setUpdating(true);
-    await fetch(`/api/registrations/${registration.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "WITHDRAWN" }),
-    });
-    setUpdating(false);
-    onUpdate();
+    await patchRegistration({ status: "WITHDRAWN" });
   }
 
   async function handleSeed() {
-    setUpdating(true);
-    await fetch(`/api/registrations/${registration.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ seed: seed ? Number(seed) : null }),
-    });
-    setUpdating(false);
-    onUpdate();
+    await patchRegistration({ seed: seed ? Number(seed) : null });
   }
 
   return (
@@ -1945,23 +2083,26 @@ function RegistrationRow({
         </div>
       </td>
       <td className="px-md py-sm">
-        <div className="flex gap-xs">
-          <button
-            className="border border-accent px-sm py-xs text-[0.7rem] font-bold uppercase text-accent hover:bg-accent hover:text-paper disabled:opacity-60"
-            disabled={updating || registration.paid || registration.status === "WITHDRAWN"}
-            onClick={() => void handlePaid()}
-            type="button"
-          >
-            {registration.paid ? "Paid" : "Mark paid"}
-          </button>
-          <button
-            className="border border-line px-sm py-xs text-[0.7rem] font-bold uppercase text-ink-muted hover:border-accent disabled:opacity-60"
-            disabled={updating || registration.status === "WITHDRAWN"}
-            onClick={() => void handleWithdraw()}
-            type="button"
-          >
-            Reject
-          </button>
+        <div className="flex flex-col gap-xs">
+          <div className="flex gap-xs">
+            <button
+              className="border border-accent px-sm py-xs text-[0.7rem] font-bold uppercase text-accent hover:bg-accent hover:text-paper disabled:opacity-60"
+              disabled={updating || registration.paid || registration.status === "WITHDRAWN"}
+              onClick={() => void handlePaid()}
+              type="button"
+            >
+              {registration.paid ? "Paid" : "Mark paid"}
+            </button>
+            <button
+              className="border border-line px-sm py-xs text-[0.7rem] font-bold uppercase text-ink-muted hover:border-accent disabled:opacity-60"
+              disabled={updating || registration.status === "WITHDRAWN"}
+              onClick={() => void handleWithdraw()}
+              type="button"
+            >
+              Reject
+            </button>
+          </div>
+          {error ? <span className="text-[0.65rem] uppercase text-accent">{error}</span> : null}
         </div>
       </td>
     </tr>
@@ -2041,24 +2182,27 @@ function PrizePoolSection({
   async function handleSave() {
     setError("");
     setSubmitting(true);
-    const res = await fetch(`/api/categories/${category.id}/prize-pool`, {
-      method: category.prizePool ? "PATCH" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        totalAmount: Number(totalAmount),
-        currency,
-        distribution,
-        isPaid,
-      }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => null);
-      setError(err?.error ?? "Failed to save prize pool");
+    try {
+      const res = await fetch(`/api/categories/${category.id}/prize-pool`, {
+        method: category.prizePool ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          totalAmount: Number(totalAmount),
+          currency,
+          distribution,
+          isPaid,
+        }),
+      });
+      if (!res.ok) {
+        setError(await responseError(res, "Failed to save prize pool"));
+        return;
+      }
+      refresh();
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
       setSubmitting(false);
-      return;
     }
-    setSubmitting(false);
-    refresh();
   }
 
   return (
@@ -2212,19 +2356,31 @@ function BracketView({
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/events/${eventId}/categories/${categoryId}/bracket`);
-    if (res.ok) {
+    try {
+      const res = await fetch(`/api/events/${eventId}/categories/${categoryId}/bracket`);
+      if (!res.ok) {
+        setError(await responseError(res, "Failed to load bracket"));
+        return;
+      }
       const data = await res.json();
       setMatches(Array.isArray(data) ? data : []);
+    } catch {
+      setError("Network error. Please try again.");
     }
   }, [categoryId, eventId]);
 
   useEffect(() => {
     const initial = async () => {
-      const res = await fetch(`/api/events/${eventId}/categories/${categoryId}/bracket`);
-      if (res.ok) {
+      try {
+        const res = await fetch(`/api/events/${eventId}/categories/${categoryId}/bracket`);
+        if (!res.ok) {
+          setError(await responseError(res, "Failed to load bracket"));
+          return;
+        }
         const data = await res.json();
         setMatches(Array.isArray(data) ? data : []);
+      } catch {
+        setError("Network error. Please try again.");
       }
     };
     void initial();
@@ -2240,8 +2396,7 @@ function BracketView({
         body: body ? JSON.stringify(body) : undefined,
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError((data as { error?: string }).error ?? "Action failed");
+        setError(await responseError(res, "Action failed"));
       }
       await load();
     } catch {

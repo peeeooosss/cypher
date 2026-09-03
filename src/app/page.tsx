@@ -147,9 +147,14 @@ export default async function Home() {
                   Create and market your competition to thousands of artists, take
                   online payments, and hire the exact talent your stage needs.
                 </p>
+                <ul className="mt-lg space-y-xs text-body-sm text-ink-muted">
+                  <li><span className="text-accent">01 — </span>Create your event &amp; categories</li>
+                  <li><span className="text-accent">02 — </span>Set phases, judges &amp; prizes</li>
+                  <li><span className="text-accent">03 — </span>Run it live from the Control Room</li>
+                </ul>
               </div>
               <span className="mt-lg font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted transition-colors group-hover:text-accent">
-                What organizers get —
+                See the step-by-step guide →
               </span>
             </Link>
             <Link
@@ -167,9 +172,14 @@ export default async function Home() {
                   Never miss a competition, register in minutes, climb the live
                   leaderboard, and land paid gigs and freelance work.
                 </p>
+                <ul className="mt-lg space-y-xs text-body-sm text-ink-muted">
+                  <li><span className="text-accent">01 — </span>Build your artist profile</li>
+                  <li><span className="text-accent">02 — </span>Register &amp; pay your entry</li>
+                  <li><span className="text-accent">03 — </span>Battle live &amp; get hired</li>
+                </ul>
               </div>
               <span className="mt-lg font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted transition-colors group-hover:text-accent">
-                What artists get —
+                See the step-by-step guide →
               </span>
             </Link>
           </div>

@@ -48,6 +48,9 @@ export default async function PublicArtistProfilePage({ params }: PageProps) {
             Artist profile
           </p>
           <h1 className="font-display text-display-lg uppercase">{artist.name ?? "Unnamed artist"}</h1>
+          {artist.username ? (
+            <p className="mt-xs font-mono text-[0.7rem] text-ink-muted">@{artist.username}</p>
+          ) : null}
           <p className="mt-sm text-body-sm text-ink-muted">
             {[artist.style, artist.crew, artist.city, artist.country, formatExperience(artist.experience)].filter(Boolean).join(" · ")}
           </p>
@@ -56,6 +59,20 @@ export default async function PublicArtistProfilePage({ params }: PageProps) {
           ) : null}
         </div>
       </div>
+
+      {artist.keywords ? (
+        <div className="mt-lg flex flex-wrap gap-x-md gap-y-1 text-body-sm text-ink-muted">
+          {artist.keywords
+            .split(/[,\n]+/)
+            .map((k) => k.trim())
+            .filter(Boolean)
+            .map((k) => (
+              <span key={k} className="border border-line px-sm py-xs font-mono text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">
+                {k}
+              </span>
+            ))}
+        </div>
+      ) : null}
 
       {artist.skills.length > 0 && (
         <div className="mt-lg flex flex-wrap gap-xs">

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { UserRole } from "@/generated/prisma/enums";
 import { badRequest, conflict, isUniqueConstraintError, serverError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
+import { consumeVerifiedEmail } from "@/lib/email-verification";
 
 const ARTIST_PROFILE_FIELDS = ["city", "country", "experience", "socialHandle"] as const;
 
@@ -39,16 +40,26 @@ export async function POST(request: Request) {
     return badRequest(parsed.error.issues[0]?.message ?? "Invalid signup data");
   }
 
-   const { email, password, name, role, username, ...profile } = parsed.data;
+  const { email, password, name, role, username, ...profile } = parsed.data;
+  const normalizedEmail = email.toLowerCase();
 
   try {
+    const verified = await consumeVerifiedEmail(normalizedEmail);
+    if (!verified) {
+      return NextResponse.json(
+        { error: "Please verify your email before creating the account." },
+        { status: 400 },
+      );
+    }
+
     const user = await prisma.user.create({
       data: {
-        email: email.toLowerCase(),
+        email: normalizedEmail,
         name,
         username: username ?? null,
         passwordHash: await hash(password, 12),
         role,
+        emailVerifiedAt: new Date(),
         style: profile.style ?? null,
         crew: profile.crew ?? null,
         city: profile.city ?? null,
@@ -60,10 +71,10 @@ export async function POST(request: Request) {
       select: { id: true, email: true, name: true, role: true },
     });
 
-    return NextResponse.json(user, { status: 201 });
+    return NextResponse.json({ ...user }, { status: 201 });
   } catch (error) {
-     if (isUniqueConstraintError(error)) {
-       return conflict("That email or username is already in use");
+    if (isUniqueConstraintError(error)) {
+      return conflict("That email or username is already in use");
     }
 
     console.error(error);

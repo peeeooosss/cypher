@@ -7,6 +7,7 @@ import { getCurrentUser } from "@/lib/rbac";
 import { flatFeeForEventType } from "@/lib/pricing";
 import { isValidState } from "@/lib/states";
 import { prisma } from "@/lib/prisma";
+import { isUploadThingUrl } from "@/lib/uploadthing-url";
 
 const eventSchema = z.object({
   title: z.string().trim().min(2).max(120),
@@ -14,6 +15,7 @@ const eventSchema = z.object({
   description: z.string().trim().max(5000).optional(),
   eventType: z.enum(EventType),
   posterUrl: z.string().trim().max(3_000_000).nullable().optional(),
+  posterFileKey: z.string().trim().min(1).max(255).nullable().optional(),
   venue: z.string().trim().max(200).optional(),
   googleMapsUrl: z.string().trim().max(3000).nullable().optional(),
   city: z.string().trim().max(120).optional(),
@@ -21,7 +23,10 @@ const eventSchema = z.object({
     message: "Invalid state",
   }),
   startsAt: z.coerce.date(),
-  status: z.enum(EventStatus).default(EventStatus.DRAFT),
+}).superRefine((data, ctx) => {
+  if (data.posterFileKey && (!data.posterUrl || !isUploadThingUrl(data.posterUrl))) {
+    ctx.addIssue({ code: "custom", message: "Poster must be uploaded through UploadThing", path: ["posterUrl"] });
+  }
 });
 
 export async function GET(request: Request) {
@@ -56,38 +61,54 @@ export async function GET(request: Request) {
     ...(stateFilter ? { state: stateFilter } : {}),
   };
 
-  const events = await prisma.event.findMany({
-    where,
-    include: {
-      organizer: { select: { name: true } },
-      categories: {
-        include: { _count: { select: { registrations: true } } },
+  try {
+    const events = await prisma.event.findMany({
+      where,
+      include: {
+        organizer: { select: { name: true } },
+        categories: {
+          include: { _count: { select: { registrations: true } } },
+        },
       },
-    },
-    orderBy: { startsAt: "asc" },
-  });
+      orderBy: { startsAt: "asc" },
+    });
 
-  return NextResponse.json(events);
+    return NextResponse.json(events);
+  } catch (error) {
+    console.error(error);
+    return serverError();
+  }
 }
 
 export async function POST(request: Request) {
-  const user = await getCurrentUser();
-
-  if (!user) {
-    return unauthorized();
-  }
-
-  if (user.role !== "ORGANIZER") {
-    return NextResponse.json({ error: "Only organizers can create events" }, { status: 403 });
-  }
-
-  const parsed = eventSchema.safeParse(await request.json().catch(() => null));
-
-  if (!parsed.success) {
-    return badRequest(parsed.error.issues[0]?.message ?? "Invalid event data");
-  }
-
   try {
+    const user = await getCurrentUser();
+
+    if (!user) {
+      return unauthorized();
+    }
+
+    if (user.role !== "ORGANIZER") {
+      return NextResponse.json({ error: "Only organizers can create events" }, { status: 403 });
+    }
+
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { id: true, isSuspended: true },
+    });
+    if (!dbUser) {
+      return unauthorized();
+    }
+    if (dbUser.isSuspended) {
+      return NextResponse.json({ error: "Account suspended" }, { status: 403 });
+    }
+
+    const parsed = eventSchema.safeParse(await request.json().catch(() => null));
+
+    if (!parsed.success) {
+      return badRequest(parsed.error.issues[0]?.message ?? "Invalid event data");
+    }
+
     const { eventType, ...rest } = parsed.data;
 
     const event = await prisma.event.create({
@@ -95,6 +116,7 @@ export async function POST(request: Request) {
         ...rest,
         eventType,
         flatFee: flatFeeForEventType(eventType),
+        status: EventStatus.DRAFT,
         organizer: { connect: { id: user.id } },
       },
       include: { categories: true },

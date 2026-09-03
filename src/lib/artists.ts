@@ -18,6 +18,7 @@ export async function getDirectoryArtists(viewerRole?: UserRole | null): Promise
     select: {
       id: true,
       name: true,
+      username: true,
       avatarUrl: true,
       style: true,
       crew: true,
@@ -25,6 +26,7 @@ export async function getDirectoryArtists(viewerRole?: UserRole | null): Promise
       country: true,
       experience: true,
       socialHandle: true,
+      keywords: true,
       skills: true,
       _count: { select: { achievements: true, registrations: true } },
       registrations: {
@@ -40,6 +42,7 @@ export async function getDirectoryArtists(viewerRole?: UserRole | null): Promise
   return users.map((u) => ({
     id: u.id,
     name: u.name,
+    username: u.username,
     avatarUrl: u.avatarUrl,
     style: u.style,
     crew: u.crew,
@@ -47,6 +50,7 @@ export async function getDirectoryArtists(viewerRole?: UserRole | null): Promise
     country: u.country,
     experience: u.experience,
     socialHandle: u.socialHandle,
+    keywords: u.keywords,
     skills: u.skills,
     wins: u.registrations.reduce((sum, r) => sum + r.matchesWon.length, 0),
     matches: u.registrations.reduce((sum, r) => sum + r._count.matchesAsA + r._count.matchesAsB, 0),
@@ -68,6 +72,7 @@ export async function getArtistProfile(userId: string, viewerRole?: UserRole | n
     select: {
       id: true,
       name: true,
+      username: true,
       avatarUrl: true,
       style: true,
       crew: true,
@@ -75,6 +80,7 @@ export async function getArtistProfile(userId: string, viewerRole?: UserRole | n
       country: true,
       experience: true,
       socialHandle: true,
+      keywords: true,
       skills: true,
       achievements: { orderBy: [{ year: "desc" }, { createdAt: "desc" }] },
       registrations: {

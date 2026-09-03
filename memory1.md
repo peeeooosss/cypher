@@ -88,8 +88,8 @@
 
 ### What was implemented
 1. **Schema Change**: `isProfilePublic Boolean @default(true)` on User model
-2. **Vercel Blob Storage**: `cypher-avatars` store (public, iad1)
-3. **Avatar Upload API**: `POST/DELETE /api/users/me/avatar` (JPG/PNG/WebP, <=5MB)
+2. **UploadThing Storage**: avatars, studio logos, event posters via UploadThing (replaced Vercel Blob)
+3. **Avatar Upload API**: `POST/DELETE /api/users/me/avatar` (JPG/PNG/WebP, <=5MB, UploadThing)
 4. **Profile Form**: avatar upload/remove/change, public/private visibility toggle
 5. **Privacy Enforcement**: visitors/judges see public only; logged-in users see all
 6. **Auth/Session**: `avatarUrl` in NextAuth JWT + session
@@ -165,7 +165,7 @@
 
 ### What was implemented
 1. **Schema**: `studioName`, `studioLogoUrl`, `studioFoundedAt` on User model
-2. **API**: `POST/DELETE /api/users/me/studio-logo` (Vercel Blob, 2MB max), `GET/PATCH /api/users/me/profile`
+2. **API**: `POST/DELETE /api/users/me/studio-logo` (UploadThing, 2MB max), `GET/PATCH /api/users/me/profile`
 3. **UI**: `OrganizerProfileForm` on `/organizer` page with name, logo upload, founded year
 4. **Event Detail**: Shows circular logo + studio name + "Est. YYYY" after poster
 
@@ -268,7 +268,7 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 - `src/components/event-form.tsx` — event creation with Google Maps URL input
 - `src/components/event-dashboard.tsx` — event edit with Google Maps URL input + prize pool management
 - `src/components/organizer-profile-form.tsx` — studio name, logo upload, founded year
-- `src/app/api/users/me/studio-logo/route.ts` — logo upload/delete via Vercel Blob
+- `src/app/api/users/me/studio-logo/route.ts` — logo upload/delete via UploadThing
 - `src/app/api/users/me/profile/route.ts` — studio profile PATCH/GET
 
 ### Messaging
@@ -329,7 +329,9 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 - `NEXTAUTH_SECRET` — auth secret
 - `NEXTAUTH_URL` — auth callback URL
 - `NEXT_PUBLIC_APP_URL` — public app URL
-- `BLOB_READ_WRITE_TOKEN` — Vercel Blob store token
+- `UPLOADTHING_TOKEN` — UploadThing API token (for avatars, studio logos, event posters)
+- `RESEND_API_KEY` — Resend API key for email verification (live key)
+- `RESEND_FROM` — Verified Resend sender: `admin@tryauraai.in` (domain `tryauraai.in` verified in Resend, LIVE mode)
 - `NEXT_PUBLIC_SOCKET_URL` — Socket.io server URL
 - `SOCKET_INTERNAL_URL` — Socket.io internal URL
 - `PAYU_ENV` — test or production

@@ -1,4 +1,24 @@
 {
   "buildCommand": "prisma generate && next build",
-  "regions": ["sin1"]
+  "regions": ["sin1"],
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "joincyphr.in" }],
+      "destination": "https://www.joincyphr.in/:path*",
+      "permanent": false
+    },
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "cypher-dhanda.vercel.app" }],
+      "destination": "https://www.joincyphr.in/:path*",
+      "permanent": false
+    },
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "cypher-git-main-dhanda.vercel.app" }],
+      "destination": "https://www.joincyphr.in/:path*",
+      "permanent": false
+    }
+  ]
 }

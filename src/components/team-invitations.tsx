@@ -16,16 +16,28 @@ type Invitation = {
 export function TeamInvitations({ initialInvitations }: { initialInvitations: Invitation[] }) {
   const [invitations, setInvitations] = useState(initialInvitations);
   const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
   async function respond(invitation: Invitation, status: "ACCEPTED" | "DECLINED") {
     setBusy(invitation.id);
-    const response = await fetch(`/api/registrations/${invitation.registration.id}/members/${invitation.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-    if (response.ok) setInvitations((current) => current.filter((item) => item.id !== invitation.id));
-    setBusy(null);
+    setError("");
+    try {
+      const response = await fetch(`/api/registrations/${invitation.registration.id}/members/${invitation.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (response.ok) {
+        setInvitations((current) => current.filter((item) => item.id !== invitation.id));
+      } else {
+        const body = await response.json().catch(() => null);
+        setError(body?.error ?? "Could not update the invitation. Please try again.");
+      }
+    } catch {
+      setError("Network error. Please check your connection and try again.");
+    } finally {
+      setBusy(null);
+    }
   }
 
   if (invitations.length === 0) return null;
@@ -33,6 +45,7 @@ export function TeamInvitations({ initialInvitations }: { initialInvitations: In
   return (
     <section className="mt-section border border-accent bg-paper-soft p-lg">
       <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-accent">Team invitations</p>
+      {error ? <p className="mt-sm text-body-sm text-accent">{error}</p> : null}
       <div className="mt-md space-y-sm">
         {invitations.map((invitation) => (
           <div className="flex flex-wrap items-center justify-between gap-md border border-line p-md" key={invitation.id}>

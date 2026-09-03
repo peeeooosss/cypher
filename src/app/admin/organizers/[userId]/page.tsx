@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getAdminOrganizer, requireAdmin } from "@/lib/admin";
 import { formatInr } from "@/lib/pricing";
 import { AdminSuspendButton } from "@/components/admin-suspend-button";
+import { AdminDeleteButton } from "@/components/admin-delete-button";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,7 @@ export default async function AdminOrganizerDetailPage({ params }: PageProps) {
             </span>
           ) : null}
           <AdminSuspendButton userId={organizer.id} isSuspended={organizer.isSuspended} />
+          <AdminDeleteButton userId={organizer.id} apiPath="/api/admin/organizers" />
         </div>
       </div>
 

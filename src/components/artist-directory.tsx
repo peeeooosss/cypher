@@ -8,6 +8,7 @@ import { formatExperience } from "@/lib/format";
 export type DirectoryArtist = {
   id: string;
   name: string | null;
+  username: string | null;
   avatarUrl: string | null;
   style: string | null;
   crew: string | null;
@@ -15,6 +16,7 @@ export type DirectoryArtist = {
   country: string | null;
   experience: string | null;
   socialHandle: string | null;
+  keywords: string | null;
   skills: string[];
   wins: number;
   matches: number;
@@ -37,15 +39,30 @@ export function ArtistDirectory({
   const filtered = useMemo(() => {
     return artists.filter((artist) => {
       const q = query.trim().toLowerCase();
-      const matchesQuery =
-        !q ||
-        [artist.name, artist.style, artist.crew, artist.city, artist.socialHandle]
-          .filter(Boolean)
-          .some((v) => String(v).toLowerCase().includes(q));
+
       const matchesSkills =
         selectedSkills.length === 0 ||
         artist.skills.some((skill) => selectedSkills.includes(skill));
-      return matchesQuery && matchesSkills;
+
+      if (!matchesSkills) return false;
+      if (!q) return true;
+
+      const searchText = [
+        artist.name,
+        artist.username,
+        artist.style,
+        artist.crew,
+        artist.city,
+        artist.country,
+        artist.socialHandle,
+        artist.keywords,
+        ...artist.skills,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return searchText.includes(q);
     });
   }, [artists, query, selectedSkills]);
 
@@ -57,12 +74,23 @@ export function ArtistDirectory({
 
   return (
     <div className="mt-section">
-      <input
-        className="w-full max-w-md border border-line bg-paper px-md py-sm text-body-sm"
-        placeholder="Search name, style, crew, city..."
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-      />
+      <div className="flex flex-wrap items-center gap-md">
+        <input
+          className="min-w-0 flex-1 border border-line bg-paper px-md py-sm text-body-sm focus:border-accent"
+          placeholder="Search name, @username, handle, style, crew, city, country, keywords, skills..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        {query ? (
+          <button
+            type="button"
+            onClick={() => setQuery("")}
+            className="shrink-0 border border-line px-md py-sm font-mono text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted hover:border-accent hover:text-accent"
+          >
+            Clear
+          </button>
+        ) : null}
+      </div>
       <div className="mt-md flex flex-wrap gap-xs">
         {SKILLS.map((skill) => {
           const active = selectedSkills.includes(skill);
@@ -97,7 +125,7 @@ export function ArtistDirectory({
             >
               {isPublic ? (
                 <span className="absolute right-md top-md font-mono text-[0.55rem] uppercase tracking-[0.15em] text-ink-muted">
-                  Public profile
+                  Public
                 </span>
               ) : null}
               <div className="flex items-center gap-md">
@@ -106,24 +134,32 @@ export function ArtistDirectory({
                   <img
                     src={artist.avatarUrl}
                     alt={`${artist.name ?? "Artist"}`}
-                    className="h-14 w-14 shrink-0 rounded-full border border-line object-cover"
+                    className="h-20 w-20 shrink-0 rounded-full border border-line object-cover"
                   />
                 ) : (
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-line bg-paper font-display text-lg uppercase text-ink-muted">
+                  <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border border-line bg-paper font-display text-title-lg uppercase text-ink-muted">
                     {artist.name?.charAt(0) ?? "?"}
                   </div>
                 )}
-                <h2 className="font-display text-title-md uppercase transition-colors group-hover:text-accent">
-                  {artist.name ?? "Unnamed artist"}
-                </h2>
+                <div className="min-w-0">
+                  <h2 className="truncate font-display text-title-md uppercase transition-colors group-hover:text-accent">
+                    {artist.name ?? "Unnamed artist"}
+                  </h2>
+                  {artist.username ? (
+                    <p className="truncate font-mono text-[0.7rem] text-ink-muted">@{artist.username}</p>
+                  ) : null}
+                  {artist.socialHandle ? (
+                    <p className="truncate font-mono text-[0.7rem] text-accent">{artist.socialHandle}</p>
+                  ) : null}
+                </div>
               </div>
-              <p className="mt-xs text-body-sm text-ink-muted">
-                {[artist.style, artist.crew, artist.city, formatExperience(artist.experience)]
+              <p className="mt-sm text-body-sm text-ink-muted">
+                {[artist.style, artist.crew, artist.city, artist.country, formatExperience(artist.experience)]
                   .filter(Boolean)
                   .join(" · ")}
               </p>
-              {artist.socialHandle ? (
-                <p className="mt-xs font-mono text-[0.7rem] text-accent">{artist.socialHandle}</p>
+              {artist.keywords ? (
+                <p className="mt-sm truncate text-body-sm text-ink-muted">{artist.keywords}</p>
               ) : null}
               {artist.skills.length > 0 && (
                 <div className="mt-md flex flex-wrap gap-xs">

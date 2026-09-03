@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { responseError } from "@/lib/client-error";
 
 export function AdminPaymentActions({
   id,
@@ -29,18 +30,22 @@ export function AdminPaymentActions({
           : scope === "gig-connection"
             ? "/api/admin/gig-connection"
             : "/api/admin/payments";
-    const res = await fetch(`${base}/${id}/${action}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type }),
-    });
-    setBusy("");
-    if (!res.ok) {
-      const body = await res.json().catch(() => null);
-      setError(body?.error ?? "Failed");
-      return;
+    try {
+      const res = await fetch(`${base}/${id}/${action}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type }),
+      });
+      if (!res.ok) {
+        setError(await responseError(res, "Failed"));
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setBusy("");
     }
-    router.refresh();
   }
 
   return (

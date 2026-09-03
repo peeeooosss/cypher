@@ -10,8 +10,12 @@ export async function clearCategoryCompetitionData(
   });
 
   if (matches.length > 0) {
+    const matchIds = matches.map((match) => match.id);
+    await transaction.judgeAssignment.deleteMany({
+      where: { matchId: { in: matchIds } },
+    });
     await transaction.scoreAuditLog.deleteMany({
-      where: { matchId: { in: matches.map((match) => match.id) } },
+      where: { matchId: { in: matchIds } },
     });
     await transaction.battleMatch.deleteMany({ where: { categoryId } });
   }

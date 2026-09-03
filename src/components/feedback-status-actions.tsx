@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { FeedbackStatus } from "@/generated/prisma/enums";
+import { responseError } from "@/lib/client-error";
 
 export function FeedbackStatusActions({
   id,
@@ -19,18 +20,22 @@ export function FeedbackStatusActions({
     if (status === current) return;
     setBusy(true);
     setError("");
-    const res = await fetch(`/api/admin/feedback/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-    setBusy(false);
-    if (!res.ok) {
-      const body = await res.json().catch(() => null);
-      setError(body?.error ?? "Failed to update");
-      return;
+    try {
+      const res = await fetch(`/api/admin/feedback/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) {
+        setError(await responseError(res, "Failed to update"));
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setBusy(false);
     }
-    router.refresh();
   }
 
   const options: FeedbackStatus[] = [

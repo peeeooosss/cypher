@@ -2,6 +2,8 @@
 
 import { useState, useRef, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
+import { responseError } from "@/lib/client-error";
+import { useUploadThing } from "@/lib/uploadthing";
 
 type Profile = {
   studioName: string | null;
@@ -22,6 +24,9 @@ export function OrganizerProfileForm({ initialProfile }: { initialProfile: Profi
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { startUpload } = useUploadThing("studioLogoUploader", {
+    onUploadError: (uploadError) => setLogoError(uploadError.message || "Upload failed."),
+  });
 
   async function handleLogoUpload(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -30,23 +35,35 @@ export function OrganizerProfileForm({ initialProfile }: { initialProfile: Profi
     setLogoState("uploading");
     setLogoError(null);
 
-    const formData = new FormData();
-    formData.set("file", file);
+    try {
+      const uploaded = await startUpload([file]);
+      const result = uploaded?.[0];
+      if (!result) {
+        setLogoError("Upload failed.");
+        setLogoState("error");
+        return;
+      }
 
-    const res = await fetch("/api/users/me/studio-logo", {
-      method: "POST",
-      body: formData,
-    });
+      const res = await fetch("/api/users/me/studio-logo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studioLogoUrl: result.ufsUrl, studioLogoFileKey: result.key }),
+      });
 
-    if (res.ok) {
+      if (!res.ok) {
+        setLogoError(await responseError(res, "Upload failed."));
+        setLogoState("error");
+        return;
+      }
       const data = await res.json();
       setLogoUrl(data.studioLogoUrl);
       setLogoState("success");
       router.refresh();
-    } else {
-      const data = await res.json().catch(() => null);
-      setLogoError(data?.error ?? "Upload failed.");
+    } catch {
+      setLogoError("Network error. Please try again.");
       setLogoState("error");
+    } finally {
+      setLogoState((state) => state === "uploading" ? "error" : state);
     }
   }
 
@@ -54,15 +71,19 @@ export function OrganizerProfileForm({ initialProfile }: { initialProfile: Profi
     setLogoState("uploading");
     setLogoError(null);
 
-    const res = await fetch("/api/users/me/studio-logo", { method: "DELETE" });
+    try {
+      const res = await fetch("/api/users/me/studio-logo", { method: "DELETE" });
 
-    if (res.ok) {
+      if (!res.ok) {
+        setLogoError(await responseError(res, "Failed to remove logo."));
+        setLogoState("error");
+        return;
+      }
       setLogoUrl(null);
       setLogoState("idle");
       router.refresh();
-    } else {
-      const data = await res.json().catch(() => null);
-      setLogoError(data?.error ?? "Failed to remove logo.");
+    } catch {
+      setLogoError("Network error. Please try again.");
       setLogoState("error");
     }
   }
@@ -76,23 +97,27 @@ export function OrganizerProfileForm({ initialProfile }: { initialProfile: Profi
       ? new Date(`${parseInt(foundedYear, 10)}-01-01T00:00:00Z`)
       : null;
 
-    const res = await fetch("/api/users/me/profile", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        studioName: studioName.trim() || null,
-        studioFoundedAt: foundedDate,
-      }),
-    });
+    try {
+      const res = await fetch("/api/users/me/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studioName: studioName.trim() || null,
+          studioFoundedAt: foundedDate,
+        }),
+      });
 
-    if (res.ok) {
+      if (!res.ok) {
+        setNotice(await responseError(res, "Failed to save."));
+        return;
+      }
       setNotice("Studio profile saved.");
       router.refresh();
-    } else {
-      const data = await res.json().catch(() => null);
-      setNotice(data?.error ?? "Failed to save.");
+    } catch {
+      setNotice("Network error. Please try again.");
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   }
 
   return (

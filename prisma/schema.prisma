@@ -150,188 +150,219 @@ enum RegistrationMemberStatus {
 }
 
 model User {
-  id              String            @id @default(cuid())
-  email           String            @unique
-  name            String?
-  username        String?           @unique
-  passwordHash    String?
-  role            UserRole          @default(ARTIST)
-  avatarUrl       String?
-  isProfilePublic Boolean          @default(true)
-  upiId           String?
-  whatsappNumber  String?
-  studioName      String?
-  studioLogoUrl   String?
-  studioFoundedAt DateTime?
-  style           String?
-  crew            String?
-  city            String?
-  country         String?
-  experience      String?
-  socialHandle    String?
-  referral        String?
-  skills          Skill[]           @default([])
-  organizedEvents Event[]           @relation("EventOrganizer")
-  registrations   Registration[]
-  teamMemberships RegistrationMember[] @relation("RegistrationMemberUser")
-  feedbackTemplates FeedbackTemplate[]
-  gigs            Gig[]             @relation("OrganizerGigs")
-  gigApplications GigApplication[]  @relation("ArtistGigApplications")
-  agreementsAsOrganizer GigAgreement[] @relation("AgreementOrganizer")
-  agreementsAsArtist GigAgreement[] @relation("AgreementArtist")
-  achievements    ArtistAchievement[]
-  gigWorkEnabledAt DateTime?
-  gigWorkExpiresAt DateTime?
-  gigWorkPaymentStatus PaymentStatus @default(NONE)
-  gigWorkPaymentMethod String?
-  gigWorkPaymentSentAt DateTime?
+  id                       String                   @id @default(cuid())
+  email                    String                   @unique
+  name                     String?
+  username                 String?                  @unique
+  passwordHash             String?
+  emailVerifiedAt          DateTime?
+  role                     UserRole                 @default(ARTIST)
+  avatarUrl                String?
+  avatarFileKey            String?
+  isProfilePublic          Boolean                  @default(true)
+  upiId                    String?
+  whatsappNumber           String?
+  studioName               String?
+  studioLogoUrl            String?
+  studioLogoFileKey        String?
+  studioFoundedAt          DateTime?
+  style                    String?
+  crew                     String?
+  city                     String?
+  country                  String?
+  experience               String?
+  socialHandle             String?
+  keywords                 String?
+  referral                 String?
+  skills                   Skill[]                  @default([])
+  organizedEvents          Event[]                  @relation("EventOrganizer")
+  registrations            Registration[]
+  teamMemberships          RegistrationMember[]     @relation("RegistrationMemberUser")
+  feedbackTemplates        FeedbackTemplate[]
+  gigs                     Gig[]                    @relation("OrganizerGigs")
+  gigApplications          GigApplication[]         @relation("ArtistGigApplications")
+  agreementsAsOrganizer    GigAgreement[]           @relation("AgreementOrganizer")
+  agreementsAsArtist       GigAgreement[]           @relation("AgreementArtist")
+  achievements             ArtistAchievement[]
+  gigWorkEnabledAt         DateTime?
+  gigWorkExpiresAt         DateTime?
+  gigWorkPaymentStatus     PaymentStatus            @default(NONE)
+  gigWorkPaymentMethod     String?
+  gigWorkPaymentSentAt     DateTime?
   gigWorkPaymentVerifiedBy String?
-  gigWorkPaidAt DateTime?
-  isSuspended    Boolean           @default(false)
-  minJudgingPricePerDay Int?
-  minWorkshopPricePerDay Int?
-  gigAvailability ArtistAvailability[]
-  conversations Conversation[]     @relation("ConversationOrganizer")
-  artistConversations Conversation[] @relation("ConversationArtist")
-  messages       Message[]
-  payments       Payment[]
-  judgedSlots    JudgeSlot[]       @relation("JudgeSlotsJudge")
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  gigWorkPaidAt            DateTime?
+  isSuspended              Boolean                  @default(false)
+  minJudgingPricePerDay    Int?
+  minWorkshopPricePerDay   Int?
+  gigAvailability          ArtistAvailability[]
+  conversations            Conversation[]           @relation("ConversationOrganizer")
+  artistConversations      Conversation[]           @relation("ConversationArtist")
+  messages                 Message[]
+  emailVerificationTokens  EmailVerificationToken[]
+  payments                 Payment[]
+  judgedSlots              JudgeSlot[]              @relation("JudgeSlotsJudge")
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model EmailVerifyRequest {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  tokenHash String
+  verified  Boolean  @default(false)
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
 }
 
 model Event {
-  id             String       @id @default(cuid())
-  organizerId    String
-  title          String
-  slug           String       @unique
-  description    String?
-  eventType      EventType?
-  posterUrl      String?
-  venue          String?
-  googleMapsUrl  String?
-  city           String?
-  state          String?
-  startsAt       DateTime
-  status         EventStatus  @default(DRAFT)
-  categoryCount  Int?
-  flatFee        Int?
-  flatFeePaid    Boolean      @default(false)
-  flatFeePaidAt  DateTime?
-  flatFeePaymentStatus PaymentStatus @default(NONE)
-  flatFeePaymentMethod String?
-  flatFeePaymentSentAt DateTime?
-  flatFeePaymentVerifiedBy String?
-  commissionDue  Int?
-  commissionPaid Boolean      @default(false)
-  commissionPaidAt DateTime?
-  commissionPaymentStatus PaymentStatus @default(NONE)
-  commissionPaymentMethod String?
-  commissionPaymentSentAt DateTime?
+  id                          String        @id @default(cuid())
+  organizerId                 String
+  title                       String
+  slug                        String        @unique
+  description                 String?
+  eventType                   EventType?
+  posterUrl                   String?
+  posterFileKey               String?
+  venue                       String?
+  googleMapsUrl               String?
+  city                        String?
+  state                       String?
+  startsAt                    DateTime
+  status                      EventStatus   @default(DRAFT)
+  categoryCount               Int?
+  flatFee                     Int?
+  flatFeePaid                 Boolean       @default(false)
+  flatFeePaidAt               DateTime?
+  flatFeePaymentStatus        PaymentStatus @default(NONE)
+  flatFeePaymentMethod        String?
+  flatFeePaymentSentAt        DateTime?
+  flatFeePaymentVerifiedBy    String?
+  commissionDue               Int?
+  commissionPaid              Boolean       @default(false)
+  commissionPaidAt            DateTime?
+  commissionPaymentStatus     PaymentStatus @default(NONE)
+  commissionPaymentMethod     String?
+  commissionPaymentSentAt     DateTime?
   commissionPaymentVerifiedBy String?
-  organizer      User         @relation("EventOrganizer", fields: [organizerId], references: [id])
-  categories     Category[]
-  judgeSlots     JudgeSlot[]
-  matches        BattleMatch[]
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  organizer                   User          @relation("EventOrganizer", fields: [organizerId], references: [id])
+  categories                  Category[]
+  judgeSlots                  JudgeSlot[]
+  matches                     BattleMatch[]
+  createdAt                   DateTime      @default(now())
+  updatedAt                   DateTime      @updatedAt
 
   @@index([organizerId])
   @@index([startsAt])
 }
 
 model Category {
-  id             String         @id @default(cuid())
-  eventId        String
-  name           String
-  format         CategoryFormat?
-  minMembers     Int              @default(1)
-  maxMembers     Int              @default(1)
-  maxCompetitors Int?
-  entryFee       Int?           @default(0)
-  entryCurrency  String         @default("INR")
-  event          Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  rounds         RoundFormat[]
-  registrations  Registration[]
+  id                  String               @id @default(cuid())
+  eventId             String
+  name                String
+  format              CategoryFormat?
+  minMembers          Int                  @default(1)
+  maxMembers          Int                  @default(1)
+  maxCompetitors      Int?
+  entryFee            Int?                 @default(0)
+  entryCurrency       String               @default("INR")
+  event               Event                @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  rounds              RoundFormat[]
+  registrations       Registration[]
   registrationMembers RegistrationMember[]
-  matches        BattleMatch[]
-  judgeSlots     JudgeSlot[]
-  prizePool      PrizePool?
-  currentPhaseOrder Int?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  matches             BattleMatch[]
+  judgeSlots          JudgeSlot[]
+  prizePool           PrizePool?
+  currentPhaseOrder   Int?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 
   @@unique([eventId, name])
   @@index([eventId])
 }
 
 model RoundFormat {
-  id            String    @id @default(cuid())
+  id            String        @id @default(cuid())
   categoryId    String
   order         Int
   type          RoundType
   label         String?
-  roundCount    Int       @default(1)
+  roundCount    Int           @default(1)
   roundDuration Int?
   advanceCount  Int?
-  phaseStatus    String?   @default("PENDING")
-  timeLimitMs    Int       @default(60000)
-  dancerScores   DancerScore[]
-  battleMatches  BattleMatch[]
-  category      Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  phaseStatus   String?       @default("PENDING")
+  timeLimitMs   Int           @default(60000)
+  dancerScores  DancerScore[]
+  battleMatches BattleMatch[]
+  category      Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   @@unique([categoryId, order])
 }
 
 model Registration {
-  id           String             @id @default(cuid())
-  userId       String
-  categoryId   String
-  format       CategoryFormat?
-  teamName     String?
+  id             String               @id @default(cuid())
+  userId         String
+  categoryId     String
+  format         CategoryFormat?
+  teamName       String?
   rosterLockedAt DateTime?
-  status       RegistrationStatus @default(PENDING)
-  entryFee     Int?
-  entryCurrency String?
-  paid         Boolean            @default(false)
-  paidAt       DateTime?
-  paidClaimedAt DateTime?
-  seed         Int?
-  style        String?
-  crew         String?
-  city         String?
-  country      String?
-  experience   String?
-  socialHandle String?
-  referral     String?
-  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  category     Category           @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  members      RegistrationMember[]
-  matchesAsA   BattleMatch[]      @relation("CompetitorA")
-  matchesAsB   BattleMatch[]      @relation("CompetitorB")
-  matchesWon   BattleMatch[]      @relation("MatchWinner")
-  dancerScores DancerScore[]
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
+  status         RegistrationStatus   @default(PENDING)
+  entryFee       Int?
+  entryCurrency  String?
+  paid           Boolean              @default(false)
+  paidAt         DateTime?
+  paidClaimedAt  DateTime?
+  seed           Int?
+  style          String?
+  crew           String?
+  city           String?
+  country        String?
+  experience     String?
+  socialHandle   String?
+  referral       String?
+  user           User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category       Category             @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  members        RegistrationMember[]
+  matchesAsA     BattleMatch[]        @relation("CompetitorA")
+  matchesAsB     BattleMatch[]        @relation("CompetitorB")
+  matchesWon     BattleMatch[]        @relation("MatchWinner")
+  dancerScores   DancerScore[]
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
 
   @@unique([userId, categoryId])
   @@index([categoryId, status])
 }
 
 model RegistrationMember {
-  id               String                    @id @default(cuid())
-  registrationId   String
-  categoryId       String
-  userId           String
-  role             RegistrationMemberRole    @default(MEMBER)
-  status           RegistrationMemberStatus @default(PENDING)
-  invitedAt        DateTime                  @default(now())
-  acceptedAt       DateTime?
-  registration     Registration              @relation(fields: [registrationId], references: [id], onDelete: Cascade)
-  category         Category                  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  user             User                      @relation("RegistrationMemberUser", fields: [userId], references: [id], onDelete: Cascade)
+  id             String                   @id @default(cuid())
+  registrationId String
+  categoryId     String
+  userId         String
+  role           RegistrationMemberRole   @default(MEMBER)
+  status         RegistrationMemberStatus @default(PENDING)
+  invitedAt      DateTime                 @default(now())
+  acceptedAt     DateTime?
+  registration   Registration             @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  category       Category                 @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  user           User                     @relation("RegistrationMemberUser", fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([registrationId, userId])
   @@unique([categoryId, userId])
@@ -339,36 +370,36 @@ model RegistrationMember {
 }
 
 model BattleMatch {
-  id              String        @id @default(cuid())
-  eventId         String
-  categoryId      String
-  roundFormatId   String?
-  round           Int
-  position        Int
-  status          MatchStatus   @default(PENDING)
-  competitorAId   String?
-  competitorBId   String?
-  scoreA          Int           @default(0)
-  scoreB          Int           @default(0)
-  winnerId        String?
-  nextMatchId     String?
-  teamLabelA      String?
-  teamLabelB      String?
-  event           Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  category        Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  roundFormat     RoundFormat?  @relation(fields: [roundFormatId], references: [id], onDelete: Cascade)
-  competitorA     Registration? @relation("CompetitorA", fields: [competitorAId], references: [id])
-  competitorB     Registration? @relation("CompetitorB", fields: [competitorBId], references: [id])
-  winner          Registration? @relation("MatchWinner", fields: [winnerId], references: [id])
-  nextMatch       BattleMatch?  @relation("BracketProgression", fields: [nextMatchId], references: [id])
-  previousMatches BattleMatch[] @relation("BracketProgression")
-  scores          MatchScore[]
+  id               String            @id @default(cuid())
+  eventId          String
+  categoryId       String
+  roundFormatId    String?
+  round            Int
+  position         Int
+  status           MatchStatus       @default(PENDING)
+  competitorAId    String?
+  competitorBId    String?
+  scoreA           Int               @default(0)
+  scoreB           Int               @default(0)
+  winnerId         String?
+  nextMatchId      String?
+  teamLabelA       String?
+  teamLabelB       String?
+  event            Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  category         Category          @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  roundFormat      RoundFormat?      @relation(fields: [roundFormatId], references: [id], onDelete: Cascade)
+  competitorA      Registration?     @relation("CompetitorA", fields: [competitorAId], references: [id])
+  competitorB      Registration?     @relation("CompetitorB", fields: [competitorBId], references: [id])
+  winner           Registration?     @relation("MatchWinner", fields: [winnerId], references: [id])
+  nextMatch        BattleMatch?      @relation("BracketProgression", fields: [nextMatchId], references: [id])
+  previousMatches  BattleMatch[]     @relation("BracketProgression")
+  scores           MatchScore[]
   judgeAssignments JudgeAssignment[]
-  battleTimer     BattleTimer?
-  startedAt       DateTime?
-  completedAt     DateTime?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  battleTimer      BattleTimer?
+  startedAt        DateTime?
+  completedAt      DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 
   @@unique([roundFormatId, round, position])
   @@index([eventId, categoryId])
@@ -377,21 +408,21 @@ model BattleMatch {
 }
 
 model JudgeSlot {
-  id         String       @id @default(cuid())
-  eventId    String
-  categoryId String
-  code       String       @unique
-  name       String?
-  judgeUserId String?
-  isActive   Boolean      @default(true)
-  event      Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  category   Category     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  judgeUser  User?        @relation("JudgeSlotsJudge", fields: [judgeUserId], references: [id])
-  scores     MatchScore[]
-  dancerScores DancerScore[]
+  id               String            @id @default(cuid())
+  eventId          String
+  categoryId       String
+  code             String            @unique
+  name             String?
+  judgeUserId      String?
+  isActive         Boolean           @default(true)
+  event            Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  category         Category          @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  judgeUser        User?             @relation("JudgeSlotsJudge", fields: [judgeUserId], references: [id])
+  scores           MatchScore[]
+  dancerScores     DancerScore[]
   judgeAssignments JudgeAssignment[]
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 
   @@unique([categoryId, code])
   @@index([judgeUserId])
@@ -417,18 +448,18 @@ model DancerScore {
 
 model MatchScore {
   id           String      @id @default(cuid())
-  matchId     String
-  judgeSlotId String
-  scoreA      Int
-  scoreB      Int
+  matchId      String
+  judgeSlotId  String
+  scoreA       Int
+  scoreB       Int
   winnerCorner String?
-  feedback    String?
-  feedbackRed String?
+  feedback     String?
+  feedbackRed  String?
   feedbackBlue String?
-  match       BattleMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  judgeSlot   JudgeSlot   @relation(fields: [judgeSlotId], references: [id], onDelete: Cascade)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  match        BattleMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  judgeSlot    JudgeSlot   @relation(fields: [judgeSlotId], references: [id], onDelete: Cascade)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 
   @@unique([matchId, judgeSlotId])
   @@index([judgeSlotId])
@@ -448,16 +479,16 @@ model FeedbackTemplate {
 }
 
 model PrizePool {
-  id           String   @id @default(cuid())
-  categoryId   String   @unique
+  id           String    @id @default(cuid())
+  categoryId   String    @unique
   totalAmount  Int
-  currency     String   @default("USD")
+  currency     String    @default("USD")
   distribution Json
-  isPaid       Boolean  @default(false)
+  isPaid       Boolean   @default(false)
   paidAt       DateTime?
-  category     Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  category     Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }
 
 model JudgeAssignment {
@@ -475,15 +506,15 @@ model JudgeAssignment {
 }
 
 model BattleTimer {
-  id            String      @id @default(cuid())
-  matchId       String      @unique
-  timeLimitMs   Int
-  startedAt     DateTime?
-  lockedAt      DateTime?
-  warningsSent  String[]    @default([])
-  match         BattleMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  id           String      @id @default(cuid())
+  matchId      String      @unique
+  timeLimitMs  Int
+  startedAt    DateTime?
+  lockedAt     DateTime?
+  warningsSent String[]    @default([])
+  match        BattleMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 }
 
 model ScoreAuditLog {
@@ -497,51 +528,52 @@ model ScoreAuditLog {
   changedBy    String
   reason       String?
   createdAt    DateTime @default(now())
+
   @@index([matchId])
 }
 
 model Gig {
-  id             String             @id @default(cuid())
-  organizerId    String
-  title          String
-  description    String
-  skillsRequired Skill[]            @default([])
-  location       String?
-  budget         Int?
-  currency       String             @default("INR")
-  startsAt       DateTime?
-  status         GigStatus          @default(OPEN)
-  feePaid        Boolean            @default(false)
-  feePaidAt      DateTime?
-  feePaymentStatus PaymentStatus    @default(NONE)
-  feePaymentMethod String?
-  feePaymentSentAt DateTime?
+  id                   String           @id @default(cuid())
+  organizerId          String
+  title                String
+  description          String
+  skillsRequired       Skill[]          @default([])
+  location             String?
+  budget               Int?
+  currency             String           @default("INR")
+  startsAt             DateTime?
+  status               GigStatus        @default(OPEN)
+  feePaid              Boolean          @default(false)
+  feePaidAt            DateTime?
+  feePaymentStatus     PaymentStatus    @default(NONE)
+  feePaymentMethod     String?
+  feePaymentSentAt     DateTime?
   feePaymentVerifiedBy String?
-  awardedAmount  Int?
-  commissionDue  Int?
-  commissionStatus PaymentStatus    @default(NONE)
-  organizer      User               @relation("OrganizerGigs", fields: [organizerId], references: [id], onDelete: Cascade)
-  applications   GigApplication[]
-  agreements     GigAgreement[]
-  conversations  Conversation[]
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
+  awardedAmount        Int?
+  commissionDue        Int?
+  commissionStatus     PaymentStatus    @default(NONE)
+  organizer            User             @relation("OrganizerGigs", fields: [organizerId], references: [id], onDelete: Cascade)
+  applications         GigApplication[]
+  agreements           GigAgreement[]
+  conversations        Conversation[]
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
 
   @@index([organizerId])
   @@index([status])
 }
 
 model GigApplication {
-  id           String               @id @default(cuid())
-  gigId        String
-  artistId     String
-  message      String?
-  status       GigApplicationStatus @default(PENDING)
-  gig          Gig                  @relation(fields: [gigId], references: [id], onDelete: Cascade)
-  artist       User                 @relation("ArtistGigApplications", fields: [artistId], references: [id], onDelete: Cascade)
-  agreement    GigAgreement?
-  createdAt    DateTime             @default(now())
-  updatedAt    DateTime             @updatedAt
+  id        String               @id @default(cuid())
+  gigId     String
+  artistId  String
+  message   String?
+  status    GigApplicationStatus @default(PENDING)
+  gig       Gig                  @relation(fields: [gigId], references: [id], onDelete: Cascade)
+  artist    User                 @relation("ArtistGigApplications", fields: [artistId], references: [id], onDelete: Cascade)
+  agreement GigAgreement?
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
 
   @@unique([gigId, artistId])
   @@index([artistId])
@@ -555,37 +587,37 @@ model GigAgreement {
   artistId      String
   status        GigAgreementStatus @default(PENDING_ARTIST)
 
-  offerAmount   Int?
-  currency      String             @default("INR")
-  scope         String?
-  deliverables  String?
-  workDate      DateTime?
-  location      String?
+  offerAmount       Int?
+  currency          String    @default("INR")
+  scope             String?
+  deliverables      String?
+  workDate          DateTime?
+  location          String?
   cancellationTerms String?
-  paymentTerms  String?
-  termsVersion  String             @default("1.0")
+  paymentTerms      String?
+  termsVersion      String    @default("1.0")
 
-  organizerSignedAt DateTime?
-  artistSignedAt    DateTime?
-  connectionPaidAt  DateTime?
-  connectionPaymentStatus PaymentStatus @default(NONE)
-  connectionPaymentMethod String?
-  connectionPaymentSentAt DateTime?
+  organizerSignedAt           DateTime?
+  artistSignedAt              DateTime?
+  connectionPaidAt            DateTime?
+  connectionPaymentStatus     PaymentStatus @default(NONE)
+  connectionPaymentMethod     String?
+  connectionPaymentSentAt     DateTime?
   connectionPaymentVerifiedBy String?
 
-  workStartedAt   DateTime?
-  workCompletedAt DateTime?
-  paymentReportedAt DateTime?
+  workStartedAt      DateTime?
+  workCompletedAt    DateTime?
+  paymentReportedAt  DateTime?
   paymentConfirmedAt DateTime?
-  paymentStatus  String             @default("NOT_REPORTED")
+  paymentStatus      String    @default("NOT_REPORTED")
 
-  gig          Gig            @relation(fields: [gigId], references: [id], onDelete: Cascade)
-  application  GigApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  organizer    User           @relation("AgreementOrganizer", fields: [organizerId], references: [id], onDelete: Cascade)
-  artist       User           @relation("AgreementArtist", fields: [artistId], references: [id], onDelete: Cascade)
+  gig         Gig            @relation(fields: [gigId], references: [id], onDelete: Cascade)
+  application GigApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  organizer   User           @relation("AgreementOrganizer", fields: [organizerId], references: [id], onDelete: Cascade)
+  artist      User           @relation("AgreementArtist", fields: [artistId], references: [id], onDelete: Cascade)
 
-  createdAt    DateTime            @default(now())
-  updatedAt    DateTime            @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([gigId])
   @@index([organizerId])
@@ -640,19 +672,19 @@ model ArtistAvailability {
 }
 
 model Conversation {
-  id            String          @id @default(cuid())
+  id            String    @id @default(cuid())
   gigId         String?
-  applicationId String?         @unique
+  applicationId String?   @unique
   organizerId   String
   artistId      String
-  status        String          @default("OPEN")
+  status        String    @default("OPEN")
   unlockedAt    DateTime?
-  organizer     User            @relation("ConversationOrganizer", fields: [organizerId], references: [id], onDelete: Cascade)
-  artist        User            @relation("ConversationArtist", fields: [artistId], references: [id], onDelete: Cascade)
-  gig           Gig?            @relation(fields: [gigId], references: [id], onDelete: Cascade)
+  organizer     User      @relation("ConversationOrganizer", fields: [organizerId], references: [id], onDelete: Cascade)
+  artist        User      @relation("ConversationArtist", fields: [artistId], references: [id], onDelete: Cascade)
+  gig           Gig?      @relation(fields: [gigId], references: [id], onDelete: Cascade)
   messages      Message[]
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@index([organizerId])
   @@index([artistId])
@@ -672,25 +704,25 @@ model Message {
 }
 
 model Payment {
-  id                   String             @id @default(cuid())
-  type                 PaymentType
-  provider             String             @default("RAZORPAY")
-  referenceId          String
-  payerId              String
-  amountPaise          Int
-  currency             String             @default("INR")
+  id                    String             @id @default(cuid())
+  type                  PaymentType
+  provider              String             @default("RAZORPAY")
+  referenceId           String
+  payerId               String
+  amountPaise           Int
+  currency              String             @default("INR")
   merchantTransactionId String?            @unique
-  providerPaymentId    String?
-  providerSignature    String?
-  providerStatus       String?
-  metadata             Json?
-  razorpayOrderId      String?            @unique
-  razorpayPaymentId    String?
-  razorpaySignature    String?
-  status               PaymentOrderStatus @default(PENDING)
-  payer                User               @relation(fields: [payerId], references: [id], onDelete: Cascade)
-  createdAt            DateTime           @default(now())
-  updatedAt            DateTime           @updatedAt
+  providerPaymentId     String?
+  providerSignature     String?
+  providerStatus        String?
+  metadata              Json?
+  razorpayOrderId       String?            @unique
+  razorpayPaymentId     String?
+  razorpaySignature     String?
+  status                PaymentOrderStatus @default(PENDING)
+  payer                 User               @relation(fields: [payerId], references: [id], onDelete: Cascade)
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
 
   @@index([payerId])
   @@index([type, referenceId])

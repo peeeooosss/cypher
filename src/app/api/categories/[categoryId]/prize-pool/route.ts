@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { badRequest, forbidden, notFound, unauthorized } from "@/lib/api";
+import { badRequest, conflict, forbidden, isUniqueConstraintError, notFound, serverError, unauthorized } from "@/lib/api";
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 
@@ -39,76 +39,95 @@ const updatePrizePoolSchema = z.object({
 });
 
 export async function GET(_request: Request, context: Context) {
-  const { categoryId } = await context.params;
+  try {
+    const { categoryId } = await context.params;
 
-  const category = await prisma.category.findUnique({ where: { id: categoryId } });
-  if (!category) return notFound("Category");
+    const category = await prisma.category.findUnique({ where: { id: categoryId } });
+    if (!category) return notFound("Category");
 
-  const prizePool = await prisma.prizePool.findUnique({
-    where: { categoryId },
-  });
+    const prizePool = await prisma.prizePool.findUnique({
+      where: { categoryId },
+    });
 
-  if (!prizePool) return notFound("PrizePool");
+    if (!prizePool) return notFound("PrizePool");
 
-  return NextResponse.json(prizePool);
+    return NextResponse.json(prizePool);
+  } catch (error) {
+    console.error(error);
+    return serverError();
+  }
 }
 
 export async function POST(request: Request, context: Context) {
-  const user = await getCurrentUser();
-  if (!user) return unauthorized();
+  try {
+    const user = await getCurrentUser();
+    if (!user) return unauthorized();
 
-  const { categoryId } = await context.params;
+    const { categoryId } = await context.params;
 
-  const category = await prisma.category.findUnique({
-    where: { id: categoryId },
-    include: { event: { select: { organizerId: true } } },
-  });
-  if (!category) return notFound("Category");
-  if (category.event.organizerId !== user.id) return forbidden();
+    const category = await prisma.category.findUnique({
+      where: { id: categoryId },
+      include: { event: { select: { organizerId: true } } },
+    });
+    if (!category) return notFound("Category");
+    if (category.event.organizerId !== user.id) return forbidden();
 
-  const body = createPrizePoolSchema.safeParse(await request.json());
-  if (!body.success) return badRequest(body.error.issues[0].message);
+    const body = createPrizePoolSchema.safeParse(await request.json());
+    if (!body.success) return badRequest(body.error.issues[0].message);
 
-  const { totalAmount, currency, distribution, isPaid } = body.data;
+    const existing = await prisma.prizePool.findUnique({ where: { categoryId } });
+    if (existing) return conflict("This category already has a prize pool");
 
-  const prizePool = await prisma.prizePool.create({
-    data: {
-      categoryId,
-      totalAmount,
-      currency,
-      distribution,
-      ...(isPaid !== undefined ? { isPaid } : {}),
-    },
-  });
+    const { totalAmount, currency, distribution, isPaid } = body.data;
 
-  return NextResponse.json(prizePool, { status: 201 });
+    const prizePool = await prisma.prizePool.create({
+      data: {
+        categoryId,
+        totalAmount,
+        currency,
+        distribution,
+        ...(isPaid !== undefined ? { isPaid } : {}),
+      },
+    });
+
+    return NextResponse.json(prizePool, { status: 201 });
+  } catch (error) {
+    if (isUniqueConstraintError(error)) return conflict("This category already has a prize pool");
+    console.error(error);
+    return serverError();
+  }
 }
 
 export async function PATCH(request: Request, context: Context) {
-  const user = await getCurrentUser();
-  if (!user) return unauthorized();
+  try {
+    const user = await getCurrentUser();
+    if (!user) return unauthorized();
 
-  const { categoryId } = await context.params;
+    const { categoryId } = await context.params;
 
-  const category = await prisma.category.findUnique({
-    where: { id: categoryId },
-    include: { event: { select: { organizerId: true } } },
-  });
-  if (!category) return notFound("Category");
-  if (category.event.organizerId !== user.id) return forbidden();
+    const category = await prisma.category.findUnique({
+      where: { id: categoryId },
+      include: { event: { select: { organizerId: true } } },
+    });
+    if (!category) return notFound("Category");
+    if (category.event.organizerId !== user.id) return forbidden();
 
-  const existing = await prisma.prizePool.findUnique({
-    where: { categoryId },
-  });
-  if (!existing) return notFound("PrizePool");
+    const existing = await prisma.prizePool.findUnique({
+      where: { categoryId },
+    });
+    if (!existing) return notFound("PrizePool");
 
-  const body = updatePrizePoolSchema.safeParse(await request.json());
-  if (!body.success) return badRequest(body.error.issues[0].message);
+    const body = updatePrizePoolSchema.safeParse(await request.json());
+    if (!body.success) return badRequest(body.error.issues[0].message);
 
-  const updated = await prisma.prizePool.update({
-    where: { categoryId },
-    data: body.data,
-  });
+    const updated = await prisma.prizePool.update({
+      where: { categoryId },
+      data: body.data,
+    });
 
-  return NextResponse.json(updated);
+    return NextResponse.json(updated);
+  } catch (error) {
+    console.error(error);
+    return serverError();
+  }
 }

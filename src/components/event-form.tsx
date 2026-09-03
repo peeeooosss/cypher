@@ -13,6 +13,7 @@ export function EventForm() {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [posterUrl, setPosterUrl] = useState<string | null>(null);
+  const [posterFileKey, setPosterFileKey] = useState<string | null>(null);
   const [eventType, setEventType] = useState<EventType | "">("");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -20,34 +21,39 @@ export function EventForm() {
     setError("");
     setIsSubmitting(true);
 
-    const formData = new FormData(event.currentTarget);
-    const response = await fetch("/api/events", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: formData.get("title"),
-        slug: formData.get("slug"),
-        description: formData.get("description") || undefined,
-        eventType,
-        posterUrl,
-        venue: formData.get("venue") || undefined,
-        googleMapsUrl: formData.get("googleMapsUrl") || null,
-        city: formData.get("city") || undefined,
-        state: formData.get("state") || undefined,
-        startsAt: formData.get("startsAt"),
-      }),
-    });
+    try {
+      const formData = new FormData(event.currentTarget);
+      const response = await fetch("/api/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: formData.get("title"),
+          slug: formData.get("slug"),
+          description: formData.get("description") || undefined,
+          eventType,
+          posterUrl,
+          posterFileKey,
+          venue: formData.get("venue") || undefined,
+          googleMapsUrl: formData.get("googleMapsUrl") || null,
+          city: formData.get("city") || undefined,
+          state: formData.get("state") || undefined,
+          startsAt: formData.get("startsAt"),
+        }),
+      });
 
-    if (!response.ok) {
-      const body = await response.json().catch(() => null);
-      setError(body?.error ?? "Unable to create event.");
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        setError(body?.error ?? "Unable to create event.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      const created = await response.json();
+      router.push(`/organizer/${created.id}/bill`);
+    } catch {
+      setError("Network error. Please check your connection and try again.");
       setIsSubmitting(false);
-      return;
     }
-
-    const created = await response.json();
-    setIsSubmitting(false);
-    router.push(`/organizer/${created.id}/bill`);
   }
 
   return (
@@ -102,7 +108,13 @@ export function EventForm() {
       <div className="mt-lg">
         <p className="font-mono text-[0.7rem] uppercase text-ink-muted">Poster</p>
         <div className="mt-xs max-w-64">
-          <PosterUpload initial={null} onChange={setPosterUrl} />
+        <PosterUpload
+          initial={null}
+          onChange={(url, fileKey) => {
+            setPosterUrl(url);
+            setPosterFileKey(fileKey);
+          }}
+        />
         </div>
       </div>
       {error ? <p className="mt-md text-body-sm text-accent">{error}</p> : null}
@@ -127,25 +139,29 @@ export function CategoryForm({ eventId, eventType }: { eventId: string; eventTyp
     event.preventDefault();
     setError("");
     const formData = new FormData(event.currentTarget);
-    const response = await fetch(`/api/events/${eventId}/categories`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: formData.get("name"),
-        format,
-        maxCompetitors: formData.get("maxCompetitors") ? Number(formData.get("maxCompetitors")) : null,
-        entryFee: formData.get("entryFee") ? Number(formData.get("entryFee")) : null,
-      }),
-    });
+    try {
+      const response = await fetch(`/api/events/${eventId}/categories`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.get("name"),
+          format,
+          maxCompetitors: formData.get("maxCompetitors") ? Number(formData.get("maxCompetitors")) : null,
+          entryFee: formData.get("entryFee") ? Number(formData.get("entryFee")) : null,
+        }),
+      });
 
-    if (!response.ok) {
-      const body = await response.json().catch(() => null);
-      setError(body?.error ?? "Unable to create category.");
-      return;
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        setError(body?.error ?? "Unable to create category.");
+        return;
+      }
+
+      event.currentTarget.reset();
+      router.refresh();
+    } catch {
+      setError("Network error. Please check your connection and try again.");
     }
-
-    event.currentTarget.reset();
-    router.refresh();
   }
 
   return (

@@ -82,3 +82,45 @@ export async function PATCH(req: Request, { params }: Context) {
     return serverError();
   }
 }
+
+export async function DELETE(_: Request, { params }: Context) {
+  const { userId } = await params;
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return unauthorized();
+  }
+
+  if (user.role !== "ADMIN") {
+    return forbidden();
+  }
+
+  try {
+    const target = await prisma.user.findFirst({
+      where: { id: userId, role: "ORGANIZER" },
+      select: { id: true },
+    });
+
+    if (!target) {
+      return notFound("Organizer");
+    }
+
+    if (target.id === user.id) {
+      return NextResponse.json({ error: "Cannot delete your own account" }, { status: 400 });
+    }
+
+    await prisma.$transaction([
+      prisma.event.deleteMany({ where: { organizerId: userId } }),
+      prisma.judgeSlot.updateMany({
+        where: { judgeUserId: userId },
+        data: { judgeUserId: null },
+      }),
+      prisma.user.delete({ where: { id: userId } }),
+    ]);
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error(error);
+    return serverError();
+  }
+}

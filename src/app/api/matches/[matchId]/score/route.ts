@@ -17,28 +17,28 @@ const scoreSchema = z.object({
 });
 
 export async function POST(request: Request, { params }: Context) {
-  const { matchId } = await params;
-
-  const body = await request.json().catch(() => null);
-  const parsed = scoreSchema.safeParse(body);
-
-  if (!parsed.success) {
-    return badRequest("Invalid score submission");
-  }
-
-  const { scoreA, scoreB, judgeCode, feedback } = parsed.data;
-
-  const slot = await prisma.judgeSlot.findUnique({ where: { code: judgeCode } });
-
-  if (!slot) {
-    return notFound("Invalid judge code");
-  }
-
-  if (!slot.isActive) {
-    return badRequest("Judge slot is not active");
-  }
-
   try {
+    const { matchId } = await params;
+
+    const body = await request.json().catch(() => null);
+    const parsed = scoreSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return badRequest("Invalid score submission");
+    }
+
+    const { scoreA, scoreB, judgeCode, feedback } = parsed.data;
+
+    const slot = await prisma.judgeSlot.findUnique({ where: { code: judgeCode } });
+
+    if (!slot) {
+      return notFound("Invalid judge code");
+    }
+
+    if (!slot.isActive) {
+      return badRequest("Judge slot is not active");
+    }
+
     await prisma.matchScore.upsert({
       where: { matchId_judgeSlotId: { matchId, judgeSlotId: slot.id } },
       update: { scoreA, scoreB, feedback },
@@ -76,7 +76,8 @@ export async function POST(request: Request, { params }: Context) {
     });
 
     return NextResponse.json(updated);
-  } catch {
+  } catch (error) {
+    console.error(error);
     return serverError();
   }
 }

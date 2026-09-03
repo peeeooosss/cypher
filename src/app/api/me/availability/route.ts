@@ -11,27 +11,32 @@ const createSchema = z.object({
 }).refine((d) => d.dateTo >= d.dateFrom, { message: "End date must be on or after start date" });
 
 export async function GET() {
-  const user = await getCurrentUser();
-  if (!user) return unauthorized();
-  if (user.role !== "ARTIST") return forbidden();
+  try {
+    const user = await getCurrentUser();
+    if (!user) return unauthorized();
+    if (user.role !== "ARTIST") return forbidden();
 
-  const availability = await prisma.artistAvailability.findMany({
-    where: { userId: user.id },
-    orderBy: { dateFrom: "asc" },
-  });
+    const availability = await prisma.artistAvailability.findMany({
+      where: { userId: user.id },
+      orderBy: { dateFrom: "asc" },
+    });
 
-  return NextResponse.json(availability);
+    return NextResponse.json(availability);
+  } catch (error) {
+    console.error(error);
+    return serverError();
+  }
 }
 
 export async function POST(request: Request) {
-  const user = await getCurrentUser();
-  if (!user) return unauthorized();
-  if (user.role !== "ARTIST") return forbidden();
-
-  const parsed = createSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return badRequest(parsed.error.issues[0]?.message ?? "Invalid availability");
-
   try {
+    const user = await getCurrentUser();
+    if (!user) return unauthorized();
+    if (user.role !== "ARTIST") return forbidden();
+
+    const parsed = createSchema.safeParse(await request.json().catch(() => null));
+    if (!parsed.success) return badRequest(parsed.error.issues[0]?.message ?? "Invalid availability");
+
     const record = await prisma.artistAvailability.create({
       data: {
         userId: user.id,
