@@ -5,3 +5,9 @@ export const BILL_WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_BILL_WHATSAPP_NUMBER
 export function whatsappLink(number: string, text: string) {
   return `https://wa.me/${number}?text=${encodeURIComponent(text)}`;
 }
+
+export function displayName(name: string | null | undefined, username: string | null | undefined): string | null {
+  if (username) return `${name ?? username} (@${username})`;
+  if (name) return name;
+  return null;
+}

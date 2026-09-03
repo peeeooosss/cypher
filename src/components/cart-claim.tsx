@@ -19,7 +19,7 @@ export type CartRegistration = {
   paidClaimedAt: string | null;
 };
 
-export function CartCategoryList({ registrations, eventTitle, total, organizerWhatsapp }: { registrations: CartRegistration[]; eventTitle?: string; total?: number; organizerWhatsapp?: string | null }) {
+export function CartCategoryList({ registrations, eventTitle, total, organizerWhatsapp, organizerName, sender }: { registrations: CartRegistration[]; eventTitle?: string; total?: number; organizerWhatsapp?: string | null; organizerName?: string | null; sender?: string | null }) {
   const [claimedIds, setClaimedIds] = useState<Set<string>>(
     () => new Set(registrations.filter((r) => r.paidClaimedAt).map((r) => r.id)),
   );
@@ -85,7 +85,7 @@ export function CartCategoryList({ registrations, eventTitle, total, organizerWh
                     <Link
                       href={whatsappLink(
                         organizerWhatsapp ?? BILL_WHATSAPP_NUMBER,
-                        `Hi, I've paid for ${eventTitle ?? "my event registration"}. Total: ${formatInr(total ?? 0)}. Attaching the payment screenshot for verification.`,
+                        `Hi ${organizerName ?? "Organizer"}, I'm ${sender ?? "a participant"}. I've paid for ${eventTitle ?? "my event registration"}. Total: ${formatInr(total ?? 0)}. Attaching the payment screenshot for verification.`,
                       )}
                       target="_blank"
                       rel="noopener noreferrer"

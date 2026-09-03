@@ -50,7 +50,7 @@ type Gig = {
   applications: GigApplication[];
 };
 
-export function GigManager({ gigs }: { gigs: Gig[] }) {
+export function GigManager({ gigs, sender }: { gigs: Gig[]; sender?: string | null }) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -244,6 +244,7 @@ export function GigManager({ gigs }: { gigs: Gig[] }) {
                   submitUrl={`/api/gigs/${gig.id}/pay`}
                   submitBody={{ method: "UPI" }}
                   buttonLabel={`I've paid ${formatInr(GIG_FLAT_FEE)} — send for verification`}
+                  sender={sender ?? undefined}
                 />
               </div>
             ) : null}

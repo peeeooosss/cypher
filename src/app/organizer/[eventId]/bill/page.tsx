@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { COMMISSION_RATE, formatInr, isEventFlatFeePaid } from "@/lib/pricing";
+import { displayName } from "@/lib/payment";
 import { ManualPayment } from "@/components/manual-payment";
 import { PendingVerification } from "@/components/pending-verification";
 import { SignOutButton } from "@/components/sign-out-button";
@@ -14,6 +15,12 @@ type PageProps = { params: Promise<{ eventId: string }> };
 export default async function EventBillPage({ params }: PageProps) {
   const { eventId } = await params;
   const user = await requireRole("ORGANIZER");
+
+  const me = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { name: true, username: true },
+  });
+  const sender = displayName(me?.name, me?.username);
 
   const event = await prisma.event.findFirst({
     where: { id: eventId, organizerId: user.id },
@@ -149,7 +156,7 @@ export default async function EventBillPage({ params }: PageProps) {
                   Payment verified
                 </p>
               ) : event.flatFeePaymentStatus === "PENDING" ? (
-                <PendingVerification label={formatInr(flatAmount)} context={`Event flat fee — ${event.title}`} />
+                <PendingVerification label={formatInr(flatAmount)} context={`Event flat fee — ${event.title}`} sender={sender ?? undefined} />
               ) : (
                 <ManualPayment
                   amount={flatAmount}
@@ -157,6 +164,7 @@ export default async function EventBillPage({ params }: PageProps) {
                   submitUrl={`/api/events/${event.id}/bill/submit`}
                   submitBody={{ method: "UPI", type: "FLAT_FEE" }}
                   buttonLabel={`I've paid ${formatInr(flatAmount)} — send for verification`}
+                  sender={sender ?? undefined}
                 />
               )}
             </div>
@@ -213,7 +221,7 @@ export default async function EventBillPage({ params }: PageProps) {
                   </Link>
                 </div>
               ) : event.commissionPaymentStatus === "PENDING" ? (
-                <PendingVerification label={formatInr(commissionDue)} context={`Event commission — ${event.title}`} />
+                <PendingVerification label={formatInr(commissionDue)} context={`Event commission — ${event.title}`} sender={sender ?? undefined} />
               ) : (
                 <ManualPayment
                   amount={commissionDue}
@@ -221,6 +229,7 @@ export default async function EventBillPage({ params }: PageProps) {
                   submitUrl={`/api/events/${event.id}/bill/submit`}
                   submitBody={{ method: "UPI", type: "COMMISSION" }}
                   buttonLabel={`I've paid ${formatInr(commissionDue)} — send for verification`}
+                  sender={sender ?? undefined}
                 />
               )}
             </div>

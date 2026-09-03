@@ -2,9 +2,9 @@
 
 import { BILL_WHATSAPP_NUMBER, whatsappLink } from "@/lib/payment";
 
-export function PendingVerification({ label, context }: { label?: string; context?: string }) {
+export function PendingVerification({ label, context, sender }: { label?: string; context?: string; sender?: string }) {
   const message =
-    `Hi CYPHR Admin, I've paid ${label ?? "the amount"}${context ? ` (${context})` : ""}. ` +
+    `Hi CYPHR Admin, I'm ${sender ? `${sender}. ` : ""}I've paid ${label ?? "the amount"}${context ? ` (${context})` : ""}. ` +
     "Attaching my payment screenshot for verification.";
 
   return (

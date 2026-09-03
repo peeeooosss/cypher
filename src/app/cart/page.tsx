@@ -6,7 +6,7 @@ import { formatFee } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/rbac";
 import { formatLabel } from "@/lib/event-types";
-import { whatsappLink } from "@/lib/payment";
+import { whatsappLink, displayName } from "@/lib/payment";
 import { CategoryFormat } from "@/generated/prisma/enums";
 import { CartCategoryList } from "@/components/cart-claim";
 import { CartSubmit } from "@/components/cart-submit";
@@ -35,6 +35,7 @@ async function PaymentAside({
   eventTitle,
   total,
   note,
+  sender,
   children,
 }: {
   organizerName: string | null;
@@ -44,6 +45,7 @@ async function PaymentAside({
   eventTitle: string;
   total: number;
   note: string;
+  sender?: string | null;
   children?: ReactNode;
 }) {
   let qrDataUrl: string | null = null;
@@ -98,7 +100,7 @@ async function PaymentAside({
             <Link
               href={whatsappLink(
                 organizerWhatsapp,
-                `Hi ${organizerName ?? "Organizer"}, I've paid ${formatFee(total, "INR")} for ${eventTitle} entry. Sharing my payment screenshot for verification.`,
+                `Hi ${organizerName ?? "Organizer"}, I'm ${sender ?? "a participant"}. I've paid ${formatFee(total, "INR")} for ${eventTitle} entry. Sharing my payment screenshot for verification.`,
               )}
               target="_blank"
               rel="noopener noreferrer"
@@ -276,6 +278,7 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
               organizerWhatsapp: organizer.whatsappNumber,
               eventTitle: event.title,
               total,
+              sender: displayName(captain?.name, captain?.username),
               note: "Pay the exact amount above, then tap I have paid and send your payment screenshot to the organizer. Invited members will be asked to confirm their spot.",
               children: (
                 <CartSubmit
@@ -344,6 +347,11 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
   const total = registrations.reduce((sum, registration) => sum + (registration.category.entryFee ?? 0), 0);
   const rosterPending = registrations.some((registration) => registration.members.some((member) => member.status !== "ACCEPTED"));
   const organizer = event.organizer;
+  const me = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { name: true, username: true },
+  });
+  const sender = displayName(me?.name, me?.username);
 
   return (
     <main className="min-h-screen bg-paper">
@@ -378,6 +386,8 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
               eventTitle={event.title}
               total={total}
               organizerWhatsapp={organizer.whatsappNumber}
+              organizerName={organizer.name}
+              sender={sender}
             />
             <div className="flex items-center justify-between gap-sm border-t border-line bg-paper-soft px-lg py-md">
               <span className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">
@@ -396,6 +406,7 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
             organizerWhatsapp: organizer.whatsappNumber,
             eventTitle: event.title,
             total,
+            sender,
             note: rosterPending
               ? "Wait for every invited team member to accept before reporting payment."
               : "Pay the exact amount above, tap I have paid for each category, then send your payment screenshot to the organizer. The organizer approves your entry.",

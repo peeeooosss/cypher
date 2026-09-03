@@ -33,7 +33,7 @@ type Thread = {
   } | null;
 };
 
-export function MessagesPanel({ role }: { role: "ORGANIZER" | "ARTIST" }) {
+export function MessagesPanel({ role, sender }: { role: "ORGANIZER" | "ARTIST"; sender?: string | null }) {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [thread, setThread] = useState<Thread | null>(null);
@@ -267,6 +267,7 @@ export function MessagesPanel({ role }: { role: "ORGANIZER" | "ARTIST" }) {
                       submitUrl={`/api/agreements/${thread.agreement.id}/connection/submit`}
                       submitBody={{ method: "UPI" }}
                       buttonLabel={`I've paid ${formatInr(GIG_CONNECTION_FEE)} — send for verification`}
+                      sender={sender ?? undefined}
                     />
                   </div>
                 ) : null}

@@ -14,6 +14,7 @@ export function ManualPayment({
   submitBody,
   buttonLabel = "Send for verification",
   verifier = "the CYPHR team",
+  sender,
 }: {
   amount: number;
   note: string;
@@ -21,6 +22,7 @@ export function ManualPayment({
   submitBody?: Record<string, unknown>;
   buttonLabel?: string;
   verifier?: string;
+  sender?: string;
 }) {
   const router = useRouter();
   const [sending, setSending] = useState(false);
@@ -51,7 +53,7 @@ export function ManualPayment({
   }
 
   if (submitted) {
-    return <PendingVerification label={formatInr(amount)} context={note} />;
+    return <PendingVerification label={formatInr(amount)} context={note} sender={sender} />;
   }
 
   return (

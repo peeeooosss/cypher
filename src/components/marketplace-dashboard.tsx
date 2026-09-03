@@ -83,6 +83,7 @@ export function MarketplaceDashboard({
   gigWorkStatus = "NONE",
   gigWorkExpiresAt = null,
   unreadMessages = 0,
+  sender,
 }: {
   gigs: GigView[];
   applications: ApplicationView[];
@@ -90,6 +91,7 @@ export function MarketplaceDashboard({
   gigWorkStatus?: "NONE" | "PENDING" | "VERIFIED";
   gigWorkExpiresAt?: string | null;
   unreadMessages?: number;
+  sender?: string | null;
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("browse");
@@ -261,7 +263,7 @@ export function MarketplaceDashboard({
             <a
               href={whatsappLink(
                 BILL_WHATSAPP_NUMBER,
-                `Hi CYPHR, I've sent ${formatInr(GIG_WORK_FEE)} for Gig Work access. Attaching the payment screenshot for verification.`,
+                `Hi CYPHR Admin, I'm ${sender ?? "an artist"}. I've sent ${formatInr(GIG_WORK_FEE)} for Gig Work access. Attaching the payment screenshot for verification.`,
               )}
               target="_blank"
               rel="noopener noreferrer"
@@ -403,6 +405,7 @@ export function MarketplaceDashboard({
                           submitUrl={`/api/agreements/${app.agreement!.id}/connection/submit`}
                           submitBody={{ method: "UPI" }}
                           buttonLabel={`I've paid ${formatInr(GIG_CONNECTION_FEE)} — send for verification`}
+                          sender={sender ?? undefined}
                         />
                       </div>
                     </div>
@@ -471,7 +474,7 @@ export function MarketplaceDashboard({
         </div>
       )}
 
-      {tab === "messages" && <MessagesPanel role="ARTIST" />}
+      {tab === "messages" && <MessagesPanel role="ARTIST" sender={sender} />}
     </div>
   );
 }
