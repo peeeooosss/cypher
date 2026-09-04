@@ -46,13 +46,14 @@ The live scoring WebSocket server lives in `server/socket.ts` and runs as a pers
 
 1. Sign in to [Belmo](https://belmo.io/) with GitHub and give the Belmo GitHub App access to `peeeooosss/cypher`.
 2. Create an **API** service from the `main` branch. Leave the root directory blank; Belmo will detect Node.js from the repository-root `package.json`.
-3. Override the detected Next.js commands: set the build command to `npm ci --include=dev && npx prisma generate` and the start command to `npx tsx server/socket.ts`.
+3. Set `NIXPACKS_NODE_VERSION=24`; Prisma 7 requires Node 22.12+ or 24+. Override the detected Next.js commands: set the build command to `npx prisma generate` and the start command to `npx tsx server/socket.ts`. Belmo runs `npm ci` automatically during its install phase.
 4. Keep the generated Belmo subdomain on the free Starter plan. Do not set `PORT`; Belmo provides it automatically.
 5. Set these variables in the Belmo service:
 
 | Variable | Purpose |
 |---|---|
 | `DATABASE_URL` | Neon connection string (the socket server queries the DB) |
+| `DIRECT_URL` | Direct Neon connection string used by the Prisma PostgreSQL adapter |
 | `NEXTAUTH_SECRET` | Same secret as Vercel (used to verify judge/organizer JWT cookies) |
 | `NEXT_PUBLIC_APP_URL` | CORS origin — the full Vercel site URL |
 | `REDIS_URL` | Optional — enables Socket.io pub/sub horizontal scaling across multiple instances |
