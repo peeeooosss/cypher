@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSocket } from "@/components/socket-provider";
 import { FeedbackSelect } from "@/components/feedback-select";
 import { ScoringSectionGrid } from "@/components/scoring-section-grid";
+import { responseError } from "@/lib/client-error";
 import { EMPTY_SECTIONS, MAX_TOTAL, sectionTotal, type SectionScores } from "@/lib/scoring-sections";
 import type {
   MatchLiveData,
@@ -120,50 +121,69 @@ export function JudgeDashboard({
     redTouched && blueTouched;
 
   function submitVote() {
-    if (!socket || !liveMatch || !canSubmit) return;
+    if (!liveMatch || !canSubmit) return;
     setSubmitting(true);
     setSubmitError(null);
 
-    socket.emit(
-      "submit_score",
-      {
-        matchId: liveMatch.matchId,
-        scoreRedSections: {
-          musicality: redSections.MUSICALITY,
-          foundation: redSections.FOUNDATION,
-          presentation: redSections.PRESENTATION,
-          execution: redSections.EXECUTION,
-        },
-        scoreBlueSections: {
-          musicality: blueSections.MUSICALITY,
-          foundation: blueSections.FOUNDATION,
-          presentation: blueSections.PRESENTATION,
-          execution: blueSections.EXECUTION,
-        },
-        feedbackRed: feedback.red.custom || undefined,
-        feedbackBlue: feedback.blue.custom || undefined,
-        feedbackTemplateIdRed: feedback.red.templateId,
-        feedbackTemplateIdBlue: feedback.blue.templateId,
-      },
-      (ack) => {
-        if (submitTimeout.current) { clearTimeout(submitTimeout.current); submitTimeout.current = null; }
-        setSubmitting(false);
-        if (!ack.ok) {
-          const msg = (ack as { error?: string }).error
-            ?? (ack as { message?: string }).message
-            ?? "Failed to submit score";
-          setSubmitError(msg);
+    void (async () => {
+      try {
+        const response = await fetch(`/api/matches/${liveMatch.matchId}/score`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            scoreA: redTotal,
+            scoreB: blueTotal,
+            sectionsA: {
+              musicality: redSections.MUSICALITY,
+              foundation: redSections.FOUNDATION,
+              presentation: redSections.PRESENTATION,
+              execution: redSections.EXECUTION,
+            },
+            sectionsB: {
+              musicality: blueSections.MUSICALITY,
+              foundation: blueSections.FOUNDATION,
+              presentation: blueSections.PRESENTATION,
+              execution: blueSections.EXECUTION,
+            },
+            judgeCode: code,
+            feedbackRed: feedback.red.custom || undefined,
+            feedbackBlue: feedback.blue.custom || undefined,
+            feedbackTemplateIdRed: feedback.red.templateId,
+            feedbackTemplateIdBlue: feedback.blue.templateId,
+          }),
+        });
+
+        if (!response.ok) {
+          setSubmitError(await responseError(response, "Failed to submit score"));
           return;
         }
+
+        const result = await response.json() as {
+          aggregate?: {
+            scoreRed: number;
+            scoreBlue: number;
+            judgeCount: number;
+            redSections?: SectionScoresInput;
+            blueSections?: SectionScoresInput;
+          };
+        };
         setSubmitted(true);
-        if (ack.aggregate) setAggregate(ack.aggregate);
-      },
-    );
+        if (result.aggregate) setAggregate(result.aggregate);
+      } catch {
+        setSubmitError("Network error. Please try again.");
+      } finally {
+        if (submitTimeout.current) {
+          clearTimeout(submitTimeout.current);
+          submitTimeout.current = null;
+        }
+        setSubmitting(false);
+      }
+    })();
 
     submitTimeout.current = setTimeout(() => {
       setSubmitting(false);
       setSubmitError("Server did not respond. Please try again.");
-    }, 10000);
+    }, 15000);
   }
 
   const connectionLabel =

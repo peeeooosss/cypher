@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { io } from "socket.io-client";
 import { LiveLeaderboard } from "@/components/live-leaderboard";
 import { PosterUpload } from "@/components/poster-upload";
 import { formatInr, isEventFlatFeePaid } from "@/lib/pricing";
@@ -151,6 +152,37 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
       setRefreshing(false);
     }
   }, [event.id]);
+
+  useEffect(() => {
+    const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL ?? "http://localhost:3001", {
+      withCredentials: true,
+    });
+
+    const refreshAfterSocketEvent = () => {
+      void refreshControlRoom();
+    };
+
+    const joinEvent = () => {
+      socket.emit("join_event_room", { eventId: event.id, role: "organizer" }, (ack: { ok: boolean; error?: string }) => {
+        if (!ack.ok) setNotice(ack.error ?? "Unable to join live event updates");
+      });
+    };
+
+    socket.on("connect", joinEvent);
+    socket.on("score_submitted", refreshAfterSocketEvent);
+    socket.on("match_live", refreshAfterSocketEvent);
+    socket.on("score_locked", refreshAfterSocketEvent);
+    socket.on("match_complete", refreshAfterSocketEvent);
+
+    return () => {
+      socket.off("connect", joinEvent);
+      socket.off("score_submitted", refreshAfterSocketEvent);
+      socket.off("match_live", refreshAfterSocketEvent);
+      socket.off("score_locked", refreshAfterSocketEvent);
+      socket.off("match_complete", refreshAfterSocketEvent);
+      socket.disconnect();
+    };
+  }, [event.id, refreshControlRoom]);
 
   const rewindCategory = async (categoryId: string) => {
     if (!window.confirm("Go back to the previous phase? Current phase brackets, scores, and results will be deleted.")) return;
