@@ -13,8 +13,11 @@ import {
   getLiveMatchPayload,
   getMatchAggregate,
   getMatchDecisionAggregate,
+  getMatchScoreAggregate,
   getMatchState,
 } from "../src/lib/live-match";
+import { sectionTotal } from "../src/lib/scoring-sections";
+import { SectionScoresSchema } from "../src/lib/socket/types";
 import {
   JoinRoomSchema,
   SubmitScoreSchema,
@@ -24,6 +27,7 @@ import {
   type ScoreSubmittedData,
   type MatchCompleteData,
   type ScoreLockedData,
+  type SectionScoresInput,
 } from "../src/lib/socket/types";
 
 const connectionString = process.env.DATABASE_URL;
@@ -66,8 +70,8 @@ if (redisUrl) {
 const scoreSchema = z.object({
   eventId: z.string().cuid(),
   matchId: z.string().cuid(),
-  scoreA: z.number().int().min(0).max(10),
-  scoreB: z.number().int().min(0).max(10),
+  scoreA: z.number().min(0).max(20),
+  scoreB: z.number().min(0).max(20),
   feedback: z.string().optional(),
 });
 
@@ -82,8 +86,13 @@ const dancerScoreSchema = z.object({
   eventId: z.string().cuid(),
   registrationId: z.string().cuid(),
   roundFormatId: z.string().cuid(),
-  score: z.number().int().min(0).max(10),
+  score: z.number().min(0).max(20).optional(),
+  sections: SectionScoresSchema.optional(),
   feedback: z.string().optional(),
+}).superRefine((val, ctx) => {
+  if (val.sections == null && val.score == null) {
+    ctx.addIssue({ code: "custom", message: "Provide sections or a score" });
+  }
 });
 
 type JudgeSocketData = { type: "judge"; slotId: string; eventId: string };
@@ -253,6 +262,7 @@ io.on("connection", (socket) => {
 
     const isDecision = parsed.data.winnerCorner != null;
     const winnerCorner = parsed.data.winnerCorner?.toUpperCase() === "RED" ? "RED" : "BLUE";
+    const hasSections = parsed.data.scoreRedSections != null && parsed.data.scoreBlueSections != null;
 
     async function resolveTemplate(templateId: string | undefined, fallback: string | undefined) {
       if (fallback) return fallback;
@@ -276,19 +286,88 @@ io.on("connection", (socket) => {
       }
     }
 
-    await prisma.matchScore.upsert({
-      where: { matchId_judgeSlotId: { matchId: match.id, judgeSlotId: user.slotId } },
-      update: isDecision
-        ? { winnerCorner, scoreA: 0, scoreB: 0, feedbackRed, feedbackBlue }
-        : { scoreA: parsed.data.scoreRed ?? 0, scoreB: parsed.data.scoreBlue ?? 0, feedbackRed, feedbackBlue },
-      create: isDecision
-        ? { matchId: match.id, judgeSlotId: user.slotId, winnerCorner, scoreA: 0, scoreB: 0, feedbackRed, feedbackBlue }
-        : { matchId: match.id, judgeSlotId: user.slotId, scoreA: parsed.data.scoreRed ?? 0, scoreB: parsed.data.scoreBlue ?? 0, feedbackRed, feedbackBlue },
-    });
+    let scoreA = 0;
+    let scoreB = 0;
+    let aggregate: {
+      scoreRed: number;
+      scoreBlue: number;
+      judgeCount: number;
+      redSections?: SectionScoresInput;
+      blueSections?: SectionScoresInput;
+    };
 
-    const aggregate = isDecision
-      ? await getMatchDecisionAggregate(match.id)
-      : await getMatchAggregate(match.id);
+    if (hasSections) {
+      const r = parsed.data.scoreRedSections!;
+      const b = parsed.data.scoreBlueSections!;
+      scoreA = sectionTotal({
+        MUSICALITY: r.musicality,
+        FOUNDATION: r.foundation,
+        PRESENTATION: r.presentation,
+        EXECUTION: r.execution,
+      });
+      scoreB = sectionTotal({
+        MUSICALITY: b.musicality,
+        FOUNDATION: b.foundation,
+        PRESENTATION: b.presentation,
+        EXECUTION: b.execution,
+      });
+
+      await prisma.matchScore.upsert({
+        where: { matchId_judgeSlotId: { matchId: match.id, judgeSlotId: user.slotId } },
+        update: {
+          scoreA,
+          scoreB,
+          scoreAMusicality: r.musicality,
+          scoreAFoundation: r.foundation,
+          scoreAPresentation: r.presentation,
+          scoreAExecution: r.execution,
+          scoreBMusicality: b.musicality,
+          scoreBFoundation: b.foundation,
+          scoreBPresentation: b.presentation,
+          scoreBExecution: b.execution,
+          winnerCorner: null,
+          feedbackRed,
+          feedbackBlue,
+        },
+        create: {
+          matchId: match.id,
+          judgeSlotId: user.slotId,
+          scoreA,
+          scoreB,
+          scoreAMusicality: r.musicality,
+          scoreAFoundation: r.foundation,
+          scoreAPresentation: r.presentation,
+          scoreAExecution: r.execution,
+          scoreBMusicality: b.musicality,
+          scoreBFoundation: b.foundation,
+          scoreBPresentation: b.presentation,
+          scoreBExecution: b.execution,
+          feedbackRed,
+          feedbackBlue,
+        },
+      });
+
+      aggregate = await getMatchScoreAggregate(match.id);
+    } else {
+      if (!isDecision) {
+        scoreA = parsed.data.scoreRed ?? 0;
+        scoreB = parsed.data.scoreBlue ?? 0;
+      }
+
+      await prisma.matchScore.upsert({
+        where: { matchId_judgeSlotId: { matchId: match.id, judgeSlotId: user.slotId } },
+        update: isDecision
+          ? { winnerCorner, scoreA: 0, scoreB: 0, feedbackRed, feedbackBlue }
+          : { winnerCorner: null, scoreA, scoreB, feedbackRed, feedbackBlue },
+        create: isDecision
+          ? { matchId: match.id, judgeSlotId: user.slotId, winnerCorner, scoreA: 0, scoreB: 0, feedbackRed, feedbackBlue }
+          : { matchId: match.id, judgeSlotId: user.slotId, scoreA, scoreB, feedbackRed, feedbackBlue },
+      });
+
+      aggregate = isDecision
+        ? await getMatchDecisionAggregate(match.id)
+        : await getMatchAggregate(match.id);
+    }
 
     await prisma.battleMatch.update({
       where: { id: match.id },
@@ -298,15 +377,13 @@ io.on("connection", (socket) => {
     const payloadData: ScoreSubmittedData = {
       matchId: match.id,
       judgeSlotId: user.slotId,
-      scoreRed: parsed.data.winnerCorner != null
-        ? (parsed.data.winnerCorner === "red" ? 1 : 0)
-        : (parsed.data.scoreRed ?? 0),
-      scoreBlue: parsed.data.winnerCorner != null
-        ? (parsed.data.winnerCorner === "blue" ? 1 : 0)
-        : (parsed.data.scoreBlue ?? 0),
+      scoreRed: isDecision ? (parsed.data.winnerCorner === "red" ? 1 : 0) : scoreA,
+      scoreBlue: isDecision ? (parsed.data.winnerCorner === "blue" ? 1 : 0) : scoreB,
       aggregateRed: aggregate.scoreRed,
       aggregateBlue: aggregate.scoreBlue,
       judgeCount: aggregate.judgeCount,
+      ...(hasSections && aggregate.redSections ? { redSections: aggregate.redSections } : {}),
+      ...(hasSections && aggregate.blueSections ? { blueSections: aggregate.blueSections } : {}),
     };
     io.to(`event:${user.eventId}`).emit("score_submitted", payloadData);
 
@@ -434,6 +511,16 @@ io.on("connection", (socket) => {
     if (!parsed.success) { acknowledge?.({ error: "Invalid score data" }); return; }
     if (!socket.rooms.has(`event:${parsed.data.eventId}`)) { acknowledge?.({ error: "Join the event before scoring" }); return; }
 
+    const hasSections = parsed.data.sections != null;
+    const total = hasSections
+      ? sectionTotal({
+          MUSICALITY: parsed.data.sections!.musicality,
+          FOUNDATION: parsed.data.sections!.foundation,
+          PRESENTATION: parsed.data.sections!.presentation,
+          EXECUTION: parsed.data.sections!.execution,
+        })
+      : (parsed.data.score ?? 0);
+
     const dancerScore = await prisma.dancerScore.upsert({
       where: {
         judgeSlotId_registrationId_roundFormatId: {
@@ -442,12 +529,23 @@ io.on("connection", (socket) => {
           roundFormatId: parsed.data.roundFormatId,
         },
       },
-      update: { score: parsed.data.score, feedback: parsed.data.feedback ?? null },
+      update: {
+        score: total,
+        musicality: hasSections ? parsed.data.sections!.musicality : undefined,
+        foundation: hasSections ? parsed.data.sections!.foundation : undefined,
+        presentation: hasSections ? parsed.data.sections!.presentation : undefined,
+        execution: hasSections ? parsed.data.sections!.execution : undefined,
+        feedback: parsed.data.feedback ?? null,
+      },
       create: {
         judgeSlotId: user.slotId,
         registrationId: parsed.data.registrationId,
         roundFormatId: parsed.data.roundFormatId,
-        score: parsed.data.score,
+        score: total,
+        musicality: hasSections ? parsed.data.sections!.musicality : null,
+        foundation: hasSections ? parsed.data.sections!.foundation : null,
+        presentation: hasSections ? parsed.data.sections!.presentation : null,
+        execution: hasSections ? parsed.data.sections!.execution : null,
         feedback: parsed.data.feedback ?? null,
       },
     });
@@ -457,7 +555,8 @@ io.on("connection", (socket) => {
       judgeSlotId: user.slotId,
       registrationId: parsed.data.registrationId,
       roundFormatId: parsed.data.roundFormatId,
-      score: parsed.data.score,
+      score: total,
+      sections: parsed.data.sections ?? undefined,
       feedback: parsed.data.feedback ?? null,
     });
     acknowledge?.({});

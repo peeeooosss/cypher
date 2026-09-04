@@ -78,6 +78,50 @@ export async function getMatchDecisionAggregate(matchId: string) {
   return { scoreRed: redVotes, scoreBlue: blueVotes, judgeCount: scores.length };
 }
 
+export async function getMatchScoreAggregate(matchId: string) {
+  const scores = await prisma.matchScore.findMany({
+    where: { matchId },
+    select: {
+      scoreA: true,
+      scoreB: true,
+      scoreAMusicality: true,
+      scoreAFoundation: true,
+      scoreAPresentation: true,
+      scoreAExecution: true,
+      scoreBMusicality: true,
+      scoreBFoundation: true,
+      scoreBPresentation: true,
+      scoreBExecution: true,
+    },
+  });
+
+  const sumA = (key: "scoreAMusicality" | "scoreAFoundation" | "scoreAPresentation" | "scoreAExecution") =>
+    scores.reduce((acc, s) => acc + (s[key] ?? 0), 0);
+  const sumB = (key: "scoreBMusicality" | "scoreBFoundation" | "scoreBPresentation" | "scoreBExecution") =>
+    scores.reduce((acc, s) => acc + (s[key] ?? 0), 0);
+
+  const redSections = {
+    musicality: sumA("scoreAMusicality"),
+    foundation: sumA("scoreAFoundation"),
+    presentation: sumA("scoreAPresentation"),
+    execution: sumA("scoreAExecution"),
+  };
+  const blueSections = {
+    musicality: sumB("scoreBMusicality"),
+    foundation: sumB("scoreBFoundation"),
+    presentation: sumB("scoreBPresentation"),
+    execution: sumB("scoreBExecution"),
+  };
+
+  return {
+    scoreRed: scores.reduce((acc, s) => acc + (s.scoreA ?? 0), 0),
+    scoreBlue: scores.reduce((acc, s) => acc + (s.scoreB ?? 0), 0),
+    judgeCount: scores.length,
+    redSections,
+    blueSections,
+  };
+}
+
 export async function getDefaultTimeLimit(roundFormatId: string | null): Promise<number> {
   if (!roundFormatId) return 60000;
   const round = await prisma.roundFormat.findUnique({

@@ -1,4 +1,18 @@
 import { z } from "zod";
+import { MAX_SECTION, STEP } from "@/lib/scoring-sections";
+
+const sectionValue = z.number().min(0).max(MAX_SECTION).refine((v) => Math.round(v / STEP) * STEP === v, {
+  message: `Section scores must be in steps of ${STEP}`,
+});
+
+export const SectionScoresSchema = z.object({
+  musicality: sectionValue,
+  foundation: sectionValue,
+  presentation: sectionValue,
+  execution: sectionValue,
+});
+
+export type SectionScoresInput = z.infer<typeof SectionScoresSchema>;
 
 export const JoinRoomSchema = z.object({
   eventId: z.string().cuid(),
@@ -13,9 +27,11 @@ export const PushMatchLiveSchema = z.object({
 
 export const SubmitScoreSchema = z.object({
   matchId: z.string().cuid(),
-  scoreRed: z.number().int().min(0).max(10).optional(),
-  scoreBlue: z.number().int().min(0).max(10).optional(),
+  scoreRed: z.number().min(0).max(10).optional(),
+  scoreBlue: z.number().min(0).max(10).optional(),
   winnerCorner: z.enum(["red", "blue"]).optional(),
+  scoreRedSections: SectionScoresSchema.optional(),
+  scoreBlueSections: SectionScoresSchema.optional(),
   feedback: z.string().max(500).optional(),
   feedbackTemplateId: z.string().cuid().optional(),
   feedbackRed: z.string().max(500).optional(),
@@ -23,10 +39,11 @@ export const SubmitScoreSchema = z.object({
   feedbackTemplateIdRed: z.string().cuid().optional(),
   feedbackTemplateIdBlue: z.string().cuid().optional(),
 }).superRefine((val, ctx) => {
+  const hasSections = val.scoreRedSections != null && val.scoreBlueSections != null;
   const hasScores = val.scoreRed != null && val.scoreBlue != null;
   const hasDecision = val.winnerCorner != null;
-  if (!hasScores && !hasDecision) {
-    ctx.addIssue({ code: "custom", message: "Provide scores or a winner decision" });
+  if (!hasSections && !hasScores && !hasDecision) {
+    ctx.addIssue({ code: "custom", message: "Provide sections, scores, or a winner decision" });
   }
 });
 
@@ -72,6 +89,18 @@ export const ScoreSubmittedPayload = z.object({
   aggregateRed: z.number(),
   aggregateBlue: z.number(),
   judgeCount: z.number(),
+  redSections: z.object({
+    musicality: z.number(),
+    foundation: z.number(),
+    presentation: z.number(),
+    execution: z.number(),
+  }).optional(),
+  blueSections: z.object({
+    musicality: z.number(),
+    foundation: z.number(),
+    presentation: z.number(),
+    execution: z.number(),
+  }).optional(),
 });
 
 export const MatchCompletePayload = z.object({
@@ -142,13 +171,13 @@ export interface ServerToClientEvents {
   leaderboard_update: (data: LeaderboardUpdateData) => void;
   event_state: (matches: unknown[]) => void;
   match_updated: (data: { match: unknown; score: unknown }) => void;
-  dancer_updated: (data: { judgeSlotId: string; registrationId: string; roundFormatId: string; score: number }) => void;
+  dancer_updated: (data: { judgeSlotId: string; registrationId: string; roundFormatId: string; score: number; sections?: SectionScoresInput; feedback?: string | null }) => void;
 }
 
 export interface ClientToServerEvents {
   join_event_room: (data: JoinRoomInput, ack: (res: { ok: boolean; error?: string }) => void) => void;
   push_match_live: (data: PushMatchLiveInput) => void;
-  submit_score: (data: SubmitScoreInput, ack: (res: { ok: boolean; aggregate: { scoreRed: number; scoreBlue: number; judgeCount: number } }) => void) => void;
+  submit_score: (data: SubmitScoreInput, ack: (res: { ok: boolean; aggregate?: { scoreRed: number; scoreBlue: number; judgeCount: number; redSections?: SectionScoresInput; blueSections?: SectionScoresInput } }) => void) => void;
   advance_winner: (data: AdvanceWinnerInput, ack: (res: { ok: boolean; bracket?: unknown[] }) => void) => void;
   lock_voting: (data: LockVotingInput) => void;
 }

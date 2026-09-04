@@ -429,17 +429,21 @@ model JudgeSlot {
 }
 
 model DancerScore {
-  id             String       @id @default(cuid())
-  judgeSlotId    String
-  registrationId String
-  roundFormatId  String
-  score          Int
-  feedback       String?
-  judgeSlot      JudgeSlot    @relation(fields: [judgeSlotId], references: [id], onDelete: Cascade)
-  registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
-  roundFormat    RoundFormat  @relation(fields: [roundFormatId], references: [id], onDelete: Cascade)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  id               String       @id @default(cuid())
+  judgeSlotId      String
+  registrationId   String
+  roundFormatId    String
+  score            Float
+  musicality       Float?
+  foundation       Float?
+  presentation     Float?
+  execution        Float?
+  feedback         String?
+  judgeSlot        JudgeSlot    @relation(fields: [judgeSlotId], references: [id], onDelete: Cascade)
+  registration     Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  roundFormat      RoundFormat  @relation(fields: [roundFormatId], references: [id], onDelete: Cascade)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
   @@unique([judgeSlotId, registrationId, roundFormatId])
   @@index([registrationId])
@@ -447,19 +451,27 @@ model DancerScore {
 }
 
 model MatchScore {
-  id           String      @id @default(cuid())
-  matchId      String
-  judgeSlotId  String
-  scoreA       Int
-  scoreB       Int
-  winnerCorner String?
-  feedback     String?
-  feedbackRed  String?
-  feedbackBlue String?
-  match        BattleMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  judgeSlot    JudgeSlot   @relation(fields: [judgeSlotId], references: [id], onDelete: Cascade)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id                String      @id @default(cuid())
+  matchId           String
+  judgeSlotId       String
+  scoreA            Float
+  scoreB            Float
+  scoreAMusicality  Float?
+  scoreAFoundation  Float?
+  scoreAPresentation Float?
+  scoreAExecution   Float?
+  scoreBMusicality  Float?
+  scoreBFoundation  Float?
+  scoreBPresentation Float?
+  scoreBExecution   Float?
+  winnerCorner      String?
+  feedback          String?
+  feedbackRed       String?
+  feedbackBlue      String?
+  match             BattleMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  judgeSlot         JudgeSlot   @relation(fields: [judgeSlotId], references: [id], onDelete: Cascade)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
 
   @@unique([matchId, judgeSlotId])
   @@index([judgeSlotId])

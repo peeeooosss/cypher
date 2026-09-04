@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { io } from "socket.io-client";
 import { responseError } from "@/lib/client-error";
+import { ScoringSectionGrid } from "@/components/scoring-section-grid";
+import { EMPTY_SECTIONS, sectionTotal, type SectionScores } from "@/lib/scoring-sections";
 
 type Competitor = { teamName?: string | null; user: { name: string | null }; members?: { user: { name: string | null; username: string | null } }[] } | null;
 
@@ -27,7 +29,7 @@ type RegistrationDisplay = {
   city: string | null;
   status: string;
   user: { name: string | null; email: string };
-  dancerScores: { roundFormatId: string; score: number; judgeSlotId: string; feedback?: string | null }[];
+  dancerScores: { roundFormatId: string; score: number; judgeSlotId: string; feedback?: string | null; musicality?: number | null; foundation?: number | null; presentation?: number | null; execution?: number | null }[];
 };
 
 type RoundDisplay = {
@@ -50,7 +52,11 @@ type SlotData = {
   };
 };
 
-type DancerScoreInput = { score: number; feedback?: string };
+type DancerScoreInput = {
+  score: number;
+  feedback?: string;
+  sections?: SectionScores;
+};
 
 function initialMyScores(
   registrations: RegistrationDisplay[],
@@ -59,7 +65,13 @@ function initialMyScores(
   const result: Record<string, DancerScoreInput> = {};
   for (const reg of registrations) {
     const mine = reg.dancerScores.find((s) => s.judgeSlotId === slotId);
-    if (mine) result[reg.id] = { score: mine.score, feedback: mine.feedback ?? undefined };
+    if (mine) {
+      const sections: SectionScores =
+        mine.musicality != null && mine.foundation != null && mine.presentation != null && mine.execution != null
+          ? { MUSICALITY: mine.musicality, FOUNDATION: mine.foundation, PRESENTATION: mine.presentation, EXECUTION: mine.execution }
+          : { ...EMPTY_SECTIONS };
+      result[reg.id] = { score: mine.score, feedback: mine.feedback ?? undefined, sections };
+    }
   }
   return result;
 }
@@ -97,10 +109,10 @@ export function ScoringInterface({
   const [connectionStatus, setConnectionStatus] = useState("offline");
   const [submittedIds, setSubmittedIds] = useState<Set<string>>(new Set());
   const [scores, setScores] = useState<
-    Record<string, { scoreA: number | null; scoreB: number | null }>
+    Record<string, { sectionsA: SectionScores | null; sectionsB: SectionScores | null }>
   >({});
   const [submitting, setSubmitting] = useState<Record<string, boolean>>({});
-  const [draftScores, setDraftScores] = useState<Record<string, number | null>>(
+  const [draftScores, setDraftScores] = useState<Record<string, SectionScores | null>>(
     () => Object.fromEntries(data.category.registrations.map((reg) => [reg.id, null])),
   );
   const [dancerFeedback, setDancerFeedback] = useState<Record<string, string>>(() => initialDancerFeedback(data.category.registrations, slotId));
@@ -160,9 +172,9 @@ export function ScoringInterface({
       );
     });
 
-    socket.on("dancer:updated", ({ judgeSlotId, registrationId, score, feedback }) => {
+    socket.on("dancer:updated", ({ judgeSlotId, registrationId, score, sections, feedback }) => {
       if (judgeSlotId !== slotId) return;
-      setMyDancerScores((prev) => ({ ...prev, [registrationId]: { score, feedback: feedback ?? undefined } }));
+      setMyDancerScores((prev) => ({ ...prev, [registrationId]: { score, feedback: feedback ?? undefined, sections } }));
       if (feedback) setDancerFeedback((prev) => ({ ...prev, [registrationId]: feedback }));
       setDraftScores((prev) => ({ ...prev, [registrationId]: null }));
     });
@@ -211,11 +223,11 @@ export function ScoringInterface({
     return () => clearInterval(timer);
   }, [code, connectionStatus, fetchFullData]);
 
-  function selectScore(matchId: string, key: "scoreA" | "scoreB", value: number) {
+  function selectSections(matchId: string, key: "sectionsA" | "sectionsB", value: SectionScores) {
     setScores((prev) => ({
       ...prev,
       [matchId]: {
-        ...(prev[matchId] ?? { scoreA: null, scoreB: null }),
+        ...(prev[matchId] ?? { sectionsA: null, sectionsB: null }),
         [key]: value,
       },
     }));
@@ -223,7 +235,10 @@ export function ScoringInterface({
 
   async function submitMatchScore(matchId: string) {
     const matchScore = scores[matchId];
-    if (!matchScore || matchScore.scoreA === null || matchScore.scoreB === null) return;
+    if (!matchScore || !matchScore.sectionsA || !matchScore.sectionsB) return;
+    const scoreA = sectionTotal(matchScore.sectionsA);
+    const scoreB = sectionTotal(matchScore.sectionsB);
+    if (scoreA <= 0 || scoreB <= 0) return;
 
     setSubmitting((prev) => ({ ...prev, [matchId]: true }));
     setError("");
@@ -232,8 +247,20 @@ export function ScoringInterface({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          scoreA: matchScore.scoreA,
-          scoreB: matchScore.scoreB,
+          scoreA,
+          scoreB,
+          sectionsA: {
+            musicality: matchScore.sectionsA.MUSICALITY,
+            foundation: matchScore.sectionsA.FOUNDATION,
+            presentation: matchScore.sectionsA.PRESENTATION,
+            execution: matchScore.sectionsA.EXECUTION,
+          },
+          sectionsB: {
+            musicality: matchScore.sectionsB.MUSICALITY,
+            foundation: matchScore.sectionsB.FOUNDATION,
+            presentation: matchScore.sectionsB.PRESENTATION,
+            execution: matchScore.sectionsB.EXECUTION,
+          },
           judgeCode: code,
         }),
       });
@@ -251,8 +278,11 @@ export function ScoringInterface({
   }
 
   async function submitDancerScore(registrationId: string) {
-    const score = draftScores[registrationId];
-    if (score == null) return;
+    const sections = draftScores[registrationId];
+    if (!sections) return;
+
+    const total = sectionTotal(sections);
+    if (total <= 0) return;
 
     setSubmitting((prev) => ({ ...prev, [registrationId]: true }));
     setError("");
@@ -262,7 +292,13 @@ export function ScoringInterface({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           registrationId,
-          score,
+          score: total,
+          sections: {
+            musicality: sections.MUSICALITY,
+            foundation: sections.FOUNDATION,
+            presentation: sections.PRESENTATION,
+            execution: sections.EXECUTION,
+          },
           feedback: dancerFeedback[registrationId] || undefined,
         }),
       });
@@ -271,7 +307,10 @@ export function ScoringInterface({
         setError(await responseError(res, "Failed to submit score."));
         return;
       }
-      setMyDancerScores((prev) => ({ ...prev, [registrationId]: { score } }));
+      setMyDancerScores((prev) => ({
+        ...prev,
+        [registrationId]: { score: total, sections },
+      }));
       setDraftScores((prev) => ({ ...prev, [registrationId]: null }));
     } catch {
       setError("Network error. Please try again.");
@@ -280,7 +319,6 @@ export function ScoringInterface({
     }
   }
 
-  const SCORE_OPTIONS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
   const matches = liveMatches;
 
   return (
@@ -306,7 +344,7 @@ export function ScoringInterface({
               {activeRound!.type === "CYPHER" ? "Cypher scoring" : "Qualifier scoring"}
             </p>
             <p className="mt-xs text-body-sm text-ink-muted">
-              Score each entry 0&ndash;10 as they perform. Scores are averaged across judges.
+              Score each entry across 4 sections (0&ndash;5 each, max 20) as they perform. Scores are summed across judges.
             </p>
           </div>
           <div className="grid gap-md lg:grid-cols-2">
@@ -336,34 +374,22 @@ export function ScoringInterface({
                       </div>
                       {mine && (
                         <span className="border border-accent bg-accent px-sm py-xs font-mono text-title-md font-bold text-paper">
-                          {mine.score}
+                          {mine.score.toFixed(1)}
                         </span>
                       )}
                     </div>
 
                     <div className="mt-lg">
                       <p className="text-body-sm font-bold uppercase text-ink-muted">
-                        {mine ? "Update score" : "Select score"}
+                        {mine ? "Update score" : "Score"}
                       </p>
-                      <div className="mt-sm flex flex-wrap gap-xs">
-                        {SCORE_OPTIONS.map((n) => (
-                          <button
-                            className={`border px-sm py-xs text-body-sm font-bold uppercase ${
-                              draft === n
-                                ? "border-accent bg-accent text-paper"
-                                : "border-line text-ink-muted hover:border-ink-muted"
-                            }`}
-                            disabled={isSubmitting}
-                            key={`${reg.id}-${n}`}
-                            onClick={() =>
-                              setDraftScores((prev) => ({ ...prev, [reg.id]: n }))
-                            }
-                            type="button"
-                          >
-                            {n}
-                          </button>
-                        ))}
-                      </div>
+                      <ScoringSectionGrid
+                        className="mt-sm"
+                        value={draft ?? { ...EMPTY_SECTIONS }}
+                        onChange={(next) =>
+                          setDraftScores((prev) => ({ ...prev, [reg.id]: next }))
+                        }
+                      />
                     </div>
 
                     <input
@@ -380,7 +406,7 @@ export function ScoringInterface({
 
                     <button
                       className="mt-lg w-full border border-accent bg-accent px-lg py-md text-button-md font-bold uppercase text-paper disabled:cursor-not-allowed disabled:opacity-60"
-                      disabled={draft == null || isSubmitting}
+                      disabled={!draft || isSubmitting || sectionTotal(draft) <= 0}
                       onClick={() => submitDancerScore(reg.id)}
                       type="button"
                     >
@@ -408,9 +434,9 @@ export function ScoringInterface({
         <div className="grid gap-md lg:grid-cols-2">
           {matches.map((match) => {
             const isSubmitted = submittedIds.has(match.id);
-            const matchScore = scores[match.id] ?? { scoreA: null, scoreB: null };
+            const matchScore = scores[match.id] ?? { sectionsA: null, sectionsB: null };
             const bothSelected =
-              matchScore.scoreA !== null && matchScore.scoreB !== null;
+              matchScore.sectionsA != null && matchScore.sectionsB != null;
             const isSubmitting = submitting[match.id] ?? false;
 
              const nameA = match.competitorA?.teamName ?? match.competitorA?.user.name ?? "TBD";
@@ -440,44 +466,20 @@ export function ScoringInterface({
                   <>
                     <div className="mt-lg">
                       <p className="text-body-sm font-bold uppercase text-ink-muted">{nameA}</p>
-                      <div className="mt-sm flex flex-wrap gap-xs">
-                        {SCORE_OPTIONS.map((n) => (
-                          <button
-                            className={`border px-sm py-xs text-body-sm font-bold uppercase ${
-                              matchScore.scoreA === n
-                                ? "border-accent bg-accent text-paper"
-                                : "border-line text-ink-muted hover:border-ink-muted"
-                            }`}
-                            disabled={isSubmitting}
-                            key={`a-${match.id}-${n}`}
-                            onClick={() => selectScore(match.id, "scoreA", n)}
-                            type="button"
-                          >
-                            {n}
-                          </button>
-                        ))}
-                      </div>
+                      <ScoringSectionGrid
+                        className="mt-sm"
+                        value={matchScore.sectionsA ?? { ...EMPTY_SECTIONS }}
+                        onChange={(next) => selectSections(match.id, "sectionsA", next)}
+                      />
                     </div>
 
                     <div className="mt-lg">
                       <p className="text-body-sm font-bold uppercase text-ink-muted">{nameB}</p>
-                      <div className="mt-sm flex flex-wrap gap-xs">
-                        {SCORE_OPTIONS.map((n) => (
-                          <button
-                            className={`border px-sm py-xs text-body-sm font-bold uppercase ${
-                              matchScore.scoreB === n
-                                ? "border-accent bg-accent text-paper"
-                                : "border-line text-ink-muted hover:border-ink-muted"
-                            }`}
-                            disabled={isSubmitting}
-                            key={`b-${match.id}-${n}`}
-                            onClick={() => selectScore(match.id, "scoreB", n)}
-                            type="button"
-                          >
-                            {n}
-                          </button>
-                        ))}
-                      </div>
+                      <ScoringSectionGrid
+                        className="mt-sm"
+                        value={matchScore.sectionsB ?? { ...EMPTY_SECTIONS }}
+                        onChange={(next) => selectSections(match.id, "sectionsB", next)}
+                      />
                     </div>
 
                     <button

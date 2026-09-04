@@ -71,6 +71,12 @@ export default function ForOrganizersPage() {
               Create your event
             </Link>
             <Link
+              href="/for-organizers/demo"
+              className="border border-line px-lg py-sm text-button-md font-bold uppercase text-ink transition-colors hover:border-accent"
+            >
+              Try the judge portal demo
+            </Link>
+            <Link
               href="/events"
               className="border border-line px-lg py-sm text-button-md font-bold uppercase text-ink transition-colors hover:border-accent"
             >

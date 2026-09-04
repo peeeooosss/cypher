@@ -4,6 +4,7 @@ import type {
   PhaseActivatedData,
   PhaseCompletedData,
   RegistrationWithdrawnData,
+  SectionScoresInput,
   ServerToClientEvents,
 } from "./socket/types";
 
@@ -22,6 +23,7 @@ type LegacyEvents = {
     registrationId: string;
     roundFormatId: string;
     score: number;
+    sections?: SectionScoresInput;
   };
 };
 

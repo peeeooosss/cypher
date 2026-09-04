@@ -45,7 +45,7 @@ export default async function ArtistPage({ searchParams }: PageProps) {
           include: {
             competitorB: { include: { user: { select: { name: true } } } },
              winner: { select: { id: true, userId: true } },
-            scores: { select: { feedback: true, feedbackRed: true, feedbackBlue: true, scoreA: true, scoreB: true, winnerCorner: true, judgeSlot: { select: { name: true, code: true } } } },
+            scores: { select: { feedback: true, feedbackRed: true, feedbackBlue: true, scoreA: true, scoreB: true, winnerCorner: true, scoreAMusicality: true, scoreAFoundation: true, scoreAPresentation: true, scoreAExecution: true, scoreBMusicality: true, scoreBFoundation: true, scoreBPresentation: true, scoreBExecution: true, judgeSlot: { select: { name: true, code: true } } } },
           },
           orderBy: { round: "asc" },
         },
@@ -53,7 +53,7 @@ export default async function ArtistPage({ searchParams }: PageProps) {
           include: {
             competitorA: { include: { user: { select: { name: true } } } },
              winner: { select: { id: true, userId: true } },
-            scores: { select: { feedback: true, feedbackRed: true, feedbackBlue: true, scoreA: true, scoreB: true, winnerCorner: true, judgeSlot: { select: { name: true, code: true } } } },
+            scores: { select: { feedback: true, feedbackRed: true, feedbackBlue: true, scoreA: true, scoreB: true, winnerCorner: true, scoreAMusicality: true, scoreAFoundation: true, scoreAPresentation: true, scoreAExecution: true, scoreBMusicality: true, scoreBFoundation: true, scoreBPresentation: true, scoreBExecution: true, judgeSlot: { select: { name: true, code: true } } } },
           },
           orderBy: { round: "asc" },
         },
@@ -202,6 +202,10 @@ export default async function ArtistPage({ searchParams }: PageProps) {
                   judgeName: ds.judgeSlot.name ?? ds.judgeSlot.code,
                   score: ds.score,
                   feedback: ds.feedback,
+                  musicality: ds.musicality,
+                  foundation: ds.foundation,
+                  presentation: ds.presentation,
+                  execution: ds.execution,
                 });
               }
 
@@ -220,6 +224,8 @@ export default async function ArtistPage({ searchParams }: PageProps) {
                     feedbackBlue: s.feedbackBlue,
                     scoreA: s.scoreA,
                     scoreB: s.scoreB,
+                    sectionsA: s.scoreAMusicality != null ? { musicality: s.scoreAMusicality, foundation: s.scoreAFoundation!, presentation: s.scoreAPresentation!, execution: s.scoreAExecution! } : null,
+                    sectionsB: s.scoreBMusicality != null ? { musicality: s.scoreBMusicality, foundation: s.scoreBFoundation!, presentation: s.scoreBPresentation!, execution: s.scoreBExecution! } : null,
                   })),
                 })),
                 ...reg.matchesAsB.map((m) => ({
@@ -236,6 +242,8 @@ export default async function ArtistPage({ searchParams }: PageProps) {
                     feedbackBlue: s.feedbackBlue,
                     scoreA: s.scoreA,
                     scoreB: s.scoreB,
+                    sectionsA: s.scoreAMusicality != null ? { musicality: s.scoreAMusicality, foundation: s.scoreAFoundation!, presentation: s.scoreAPresentation!, execution: s.scoreAExecution! } : null,
+                    sectionsB: s.scoreBMusicality != null ? { musicality: s.scoreBMusicality, foundation: s.scoreBFoundation!, presentation: s.scoreBPresentation!, execution: s.scoreBExecution! } : null,
                   })),
                 })),
               ].sort((a, b) => a.round - b.round);

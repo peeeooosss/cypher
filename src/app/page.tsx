@@ -186,9 +186,34 @@ export default async function Home() {
         </div>
       </section>
 
+      {/* Judge portal demo */}
+      <section className="border-b border-line">
+        <div className="mx-auto max-w-7xl px-md py-section md:px-xl">
+          <div className="flex flex-wrap items-center justify-between gap-md">
+            <div>
+              <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-accent">
+                See it in action
+              </p>
+              <h2 className="mt-md max-w-2xl font-display text-display-lg uppercase">
+                Preview the live 4-section judge portal.
+              </h2>
+              <p className="mt-sm max-w-2xl text-body-sm text-ink-muted">
+                No login needed. Score a battle, run a cypher, and check the leaderboard —
+                exactly how your panel will on the day.
+              </p>
+            </div>
+            <Link
+              href="/for-organizers/demo"
+              className="border border-accent bg-accent px-lg py-sm text-button-md font-bold uppercase text-paper transition-opacity hover:opacity-80"
+            >
+              Open the demo
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* Artist slider */}
       <ArtistSlider />
-
       {/* Live now */}
       {liveEvents.length > 0 && (
         <section className="mx-auto max-w-7xl px-md py-lg md:px-xl">
