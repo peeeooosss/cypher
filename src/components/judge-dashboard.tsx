@@ -149,7 +149,10 @@ export function JudgeDashboard({
         if (submitTimeout.current) { clearTimeout(submitTimeout.current); submitTimeout.current = null; }
         setSubmitting(false);
         if (!ack.ok) {
-          setSubmitError((ack as { error?: string }).error ?? "Failed to submit score");
+          const msg = (ack as { error?: string }).error
+            ?? (ack as { message?: string }).message
+            ?? "Failed to submit score";
+          setSubmitError(msg);
           return;
         }
         setSubmitted(true);

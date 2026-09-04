@@ -41,7 +41,15 @@ if (!connectionString || !secret) {
 const port = Number(process.env.SOCKET_PORT ?? process.env.PORT ?? 3001);
 const allowedOrigin = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
-const httpServer = createServer();
+const httpServer = createServer((req, res) => {
+  if (req.url === "/health" && req.method === "GET") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ status: "ok" }));
+    return;
+  }
+  res.writeHead(404);
+  res.end();
+});
 
 const io = new Server(httpServer, {
   cors: { origin: allowedOrigin, credentials: true },
@@ -237,157 +245,162 @@ io.on("connection", (socket) => {
   });
 
   socket.on("submit_score", async (payload: unknown, acknowledge?: (response: { ok: boolean; error?: string; aggregate?: { scoreRed: number; scoreBlue: number; judgeCount: number; redSections?: { musicality: number; foundation: number; presentation: number; execution: number }; blueSections?: { musicality: number; foundation: number; presentation: number; execution: number } } }) => void) => {
-    if (user.type !== "judge") { acknowledge?.({ ok: false, error: "Only judges can submit scores" }); return; }
+    try {
+      if (user.type !== "judge") { acknowledge?.({ ok: false, error: "Only judges can submit scores" }); return; }
 
-    const parsed = SubmitScoreSchema.safeParse(payload);
-    if (!parsed.success) { acknowledge?.({ ok: false, error: "Invalid score data" }); return; }
-    if (!socket.rooms.has(`event:${user.eventId}`)) { acknowledge?.({ ok: false, error: "Join the event before scoring" }); return; }
+      const parsed = SubmitScoreSchema.safeParse(payload);
+      if (!parsed.success) { acknowledge?.({ ok: false, error: "Invalid score data" }); return; }
+      if (!socket.rooms.has(`event:${user.eventId}`)) { acknowledge?.({ ok: false, error: "Join the event before scoring" }); return; }
 
-    const match = await prisma.battleMatch.findUnique({ where: { id: parsed.data.matchId } });
-    if (!match) { acknowledge?.({ ok: false, error: "Match not found" }); return; }
-    if (match.status === "LOCKED") { acknowledge?.({ ok: false, error: "Voting is locked for this match" }); return; }
-    if (match.status === "COMPLETE") { acknowledge?.({ ok: false, error: "Match already complete" }); return; }
+      const match = await prisma.battleMatch.findUnique({ where: { id: parsed.data.matchId } });
+      if (!match) { acknowledge?.({ ok: false, error: "Match not found" }); return; }
+      if (match.status === "LOCKED") { acknowledge?.({ ok: false, error: "Voting is locked for this match" }); return; }
+      if (match.status === "COMPLETE") { acknowledge?.({ ok: false, error: "Match already complete" }); return; }
 
-    // Verify judge is assigned to this match's panel (if assignments exist)
-    const assignment = await prisma.judgeAssignment.findUnique({
-      where: { matchId_judgeSlotId: { matchId: match.id, judgeSlotId: user.slotId } },
-    });
-    if (!assignment) {
-      const panelCount = await prisma.judgeAssignment.count({ where: { matchId: match.id } });
-      if (panelCount > 0) {
-        acknowledge?.({ ok: false, error: "You are not assigned to this match's judging panel" });
-        return;
-      }
-    }
-
-    const isDecision = parsed.data.winnerCorner != null;
-    const winnerCorner = parsed.data.winnerCorner?.toUpperCase() === "RED" ? "RED" : "BLUE";
-    const hasSections = parsed.data.scoreRedSections != null && parsed.data.scoreBlueSections != null;
-
-    async function resolveTemplate(templateId: string | undefined, fallback: string | undefined) {
-      if (fallback) return fallback;
-      if (!templateId) return null;
-      const template = await prisma.feedbackTemplate.findUnique({
-        where: { id: templateId },
-        select: { text: true },
-      });
-      return template?.text ?? null;
-    }
-
-    let feedbackRed = await resolveTemplate(parsed.data.feedbackTemplateIdRed, parsed.data.feedbackRed);
-    let feedbackBlue = await resolveTemplate(parsed.data.feedbackTemplateIdBlue, parsed.data.feedbackBlue);
-
-    // Backward compatibility: legacy single-feedback (for the defeated entry).
-    if (!feedbackRed && !feedbackBlue && (parsed.data.feedback || parsed.data.feedbackTemplateId)) {
-      const legacy = await resolveTemplate(parsed.data.feedbackTemplateId, parsed.data.feedback);
-      if (legacy) {
-        if (winnerCorner === "RED") feedbackBlue = legacy;
-        else feedbackRed = legacy;
-      }
-    }
-
-    let scoreA = 0;
-    let scoreB = 0;
-    let aggregate: {
-      scoreRed: number;
-      scoreBlue: number;
-      judgeCount: number;
-      redSections?: SectionScoresInput;
-      blueSections?: SectionScoresInput;
-    };
-
-    if (hasSections) {
-      const r = parsed.data.scoreRedSections!;
-      const b = parsed.data.scoreBlueSections!;
-      scoreA = sectionTotal({
-        MUSICALITY: r.musicality,
-        FOUNDATION: r.foundation,
-        PRESENTATION: r.presentation,
-        EXECUTION: r.execution,
-      });
-      scoreB = sectionTotal({
-        MUSICALITY: b.musicality,
-        FOUNDATION: b.foundation,
-        PRESENTATION: b.presentation,
-        EXECUTION: b.execution,
-      });
-
-      await prisma.matchScore.upsert({
+      // Verify judge is assigned to this match's panel (if assignments exist)
+      const assignment = await prisma.judgeAssignment.findUnique({
         where: { matchId_judgeSlotId: { matchId: match.id, judgeSlotId: user.slotId } },
-        update: {
-          scoreA,
-          scoreB,
-          scoreAMusicality: r.musicality,
-          scoreAFoundation: r.foundation,
-          scoreAPresentation: r.presentation,
-          scoreAExecution: r.execution,
-          scoreBMusicality: b.musicality,
-          scoreBFoundation: b.foundation,
-          scoreBPresentation: b.presentation,
-          scoreBExecution: b.execution,
-          winnerCorner: null,
-          feedbackRed,
-          feedbackBlue,
-        },
-        create: {
-          matchId: match.id,
-          judgeSlotId: user.slotId,
-          scoreA,
-          scoreB,
-          scoreAMusicality: r.musicality,
-          scoreAFoundation: r.foundation,
-          scoreAPresentation: r.presentation,
-          scoreAExecution: r.execution,
-          scoreBMusicality: b.musicality,
-          scoreBFoundation: b.foundation,
-          scoreBPresentation: b.presentation,
-          scoreBExecution: b.execution,
-          feedbackRed,
-          feedbackBlue,
-        },
       });
-
-      aggregate = await getMatchScoreAggregate(match.id);
-    } else {
-      if (!isDecision) {
-        scoreA = parsed.data.scoreRed ?? 0;
-        scoreB = parsed.data.scoreBlue ?? 0;
+      if (!assignment) {
+        const panelCount = await prisma.judgeAssignment.count({ where: { matchId: match.id } });
+        if (panelCount > 0) {
+          acknowledge?.({ ok: false, error: "You are not assigned to this match's judging panel" });
+          return;
+        }
       }
 
-      await prisma.matchScore.upsert({
-        where: { matchId_judgeSlotId: { matchId: match.id, judgeSlotId: user.slotId } },
-        update: isDecision
-          ? { winnerCorner, scoreA: 0, scoreB: 0, feedbackRed, feedbackBlue }
-          : { winnerCorner: null, scoreA, scoreB, feedbackRed, feedbackBlue },
-        create: isDecision
-          ? { matchId: match.id, judgeSlotId: user.slotId, winnerCorner, scoreA: 0, scoreB: 0, feedbackRed, feedbackBlue }
-          : { matchId: match.id, judgeSlotId: user.slotId, scoreA, scoreB, feedbackRed, feedbackBlue },
+      const isDecision = parsed.data.winnerCorner != null;
+      const winnerCorner = parsed.data.winnerCorner?.toUpperCase() === "RED" ? "RED" : "BLUE";
+      const hasSections = parsed.data.scoreRedSections != null && parsed.data.scoreBlueSections != null;
+
+      async function resolveTemplate(templateId: string | undefined, fallback: string | undefined) {
+        if (fallback) return fallback;
+        if (!templateId) return null;
+        const template = await prisma.feedbackTemplate.findUnique({
+          where: { id: templateId },
+          select: { text: true },
+        });
+        return template?.text ?? null;
+      }
+
+      let feedbackRed = await resolveTemplate(parsed.data.feedbackTemplateIdRed, parsed.data.feedbackRed);
+      let feedbackBlue = await resolveTemplate(parsed.data.feedbackTemplateIdBlue, parsed.data.feedbackBlue);
+
+      // Backward compatibility: legacy single-feedback (for the defeated entry).
+      if (!feedbackRed && !feedbackBlue && (parsed.data.feedback || parsed.data.feedbackTemplateId)) {
+        const legacy = await resolveTemplate(parsed.data.feedbackTemplateId, parsed.data.feedback);
+        if (legacy) {
+          if (winnerCorner === "RED") feedbackBlue = legacy;
+          else feedbackRed = legacy;
+        }
+      }
+
+      let scoreA = 0;
+      let scoreB = 0;
+      let aggregate: {
+        scoreRed: number;
+        scoreBlue: number;
+        judgeCount: number;
+        redSections?: SectionScoresInput;
+        blueSections?: SectionScoresInput;
+      };
+
+      if (hasSections) {
+        const r = parsed.data.scoreRedSections!;
+        const b = parsed.data.scoreBlueSections!;
+        scoreA = sectionTotal({
+          MUSICALITY: r.musicality,
+          FOUNDATION: r.foundation,
+          PRESENTATION: r.presentation,
+          EXECUTION: r.execution,
+        });
+        scoreB = sectionTotal({
+          MUSICALITY: b.musicality,
+          FOUNDATION: b.foundation,
+          PRESENTATION: b.presentation,
+          EXECUTION: b.execution,
+        });
+
+        await prisma.matchScore.upsert({
+          where: { matchId_judgeSlotId: { matchId: match.id, judgeSlotId: user.slotId } },
+          update: {
+            scoreA,
+            scoreB,
+            scoreAMusicality: r.musicality,
+            scoreAFoundation: r.foundation,
+            scoreAPresentation: r.presentation,
+            scoreAExecution: r.execution,
+            scoreBMusicality: b.musicality,
+            scoreBFoundation: b.foundation,
+            scoreBPresentation: b.presentation,
+            scoreBExecution: b.execution,
+            winnerCorner: null,
+            feedbackRed,
+            feedbackBlue,
+          },
+          create: {
+            matchId: match.id,
+            judgeSlotId: user.slotId,
+            scoreA,
+            scoreB,
+            scoreAMusicality: r.musicality,
+            scoreAFoundation: r.foundation,
+            scoreAPresentation: r.presentation,
+            scoreAExecution: r.execution,
+            scoreBMusicality: b.musicality,
+            scoreBFoundation: b.foundation,
+            scoreBPresentation: b.presentation,
+            scoreBExecution: b.execution,
+            feedbackRed,
+            feedbackBlue,
+          },
+        });
+
+        aggregate = await getMatchScoreAggregate(match.id);
+      } else {
+        if (!isDecision) {
+          scoreA = parsed.data.scoreRed ?? 0;
+          scoreB = parsed.data.scoreBlue ?? 0;
+        }
+
+        await prisma.matchScore.upsert({
+          where: { matchId_judgeSlotId: { matchId: match.id, judgeSlotId: user.slotId } },
+          update: isDecision
+            ? { winnerCorner, scoreA: 0, scoreB: 0, feedbackRed, feedbackBlue }
+            : { winnerCorner: null, scoreA, scoreB, feedbackRed, feedbackBlue },
+          create: isDecision
+            ? { matchId: match.id, judgeSlotId: user.slotId, winnerCorner, scoreA: 0, scoreB: 0, feedbackRed, feedbackBlue }
+            : { matchId: match.id, judgeSlotId: user.slotId, scoreA, scoreB, feedbackRed, feedbackBlue },
+        });
+
+        aggregate = isDecision
+          ? await getMatchDecisionAggregate(match.id)
+          : await getMatchAggregate(match.id);
+      }
+
+      await prisma.battleMatch.update({
+        where: { id: match.id },
+        data: { status: "LIVE", scoreA: aggregate.scoreRed, scoreB: aggregate.scoreBlue },
       });
 
-      aggregate = isDecision
-        ? await getMatchDecisionAggregate(match.id)
-        : await getMatchAggregate(match.id);
+      const payloadData: ScoreSubmittedData = {
+        matchId: match.id,
+        judgeSlotId: user.slotId,
+        scoreRed: isDecision ? (parsed.data.winnerCorner === "red" ? 1 : 0) : scoreA,
+        scoreBlue: isDecision ? (parsed.data.winnerCorner === "blue" ? 1 : 0) : scoreB,
+        aggregateRed: aggregate.scoreRed,
+        aggregateBlue: aggregate.scoreBlue,
+        judgeCount: aggregate.judgeCount,
+        ...(hasSections && aggregate.redSections ? { redSections: aggregate.redSections } : {}),
+        ...(hasSections && aggregate.blueSections ? { blueSections: aggregate.blueSections } : {}),
+      };
+      io.to(`event:${user.eventId}`).emit("score_submitted", payloadData);
+
+      acknowledge?.({ ok: true, aggregate });
+    } catch (err) {
+      console.error("[submit_score] error:", err);
+      acknowledge?.({ ok: false, error: err instanceof Error ? err.message : "Internal server error" });
     }
-
-    await prisma.battleMatch.update({
-      where: { id: match.id },
-      data: { status: "LIVE", scoreA: aggregate.scoreRed, scoreB: aggregate.scoreBlue },
-    });
-
-    const payloadData: ScoreSubmittedData = {
-      matchId: match.id,
-      judgeSlotId: user.slotId,
-      scoreRed: isDecision ? (parsed.data.winnerCorner === "red" ? 1 : 0) : scoreA,
-      scoreBlue: isDecision ? (parsed.data.winnerCorner === "blue" ? 1 : 0) : scoreB,
-      aggregateRed: aggregate.scoreRed,
-      aggregateBlue: aggregate.scoreBlue,
-      judgeCount: aggregate.judgeCount,
-      ...(hasSections && aggregate.redSections ? { redSections: aggregate.redSections } : {}),
-      ...(hasSections && aggregate.blueSections ? { blueSections: aggregate.blueSections } : {}),
-    };
-    io.to(`event:${user.eventId}`).emit("score_submitted", payloadData);
-
-    acknowledge?.({ ok: true, aggregate });
   });
 
   socket.on("advance_winner", async (payload: unknown, acknowledge?: (response: { ok: boolean; error?: string; bracket?: unknown[] }) => void) => {
