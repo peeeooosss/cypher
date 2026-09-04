@@ -3,7 +3,7 @@
 CYPHR is deployed in two parts:
 
 1. **Vercel** — hosts the Next.js application, all `/api/*` routes, and the public site.
-2. **Railway** — hosts the separate Socket.io server for live battle scoring (long-lived WebSocket connections that Vercel serverless cannot hold).
+2. **Belmo** — hosts the separate Socket.io server for live battle scoring (long-lived WebSocket connections that Vercel serverless cannot hold).
 
 ## Vercel (Next.js app + API)
 
@@ -22,7 +22,8 @@ Required environment variables (set in Vercel under **Settings → Environment V
 | `NEXTAUTH_URL` | Full site URL, including `https://` |
 | `NEXTAUTH_SECRET` | Unique random value (`openssl rand -base64 32`) |
 | `NEXT_PUBLIC_APP_URL` | Full site URL, including `https://` |
-| `NEXT_PUBLIC_SOCKET_URL` | Public URL of the Socket.io service (Railway), including `https://` |
+| `NEXT_PUBLIC_SOCKET_URL` | Public Belmo URL of the Socket.io service, including `https://` |
+| `SOCKET_INTERNAL_URL` | Same Belmo URL, used by Vercel API routes to publish socket events |
 | `UPLOADTHING_TOKEN` | UploadThing server token for image uploads |
 | `RESEND_API_KEY` | Resend API key for signup verification emails |
 | `RESEND_FROM` | Verified Resend sender, e.g. `admin@tryauraai.in` |
@@ -39,11 +40,14 @@ npx prisma generate
 npx prisma migrate deploy
 ```
 
-## Railway (Socket.io server)
+## Belmo (Socket.io server)
 
-The live scoring WebSocket server lives in `server/socket.ts` and runs as a persistent Node process. It is deployed via the `Dockerfile` in the repo (`npm ci` + `npx prisma generate` + `tsx server/socket.ts`).
+The live scoring WebSocket server lives in `server/socket.ts` and runs as a persistent Node process. It is deployed as a Belmo API service via the `Dockerfile` at the repository root (`npm ci` + `npx prisma generate` + `tsx server/socket.ts`).
 
-Set these variables in the Railway service:
+1. Sign in to [Belmo](https://belmo.io/) with GitHub and give the Belmo GitHub App access to `peeeooosss/cypher`.
+2. Create an **API** service from the `main` branch and select the repository-root `Dockerfile`.
+3. Keep the generated Belmo subdomain on the free Starter plan. Do not override `PORT`; Belmo provides it automatically.
+4. Set these variables in the Belmo service:
 
 | Variable | Purpose |
 |---|---|
@@ -52,7 +56,7 @@ Set these variables in the Railway service:
 | `NEXT_PUBLIC_APP_URL` | CORS origin — the full Vercel site URL |
 | `REDIS_URL` | Optional — enables Socket.io pub/sub horizontal scaling across multiple instances |
 
-The socket server listens on `PORT` (set automatically by Railway). Expose the resulting URL as `NEXT_PUBLIC_SOCKET_URL` on Vercel.
+The service exposes `/health` for health checks and listens on `PORT` (set automatically by Belmo). After deployment, set both `NEXT_PUBLIC_SOCKET_URL` and `SOCKET_INTERNAL_URL` on Vercel to the resulting Belmo URL, then redeploy Vercel. `NEXT_PUBLIC_SOCKET_URL` is included in the browser bundle, so changing it without rebuilding the Next.js app is not enough.
 
 ## Database (Neon)
 
