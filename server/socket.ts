@@ -236,7 +236,7 @@ io.on("connection", (socket) => {
     acknowledge?.({ ok: true });
   });
 
-  socket.on("submit_score", async (payload: unknown, acknowledge?: (response: { ok: boolean; error?: string; aggregate?: { scoreRed: number; scoreBlue: number; judgeCount: number } }) => void) => {
+  socket.on("submit_score", async (payload: unknown, acknowledge?: (response: { ok: boolean; error?: string; aggregate?: { scoreRed: number; scoreBlue: number; judgeCount: number; redSections?: { musicality: number; foundation: number; presentation: number; execution: number }; blueSections?: { musicality: number; foundation: number; presentation: number; execution: number } } }) => void) => {
     if (user.type !== "judge") { acknowledge?.({ ok: false, error: "Only judges can submit scores" }); return; }
 
     const parsed = SubmitScoreSchema.safeParse(payload);

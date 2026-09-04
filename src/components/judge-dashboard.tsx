@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSocket } from "@/components/socket-provider";
 import { FeedbackSelect } from "@/components/feedback-select";
 import { ScoringSectionGrid } from "@/components/scoring-section-grid";
@@ -51,6 +51,9 @@ export function JudgeDashboard({
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [joinError, setJoinError] = useState<string | null>(null);
+  const [redTouched, setRedTouched] = useState(false);
+  const [blueTouched, setBlueTouched] = useState(false);
+  const submitTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (status !== "live") return;
@@ -68,6 +71,8 @@ export function JudgeDashboard({
       setSubmitted(false);
       setRedSections({ ...EMPTY_SECTIONS });
       setBlueSections({ ...EMPTY_SECTIONS });
+      setRedTouched(false);
+      setBlueTouched(false);
       setAggregate(null);
       setFeedback({ red: { custom: "" }, blue: { custom: "" } });
       setSubmitError(null);
@@ -112,7 +117,7 @@ export function JudgeDashboard({
   const blueTotal = sectionTotal(blueSections);
   const canSubmit =
     !submitted && !locked && liveMatch != null &&
-    redTotal > 0 && blueTotal > 0;
+    redTouched && blueTouched;
 
   function submitVote() {
     if (!socket || !liveMatch || !canSubmit) return;
@@ -141,15 +146,21 @@ export function JudgeDashboard({
         feedbackTemplateIdBlue: feedback.blue.templateId,
       },
       (ack) => {
+        if (submitTimeout.current) { clearTimeout(submitTimeout.current); submitTimeout.current = null; }
         setSubmitting(false);
         if (!ack.ok) {
-          setSubmitError("Failed to submit score");
+          setSubmitError((ack as { error?: string }).error ?? "Failed to submit score");
           return;
         }
         setSubmitted(true);
         if (ack.aggregate) setAggregate(ack.aggregate);
       },
     );
+
+    submitTimeout.current = setTimeout(() => {
+      setSubmitting(false);
+      setSubmitError("Server did not respond. Please try again.");
+    }, 10000);
   }
 
   const connectionLabel =
@@ -222,7 +233,7 @@ export function JudgeDashboard({
                 Score submitted
               </p>
             ) : (
-              <ScoringSectionGrid value={redSections} onChange={setRedSections} />
+              <ScoringSectionGrid value={redSections} onChange={(next) => { setRedSections(next); setRedTouched(true); }} />
             )}
           </section>
 
@@ -256,7 +267,7 @@ export function JudgeDashboard({
                 <span className="text-[#2980FF]">{blueTotal.toFixed(1)}/{MAX_TOTAL}</span>
               </div>
             ) : (
-              <ScoringSectionGrid value={blueSections} onChange={setBlueSections} />
+              <ScoringSectionGrid value={blueSections} onChange={(next) => { setBlueSections(next); setBlueTouched(true); }} />
             )}
           </section>
         </div>
@@ -312,6 +323,15 @@ export function JudgeDashboard({
               >
                 {submitting ? "Submitting..." : "Submit score"}
               </button>
+              {!canSubmit && !submitted && !locked && (!redTouched || !blueTouched) ? (
+                <p className="w-full text-center font-mono text-[0.65rem] uppercase text-ink-muted">
+                  {!redTouched && !blueTouched
+                    ? "Score both competitors to submit"
+                    : !redTouched
+                      ? `Score ${liveMatch.red.name} to submit`
+                      : `Score ${liveMatch.blue.name} to submit`}
+                </p>
+              ) : null}
             </div>
           </div>
         )}

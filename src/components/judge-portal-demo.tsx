@@ -15,13 +15,6 @@ const DEMO_ENTRIES = [
   { id: "6", name: "Rohan Singh", seed: 15, crew: "Agra Force" },
 ];
 
-const DEMO_JUDGE_SCORES = [
-  { judge: "Judge A", entry: "Krish Bhakuni", m: 4.5, f: 4.0, p: 4.5, e: 4.0, total: 17 },
-  { judge: "Judge B", entry: "Krish Bhakuni", m: 4.0, f: 4.5, p: 4.0, e: 4.5, total: 17 },
-  { judge: "Judge A", entry: "Sahil Kushwaha", m: 3.5, f: 4.0, p: 3.5, e: 3.5, total: 14.5 },
-  { judge: "Judge B", entry: "Sahil Kushwaha", m: 4.0, f: 3.5, p: 3.5, e: 3.0, total: 14 },
-];
-
 function DemoBadge() {
   return (
     <span className="inline-flex items-center gap-xs border border-accent bg-accent px-sm py-xs font-mono text-[0.6rem] font-bold uppercase tracking-[0.15em] text-paper">
@@ -225,42 +218,6 @@ export function JudgePortalDemo() {
                     <span className="w-20 text-right text-xs uppercase text-ink-muted">{row.judges} judges</span>
                   </div>
                 ))}
-            </div>
-          </div>
-
-          <div className="mt-md overflow-hidden border border-line">
-            <div className="bg-paper-soft px-md py-sm">
-              <p className="font-mono text-[0.7rem] uppercase tracking-[0.1em] text-ink-muted">
-                Artist view — per-judge, per-section breakdown
-              </p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[46rem]">
-                <thead>
-                  <tr className="border-b border-line text-left font-mono text-[0.6rem] uppercase text-ink-muted">
-                    <th className="px-md py-sm">Entry</th>
-                    <th className="px-md py-sm">Judge</th>
-                    <th className="px-md py-sm text-right">Musicality</th>
-                    <th className="px-md py-sm text-right">Foundation</th>
-                    <th className="px-md py-sm text-right">Presentation</th>
-                    <th className="px-md py-sm text-right">Execution</th>
-                    <th className="px-md py-sm text-right">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {DEMO_JUDGE_SCORES.map((s, i) => (
-                    <tr key={i} className="border-b border-line">
-                      <td className="px-md py-sm text-body-sm font-bold uppercase">{s.entry}</td>
-                      <td className="px-md py-sm text-body-sm text-ink-muted">{s.judge}</td>
-                      <td className="px-md py-sm text-right font-mono text-body-sm">{s.m.toFixed(1)}</td>
-                      <td className="px-md py-sm text-right font-mono text-body-sm">{s.f.toFixed(1)}</td>
-                      <td className="px-md py-sm text-right font-mono text-body-sm">{s.p.toFixed(1)}</td>
-                      <td className="px-md py-sm text-right font-mono text-body-sm">{s.e.toFixed(1)}</td>
-                      <td className="px-md py-sm text-right font-mono text-body-sm font-bold text-accent">{s.total.toFixed(1)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             </div>
           </div>
         </div>

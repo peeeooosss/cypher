@@ -160,18 +160,15 @@ export default async function PublicArtistProfilePage({ params }: PageProps) {
                           competitorA: { user: { name: string | null } } | null;
                           competitorB: { user: { name: string | null } } | null;
                           winner: { userId: string } | null;
-                          scores: { feedback: string | null }[];
                         };
                         const opponent = isA ? matchAny.competitorB?.user.name : matchAny.competitorA?.user.name;
                         const won = matchAny.winner?.userId === artist.id;
-                        const feedbackText = matchAny.scores.flatMap((s) => (s.feedback ? [s.feedback] : [])).join(" | ");
                         return (
                           <div key={match.id} className="text-body-sm">
                             <p className="font-bold uppercase">
                               Round {matchAny.round} vs {opponent ?? "TBD"}
                               {matchAny.status === "COMPLETE" ? ` — ${won ? "W" : "L"}` : ""}
                             </p>
-                            {feedbackText ? <p className="mt-xs text-ink-muted">{feedbackText}</p> : null}
                           </div>
                         );
                       })

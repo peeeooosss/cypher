@@ -41,17 +41,12 @@ export async function GET(_: Request, { params }: Context) {
                teamName: true,
                user: { select: { name: true } },
                members: { where: { status: "ACCEPTED" }, select: { user: { select: { id: true, name: true, username: true } }, role: true } },
-               dancerScores: {
-                 select: {
-                   score: true,
-                   roundFormatId: true,
-                   musicality: true,
-                   foundation: true,
-                   presentation: true,
-                   execution: true,
-                   judgeSlot: { select: { name: true, code: true } },
-                 },
-               },
+                dancerScores: {
+                  select: {
+                    score: true,
+                    roundFormatId: true,
+                  },
+                },
             },
           },
           matches: {
@@ -70,15 +65,6 @@ export async function GET(_: Request, { params }: Context) {
                   winnerCorner: true,
                   scoreA: true,
                   scoreB: true,
-                  scoreAMusicality: true,
-                  scoreAFoundation: true,
-                  scoreAPresentation: true,
-                  scoreAExecution: true,
-                  scoreBMusicality: true,
-                  scoreBFoundation: true,
-                  scoreBPresentation: true,
-                  scoreBExecution: true,
-                  judgeSlot: { select: { name: true, code: true } },
                 },
               },
             },
@@ -120,11 +106,6 @@ export async function GET(_: Request, { params }: Context) {
         dancerScores: reg.dancerScores.map((d) => ({
           score: d.score,
           roundFormatId: d.roundFormatId,
-          musicality: d.musicality,
-          foundation: d.foundation,
-          presentation: d.presentation,
-          execution: d.execution,
-          judgeName: d.judgeSlot.name ?? d.judgeSlot.code,
         })),
       })),
        matches: category.matches.map((m) => ({
@@ -140,16 +121,9 @@ export async function GET(_: Request, { params }: Context) {
          winnerId: m.winnerId,
          winnerName: m.winner?.teamName ?? m.winner?.user.name ?? null,
         scores: m.scores.map((s) => ({
-          judgeName: s.judgeSlot.name ?? s.judgeSlot.code,
           winnerCorner: s.winnerCorner,
           scoreA: s.scoreA,
           scoreB: s.scoreB,
-          sectionsA: s.scoreAMusicality != null && s.scoreAFoundation != null && s.scoreAPresentation != null && s.scoreAExecution != null
-            ? { musicality: s.scoreAMusicality, foundation: s.scoreAFoundation, presentation: s.scoreAPresentation, execution: s.scoreAExecution }
-            : null,
-          sectionsB: s.scoreBMusicality != null && s.scoreBFoundation != null && s.scoreBPresentation != null && s.scoreBExecution != null
-            ? { musicality: s.scoreBMusicality, foundation: s.scoreBFoundation, presentation: s.scoreBPresentation, execution: s.scoreBExecution }
-            : null,
         })),
       })),
     })),

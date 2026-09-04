@@ -177,7 +177,7 @@ export interface ServerToClientEvents {
 export interface ClientToServerEvents {
   join_event_room: (data: JoinRoomInput, ack: (res: { ok: boolean; error?: string }) => void) => void;
   push_match_live: (data: PushMatchLiveInput) => void;
-  submit_score: (data: SubmitScoreInput, ack: (res: { ok: boolean; aggregate?: { scoreRed: number; scoreBlue: number; judgeCount: number; redSections?: SectionScoresInput; blueSections?: SectionScoresInput } }) => void) => void;
+  submit_score: (data: SubmitScoreInput, ack: (res: { ok: boolean; error?: string; aggregate?: { scoreRed: number; scoreBlue: number; judgeCount: number; redSections?: SectionScoresInput; blueSections?: SectionScoresInput } }) => void) => void;
   advance_winner: (data: AdvanceWinnerInput, ack: (res: { ok: boolean; bracket?: unknown[] }) => void) => void;
   lock_voting: (data: LockVotingInput) => void;
 }

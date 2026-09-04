@@ -8,11 +8,6 @@ import { responseError } from "@/lib/client-error";
 type LeaderboardScore = {
   score: number;
   roundFormatId: string;
-  musicality?: number | null;
-  foundation?: number | null;
-  presentation?: number | null;
-  execution?: number | null;
-  judgeName: string;
 };
 type LeaderboardRegistration = {
   id: string;
@@ -44,12 +39,9 @@ type LeaderboardMatch = {
   redMembers: string[];
   blueMembers: string[];
   scores: {
-    judgeName: string;
     winnerCorner: string | null;
     scoreA: number | null;
     scoreB: number | null;
-    sectionsA: { musicality: number; foundation: number; presentation: number; execution: number } | null;
-    sectionsB: { musicality: number; foundation: number; presentation: number; execution: number } | null;
   }[];
 };
 type LeaderboardCategory = {
@@ -301,9 +293,6 @@ export function LiveLeaderboard({
             <p className="font-display text-title-md uppercase">
               {selectedPhase?.type === "CYPHER" ? "Cypher result" : selectedPhase?.type === "QUALIFIER" ? "Qualifier result" : selectedPhase?.label ?? "Scoring round"}
             </p>
-            <p className="font-mono text-[0.7rem] uppercase text-ink-muted">
-              Section scores · summed across judges
-            </p>
           </div>
 
           {ranked.length === 0 ? (
@@ -342,62 +331,12 @@ export function LiveLeaderboard({
               ))}
             </div>
           )}
-
-          <div className="border-t border-line">
-            <div className="bg-paper-soft px-md py-sm">
-              <p className="font-mono text-[0.7rem] uppercase tracking-[0.1em] text-ink-muted">
-                Per-judge breakdown
-              </p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[46rem]">
-                <thead>
-                  <tr className="border-b border-line text-left font-mono text-[0.6rem] uppercase text-ink-muted">
-                    <th className="px-md py-sm">Entry</th>
-                    <th className="px-md py-sm">Judge</th>
-                    <th className="px-md py-sm text-right">Musicality</th>
-                    <th className="px-md py-sm text-right">Foundation</th>
-                    <th className="px-md py-sm text-right">Presentation</th>
-                    <th className="px-md py-sm text-right">Execution</th>
-                    <th className="px-md py-sm text-right">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedCategory.registrations
-                    .filter((reg) => reg.status !== "WITHDRAWN")
-                    .flatMap((reg) => {
-                      const phaseScores = reg.dancerScores.filter((s) => s.roundFormatId === phaseId);
-                      if (phaseScores.length === 0) return [];
-                      return phaseScores.map((s) => ({
-                        regName: reg.name,
-                        score: s,
-                      }));
-                    })
-                    .sort((a, b) => b.score.score - a.score.score)
-                    .map((row, i) => (
-                      <tr key={i} className="border-b border-line">
-                        <td className="px-md py-sm text-body-sm font-bold uppercase">{row.regName}</td>
-                        <td className="px-md py-sm text-body-sm text-ink-muted">{row.score.judgeName}</td>
-                        <td className="px-md py-sm text-right font-mono text-body-sm">{row.score.musicality?.toFixed(1) ?? "—"}</td>
-                        <td className="px-md py-sm text-right font-mono text-body-sm">{row.score.foundation?.toFixed(1) ?? "—"}</td>
-                        <td className="px-md py-sm text-right font-mono text-body-sm">{row.score.presentation?.toFixed(1) ?? "—"}</td>
-                        <td className="px-md py-sm text-right font-mono text-body-sm">{row.score.execution?.toFixed(1) ?? "—"}</td>
-                        <td className="px-md py-sm text-right font-mono text-body-sm font-bold text-accent">{row.score.score.toFixed(1)}</td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
         </div>
       ) : (
         <div className="mt-lg space-y-lg">
           <div className="flex flex-wrap items-center justify-between gap-sm border border-line bg-paper-soft px-md py-sm">
             <p className="font-display text-title-md uppercase">
               {selectedPhase?.label ?? "Battles"}
-            </p>
-            <p className="font-mono text-[0.7rem] uppercase text-ink-muted">
-              Section scores · summed across judges
             </p>
           </div>
 
@@ -420,12 +359,7 @@ export function LiveLeaderboard({
                   {matches.map((m) => {
                     const redVotes = m.scores.filter((s) => s.winnerCorner === "RED").length;
                     const blueVotes = m.scores.filter((s) => s.winnerCorner === "BLUE").length;
-                    const hasSections = m.scores.some((s) => s.sectionsA != null || s.sectionsB != null);
-                    const redTotal = m.scores.reduce((sum, s) => sum + (s.scoreA ?? 0), 0);
-                    const blueTotal = m.scores.reduce((sum, s) => sum + (s.scoreB ?? 0), 0);
-                    const scoreLine = hasSections
-                      ? `Red ${redTotal.toFixed(1)} · Blue ${blueTotal.toFixed(1)}`
-                      : m.scores.some((score) => score.winnerCorner)
+                    const scoreLine = m.scores.some((score) => score.winnerCorner)
                         ? `Red ${redVotes} · Blue ${blueVotes}`
                         : "Direct decision";
                     const decided = m.status === "COMPLETE" && m.winnerName;
