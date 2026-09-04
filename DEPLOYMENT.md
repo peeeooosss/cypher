@@ -21,7 +21,6 @@ Required environment variables (set in Vercel under **Settings → Environment V
 | `DIRECT_URL` | Neon direct connection string for Prisma migrations |
 | `NEXTAUTH_URL` | Full site URL, including `https://` |
 | `NEXTAUTH_SECRET` | Unique random value (`openssl rand -base64 32`) |
-| `NEXT_PUBLIC_APP_URL` | Full site URL, including `https://` |
 | `NEXT_PUBLIC_SOCKET_URL` | Public Belmo URL of the Socket.io service, including `https://` |
 | `SOCKET_INTERNAL_URL` | Same Belmo URL, used by Vercel API routes to publish socket events |
 | `UPLOADTHING_TOKEN` | UploadThing server token for image uploads |
