@@ -42,12 +42,13 @@ npx prisma migrate deploy
 
 ## Belmo (Socket.io server)
 
-The live scoring WebSocket server lives in `server/socket.ts` and runs as a persistent Node process. It is deployed as a Belmo API service via the `Dockerfile` at the repository root (`npm ci` + `npx prisma generate` + `tsx server/socket.ts`).
+The live scoring WebSocket server lives in `server/socket.ts` and runs as a persistent Node process. Belmo Dockerfile builds require Pro, so deploy it on the free Starter plan using Belmo's Node.js buildpack instead.
 
 1. Sign in to [Belmo](https://belmo.io/) with GitHub and give the Belmo GitHub App access to `peeeooosss/cypher`.
-2. Create an **API** service from the `main` branch and select the repository-root `Dockerfile`.
-3. Keep the generated Belmo subdomain on the free Starter plan. Do not override `PORT`; Belmo provides it automatically.
-4. Set these variables in the Belmo service:
+2. Create an **API** service from the `main` branch. Leave the root directory blank so Belmo reads the repository-root `package.json`; do not select the Dockerfile deployment option.
+3. Override the detected Next.js commands: set the build command to `npm ci --include=dev && npx prisma generate` and the start command to `npx tsx server/socket.ts`.
+4. Keep the generated Belmo subdomain on the free Starter plan. Do not set `PORT`; Belmo provides it automatically.
+5. Set these variables in the Belmo service:
 
 | Variable | Purpose |
 |---|---|
