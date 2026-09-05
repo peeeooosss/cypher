@@ -150,7 +150,8 @@ export function ArtistProfileForm({ profile }: { profile: ArtistProfile }) {
     }
     body.style = String(form.get("style") ?? "").trim();
     body.experience = String(form.get("experience") ?? "").trim();
-    body.whatsappNumber = String(form.get("whatsappNumber") ?? "").trim();
+    const wa = String(form.get("whatsappNumber") ?? "").trim();
+    body.whatsappNumber = wa ? `+91${wa}` : null;
     body.skills = skills;
 
     try {
@@ -349,10 +350,11 @@ export function ArtistProfileForm({ profile }: { profile: ArtistProfile }) {
           <input
             type="tel"
             inputMode="numeric"
+            maxLength={10}
             className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm"
             name="whatsappNumber"
-            defaultValue={profile.whatsappNumber ?? ""}
-            placeholder="9198XXXXXXXX (country code + number)"
+            defaultValue={(profile.whatsappNumber ?? "").replace(/^\+?91/, "")}
+            placeholder="98XXXXXXXX (10-digit number)"
           />
           <p className="mt-xs text-[0.65rem] text-ink-muted">
             Shared with event organizers for communication. Not shown publicly.
