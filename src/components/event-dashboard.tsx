@@ -102,10 +102,10 @@ type RegistrationRow = {
   paid: boolean;
   paidAt: Date | null;
   paidClaimedAt: Date | null;
-  user: { name: string | null; email: string };
+  user: { name: string | null; email: string; whatsappNumber: string | null };
   teamName?: string | null;
   format?: CategoryFormat | null;
-  members?: Array<{ id: string; userId: string; role: string; status: string; user: { id: string; name: string | null; username: string | null } }>;
+  members?: Array<{ id: string; userId: string; role: string; status: string; user: { id: string; name: string | null; username: string | null; whatsappNumber: string | null } }>;
 };
 
 const TABS = ["Overview", "Categories", "Judges", "Registrations", "Prizes", "Leaderboard", "Control Room"] as const;
@@ -1833,12 +1833,64 @@ function CypherDancerPicker({ eventId, categoryId, onResult }: { eventId: string
   );
 }
 
+const MESSAGE_TEMPLATES = [
+  {
+    id: "event_reminder",
+    label: "Event reminder",
+    text: (eventTitle: string, date: string, venue: string | null, city: string | null) =>
+      `Hi! Just a reminder about "${eventTitle}" on ${date}${venue ? ` at ${venue}` : ""}${city ? `, ${city}` : ""}. We're excited to see you there!`,
+  },
+  {
+    id: "checkin_reminder",
+    label: "Check-in reminder",
+    text: (eventTitle: string, date: string, venue: string | null, city: string | null) =>
+      `Reminder: Check-in for "${eventTitle}" starts soon on ${date}${venue ? ` at ${venue}` : ""}${city ? `, ${city}` : ""}. Please arrive early to complete registration.`,
+  },
+  {
+    id: "payment_reminder",
+    label: "Payment reminder",
+    text: (eventTitle: string, amount?: number, currency?: string) =>
+      `Reminder: Your entry fee for "${eventTitle}" ${amount ? `(${currency ?? "INR"} ${amount})` : ""} is still pending. Please complete payment to confirm your spot.`,
+  },
+  {
+    id: "venue_details",
+    label: "Venue & arrival details",
+    text: (eventTitle: string, date: string, venue: string | null, address: string | null) =>
+      `Venue details for "${eventTitle}" on ${date}: ${venue ?? "TBA"}${address ? ` - ${address}` : ""}. Please plan your travel accordingly.`,
+  },
+  {
+    id: "schedule_reminder",
+    label: "Schedule reminder",
+    text: (eventTitle: string, date: string) =>
+      `Schedule update for "${eventTitle}" on ${date}: Please check the event page for the latest timing and running order.`,
+  },
+  {
+    id: "last_call",
+    label: "Last call / registration confirmation",
+    text: (eventTitle: string, date: string) =>
+      `Last call for "${eventTitle}" on ${date}! Registrations close soon. Confirm your spot now if you haven't already.`,
+  },
+  {
+    id: "bring_id_music",
+    label: "Bring ID & music reminder",
+    text: (eventTitle: string, date: string) =>
+      `Important for "${eventTitle}" on ${date}: Please bring a valid photo ID and your music files (USB/phone) for the competition.`,
+  },
+  {
+    id: "roster_confirmation",
+    label: "Team roster confirmation",
+    text: (eventTitle: string, teamName: string, members: string[]) =>
+      `Team "${teamName}" confirmed for "${eventTitle}". Members: ${members.join(", ")}. Please ensure all members have accepted their invitations.`,
+  },
+];
+
 function RegistrationsTab({ event }: { event: EventWithRelations }) {
   const [categoryId, setCategoryId] = useState(event.categories[0]?.id ?? "");
   const [registrations, setRegistrations] = useState<RegistrationRow[]>([]);
   const [loading, setLoading] = useState(event.categories.length > 0);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     if (!categoryId) return;
@@ -1906,6 +1958,23 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
     }
   }
 
+  const filteredRegistrations = registrations.filter((reg) => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return true;
+    const memberNames = reg.members?.map((m) => m.user.name ?? "").join(" ") ?? "";
+    const searchText = [
+      reg.user.name,
+      reg.user.email,
+      reg.teamName,
+      reg.crew,
+      memberNames,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    return searchText.includes(q);
+  });
+
   return (
     <div>
       <div className="mb-lg flex flex-wrap items-center gap-sm">
@@ -1923,8 +1992,15 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
             </option>
           ))}
         </select>
+        <input
+          type="text"
+          placeholder="Search name, email, crew, team, members..."
+          className="border border-line bg-paper px-md py-sm text-body-sm flex-1 min-w-[200px] max-w-md"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
         <span className="text-body-sm text-ink-muted">
-          ({registrations.length} registrations)
+          ({filteredRegistrations.length} / {registrations.length} registrations)
         </span>
         {error ? <span className="text-body-sm text-accent">{error}</span> : null}
         <button
@@ -1978,10 +2054,11 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
               </tr>
             </thead>
             <tbody>
-              {registrations.map((reg) => (
+              {filteredRegistrations.map((reg) => (
                 <RegistrationRow
                   key={reg.id}
                   registration={reg}
+                  event={event}
                   onUpdate={() => {
                     const url = `/api/events/${event.id}/registrations?categoryId=${categoryId}`;
                     fetch(url)
@@ -2014,14 +2091,59 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
 
 function RegistrationRow({
   registration,
+  event,
   onUpdate,
 }: {
   registration: RegistrationRow;
+  event: EventWithRelations;
   onUpdate: () => void;
 }) {
   const [seed, setSeed] = useState(registration.seed?.toString() ?? "");
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState("");
+  const [showMessage, setShowMessage] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [customMessage, setCustomMessage] = useState("");
+
+  const captainPhone = registration.user.whatsappNumber ?? registration.members?.find((m) => m.role === "CAPTAIN")?.user.whatsappNumber ?? null;
+  const teamMembers = registration.members?.map((m) => m.user.name ?? "").filter(Boolean) ?? [];
+
+  function buildMessage(templateId: string) {
+    const template = MESSAGE_TEMPLATES.find((t) => t.id === templateId);
+    if (!template) return "";
+    const eventDate = event.startsAt.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    switch (templateId) {
+      case "event_reminder":
+      case "checkin_reminder":
+        return (template.text as (title: string, date: string, venue: string | null, city: string | null) => string)(event.title, eventDate, event.venue, event.city);
+      case "schedule_reminder":
+        return (template.text as (title: string, date: string) => string)(event.title, eventDate);
+      case "payment_reminder":
+        return (template.text as (title: string, amount?: number, currency?: string) => string)(event.title, registration.entryFee ?? undefined, registration.entryCurrency ?? undefined);
+      case "venue_details":
+        return (template.text as (title: string, date: string, venue: string | null, address: string | null) => string)(event.title, eventDate, event.venue, event.googleMapsUrl);
+      case "last_call":
+        return (template.text as (title: string, date: string) => string)(event.title, eventDate);
+      case "bring_id_music":
+        return (template.text as (title: string, date: string) => string)(event.title, eventDate);
+      case "roster_confirmation":
+        return (template.text as (title: string, teamName: string, members: string[]) => string)(event.title, registration.teamName ?? registration.user.name ?? "Team", teamMembers);
+      default:
+        return "";
+    }
+  }
+
+  function handleTemplateChange(templateId: string) {
+    setSelectedTemplateId(templateId);
+    setCustomMessage(buildMessage(templateId));
+  }
+
+  function openWhatsApp() {
+    if (!captainPhone) return;
+    const cleaned = captainPhone.replace(/[^0-9]/g, "");
+    const url = `https://wa.me/${cleaned}?text=${encodeURIComponent(customMessage)}`;
+    window.open(url, "_blank");
+  }
 
   async function patchRegistration(body: Record<string, unknown>) {
     setUpdating(true);
@@ -2059,85 +2181,122 @@ function RegistrationRow({
   return (
     <tr className="border-b border-line hover:bg-paper-soft">
        <td className="px-md py-sm">
-         <p className="font-bold uppercase">{registration.teamName ?? registration.user.name ?? "—"}</p>
-         {registration.members && registration.members.length > 0 ? (
-           <p className="mt-xs max-w-64 text-[0.7rem] text-ink-muted">
-             {registration.members.map((member) => `${member.user.name ?? member.user.username ?? "Unnamed"} (${member.status.toLowerCase()})`).join(" · ")}
-           </p>
-         ) : <p className="mt-xs text-[0.7rem] text-ink-muted">{registration.user.email}</p>}
+          <p className="font-bold uppercase">{registration.teamName ?? registration.user.name ?? "—"}</p>
+          {registration.members && registration.members.length > 0 ? (
+            <p className="mt-xs max-w-64 text-[0.7rem] text-ink-muted">
+              {registration.members.map((member) => `${member.user.name ?? member.user.username ?? "Unnamed"} (${member.status.toLowerCase()})`).join(" · ")}
+            </p>
+          ) : <p className="mt-xs text-[0.7rem] text-ink-muted">{registration.user.email}</p>}
+        </td>
+       <td className="px-md py-sm">{registration.crew ?? "—"}</td>
+       <td className="px-md py-sm">{registration.style ?? "—"}</td>
+       <td className="px-md py-sm">{registration.experience ?? "—"}</td>
+       <td className="px-md py-sm font-mono text-[0.7rem] uppercase">
+         {registration.entryFee && registration.entryFee > 0
+           ? `${registration.entryCurrency === "INR" ? "₹" : `${registration.entryCurrency} `}${registration.entryFee}`
+           : "Free"}
        </td>
-      <td className="px-md py-sm">{registration.crew ?? "—"}</td>
-      <td className="px-md py-sm">{registration.style ?? "—"}</td>
-      <td className="px-md py-sm">{registration.experience ?? "—"}</td>
-      <td className="px-md py-sm font-mono text-[0.7rem] uppercase">
-        {registration.entryFee && registration.entryFee > 0
-          ? `${registration.entryCurrency === "INR" ? "₹" : `${registration.entryCurrency} `}${registration.entryFee}`
-          : "Free"}
-      </td>
-      <td className="px-md py-sm">
-        {registration.paid ? (
-          <span className="font-mono text-[0.7rem] uppercase text-accent">
-            Paid
-          </span>
-        ) : registration.paidClaimedAt ? (
-          <span className="border border-accent px-sm py-xs font-mono text-[0.7rem] uppercase text-accent">
-            Claims paid
-          </span>
-        ) : (
-          <span className="font-mono text-[0.7rem] uppercase text-ink-muted">
-            —
-          </span>
-        )}
-      </td>
-      <td className="px-md py-sm">
-        <span
-          className={`font-mono text-[0.7rem] uppercase ${
-            registration.status === "CONFIRMED"
-              ? "text-accent"
-              : registration.status === "WITHDRAWN"
-                ? "text-ink-muted"
-                : ""
-          }`}
-        >
-          {registration.status}
-        </span>
-      </td>
-      <td className="px-md py-sm">
-        <div className="flex items-center gap-xs">
-          <input
-            className="w-16 border border-line bg-paper px-sm py-xs text-body-sm"
-            type="number"
-            value={seed}
-            onChange={(e) => setSeed(e.target.value)}
-            onBlur={handleSeed}
-            min={1}
-          />
-        </div>
-      </td>
-      <td className="px-md py-sm">
-        <div className="flex flex-col gap-xs">
-          <div className="flex gap-xs">
-            <button
-              className="border border-accent px-sm py-xs text-[0.7rem] font-bold uppercase text-accent hover:bg-accent hover:text-paper disabled:opacity-60"
-              disabled={updating || registration.paid || registration.status === "WITHDRAWN"}
-              onClick={() => void handlePaid()}
-              type="button"
-            >
-              {registration.paid ? "Paid" : "Mark paid"}
-            </button>
-            <button
-              className="border border-line px-sm py-xs text-[0.7rem] font-bold uppercase text-ink-muted hover:border-accent disabled:opacity-60"
-              disabled={updating || registration.status === "WITHDRAWN"}
-              onClick={() => void handleWithdraw()}
-              type="button"
-            >
-              Reject
-            </button>
-          </div>
-          {error ? <span className="text-[0.65rem] uppercase text-accent">{error}</span> : null}
-        </div>
-      </td>
-    </tr>
+       <td className="px-md py-sm">
+         {registration.paid ? (
+           <span className="font-mono text-[0.7rem] uppercase text-accent">
+             Paid
+           </span>
+         ) : registration.paidClaimedAt ? (
+           <span className="border border-accent px-sm py-xs font-mono text-[0.7rem] uppercase text-accent">
+             Claims paid
+           </span>
+         ) : (
+           <span className="font-mono text-[0.7rem] uppercase text-ink-muted">
+             —
+           </span>
+         )}
+       </td>
+       <td className="px-md py-sm">
+         <span
+           className={`font-mono text-[0.7rem] uppercase ${
+             registration.status === "CONFIRMED"
+               ? "text-accent"
+               : registration.status === "WITHDRAWN"
+                 ? "text-ink-muted"
+                 : ""
+           }`}
+         >
+           {registration.status}
+         </span>
+       </td>
+       <td className="px-md py-sm">
+         <div className="flex items-center gap-xs">
+           <input
+             className="w-16 border border-line bg-paper px-sm py-xs text-body-sm"
+             type="number"
+             value={seed}
+             onChange={(e) => setSeed(e.target.value)}
+             onBlur={handleSeed}
+             min={1}
+           />
+         </div>
+       </td>
+       <td className="px-md py-sm">
+         <div className="flex flex-col gap-xs">
+           <div className="flex gap-xs">
+             <button
+               className="border border-accent px-sm py-xs text-[0.7rem] font-bold uppercase text-accent hover:bg-accent hover:text-paper disabled:opacity-60"
+               disabled={updating || registration.paid || registration.status === "WITHDRAWN"}
+               onClick={() => void handlePaid()}
+               type="button"
+             >
+               {registration.paid ? "Paid" : "Mark paid"}
+             </button>
+             <button
+               className="border border-line px-sm py-xs text-[0.7rem] font-bold uppercase text-ink-muted hover:border-accent disabled:opacity-60"
+               disabled={updating || registration.status === "WITHDRAWN"}
+               onClick={() => void handleWithdraw()}
+               type="button"
+             >
+               Reject
+             </button>
+           </div>
+           {error ? <span className="text-[0.65rem] uppercase text-accent">{error}</span> : null}
+           <div className="flex flex-col gap-xs mt-xs">
+             <button
+               type="button"
+               className="border border-line px-sm py-xs text-[0.7rem] font-bold uppercase text-ink-muted hover:border-accent hover:text-accent"
+               onClick={() => setShowMessage((v) => !v)}
+             >
+               {showMessage ? "Hide message" : "Message artist"}
+             </button>
+             {showMessage && (
+               <div className="flex flex-col gap-xs px-xs">
+                 <select
+                   className="border border-line bg-paper px-sm py-xs text-[0.7rem] text-ink"
+                   value={selectedTemplateId}
+                   onChange={(e) => handleTemplateChange(e.target.value)}
+                 >
+                   <option value="">Select a template...</option>
+                   {MESSAGE_TEMPLATES.map((t) => (
+                     <option key={t.id} value={t.id}>{t.label}</option>
+                   ))}
+                 </select>
+                 <textarea
+                   className="border border-line bg-paper px-sm py-xs text-[0.7rem] text-ink min-h-[60px] max-h-[120px] resize-y"
+                   value={customMessage}
+                   onChange={(e) => setCustomMessage(e.target.value)}
+                   placeholder="Edit message before sending..."
+                 />
+                 <button
+                   type="button"
+                   className="border border-accent bg-accent px-sm py-xs text-[0.7rem] font-bold uppercase text-paper hover:opacity-90 disabled:opacity-60"
+                   disabled={!captainPhone || !customMessage.trim()}
+                   onClick={openWhatsApp}
+                 >
+                   {captainPhone ? "Open WhatsApp" : "No WhatsApp number"}
+                 </button>
+               </div>
+             )}
+           </div>
+         </div>
+       </td>
+     </tr>
   );
 }
 
