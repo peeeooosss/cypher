@@ -20,6 +20,7 @@ export type ArtistProfile = {
   keywords: string | null;
   referral: string | null;
   skills: string[];
+  whatsappNumber: string | null;
 };
 
 const PROFILE_FIELDS: Array<{
@@ -149,6 +150,7 @@ export function ArtistProfileForm({ profile }: { profile: ArtistProfile }) {
     }
     body.style = String(form.get("style") ?? "").trim();
     body.experience = String(form.get("experience") ?? "").trim();
+    body.whatsappNumber = String(form.get("whatsappNumber") ?? "").trim();
     body.skills = skills;
 
     try {
@@ -339,6 +341,22 @@ export function ArtistProfileForm({ profile }: { profile: ArtistProfile }) {
               </option>
             ))}
           </select>
+        </label>
+        <label className="block">
+          <span className="font-mono text-[0.7rem] uppercase text-ink-muted">
+            WhatsApp number for organizers
+          </span>
+          <input
+            type="tel"
+            inputMode="numeric"
+            className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm"
+            name="whatsappNumber"
+            defaultValue={profile.whatsappNumber ?? ""}
+            placeholder="9198XXXXXXXX (country code + number)"
+          />
+          <p className="mt-xs text-[0.65rem] text-ink-muted">
+            Shared with event organizers for communication. Not shown publicly.
+          </p>
         </label>
         {PROFILE_FIELDS.map((field) => (
           <label key={field.name} className="block">
