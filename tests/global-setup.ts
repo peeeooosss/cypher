@@ -15,6 +15,6 @@ export default function globalSetup() {
     SEED_PASSWORD: password,
   };
 
-  execFileSync("npx", ["prisma", "migrate", "deploy"], { env, stdio: "inherit" });
+  execFileSync("npx", ["prisma", "db", "push"], { env, stdio: "inherit" });
   execFileSync("npm", ["run", "db:seed"], { env, stdio: "inherit" });
 }
