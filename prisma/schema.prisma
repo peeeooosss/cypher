@@ -260,15 +260,58 @@ model Event {
   commissionPaymentMethod     String?
   commissionPaymentSentAt     DateTime?
   commissionPaymentVerifiedBy String?
+  eventDetails                String?
+  accommodationAvailable      Boolean       @default(false)
+  accommodationDetails        String?
+  foodAvailable               Boolean       @default(false)
+  foodDetails                 String?
+  rulesAndRegulations         String?
+  registrationInstructions    String?
+  contactDetails              String?
+  lastRegistrationAt          DateTime?
+  checkInInstructions         String?
   organizer                   User          @relation("EventOrganizer", fields: [organizerId], references: [id])
   categories                  Category[]
   judgeSlots                  JudgeSlot[]
   matches                     BattleMatch[]
+  scheduleItems               EventScheduleItem[]
+  notices                     EventNotice[]
   createdAt                   DateTime      @default(now())
   updatedAt                   DateTime      @updatedAt
 
   @@index([organizerId])
   @@index([startsAt])
+}
+
+model EventScheduleItem {
+  id          String   @id @default(cuid())
+  eventId     String
+  title       String
+  startTime   DateTime
+  endTime     DateTime?
+  description String?
+  displayOrder Int     @default(0)
+  isPublished Boolean  @default(true)
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([eventId, displayOrder])
+}
+
+model EventNotice {
+  id          String   @id @default(cuid())
+  eventId     String
+  title       String
+  message     String
+  link        String?
+  publishedAt DateTime @default(now())
+  isArchived  Boolean  @default(false)
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([eventId, publishedAt])
 }
 
 model Category {
@@ -718,7 +761,7 @@ model Message {
 model Payment {
   id                    String             @id @default(cuid())
   type                  PaymentType
-  provider              String             @default("RAZORPAY")
+  provider              String             @default("PAYU")
   referenceId           String
   payerId               String
   amountPaise           Int
@@ -732,6 +775,18 @@ model Payment {
   razorpayPaymentId     String?
   razorpaySignature     String?
   status                PaymentOrderStatus @default(PENDING)
+  payuTxnId             String?            @unique
+  payuPaymentId         String?
+  payuStatus            String?
+  payuResponseCode      String?
+  payuResponsePayload   Json?
+  payuVerifiedAt        DateTime?
+  payuHashVerified      Boolean            @default(false)
+  paymentPurpose        String?
+  amountExpected        Int?
+  amountReceived        Int?
+  failureReason         String?
+  idempotencyKey        String?            @unique
   payer                 User               @relation(fields: [payerId], references: [id], onDelete: Cascade)
   createdAt             DateTime           @default(now())
   updatedAt             DateTime           @updatedAt
@@ -739,4 +794,6 @@ model Payment {
   @@index([payerId])
   @@index([type, referenceId])
   @@index([provider, providerStatus])
+  @@index([payuTxnId])
+  @@index([idempotencyKey])
 }

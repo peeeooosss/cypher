@@ -1,7 +1,7 @@
 export const metadata = {
-  title: "For Artists | CYPHR — Compete, rank, network, get gigs",
+  title: "For Artists | CYPHR — Discover events, build your career",
   description:
-    "Find competitions, register in minutes, get scored live, track your history, network with the community, and land paid gigs and freelance work.",
+    "Find competitions, workshops, and gigs. Register easily, track your history, and grow your professional network on one platform.",
 };
 
 import Link from "next/link";
@@ -12,41 +12,41 @@ import { artistGuideTabs } from "@/lib/guide-content";
 const features = [
   {
     number: "01",
-    title: "Event & competition updates",
-    text: "Never miss the next cypher or battle. New events and competition updates land straight on the platform the moment they go live.",
+    title: "Discover events & opportunities",
+    text: "Find competitions, workshops, and gigs in one place. New opportunities appear the moment organizers publish them.",
   },
   {
     number: "02",
-    title: "Easy registration",
-    text: "Pick your category, pay your entry online through UPI, and you are in. No forms, no queues — register in minutes.",
+    title: "Simple registration",
+    text: "Pick your category, pay your entry, and you're confirmed. Clear event details, schedules, and rules before you commit.",
   },
   {
     number: "03",
-    title: "Live leaderboard",
-    text: "Get scored live by judges and watch your rank move in real time. Every battle is transparent and every point counts.",
+    title: "Live results & feedback",
+    text: "Get scored by judges and watch your results update in real time. Every evaluation is transparent.",
   },
   {
     number: "04",
     title: "Your event history",
-    text: "Every competition you enter stays on your profile. Your battles, your placements, your wins — your record follows you.",
+    text: "Every event you enter stays on your profile. Your placements, scores, and achievements — your record follows you.",
   },
   {
     number: "05",
-    title: "Networking",
-    text: "Connect with artists, organizers, and judges across the scene. Crew up, collab, and stay plugged into what is happening.",
+    title: "Professional network",
+    text: "Connect with artists, organizers, and judges. Collaborate, get referred, and stay plugged into the community.",
   },
   {
     number: "06",
     title: "Gigs & freelance work",
-    text: "Turn the floor into income. Get hired for paid performances, choreography, DJ sets, and freelance work from organizers who saw you battle.",
+    text: "Turn your skills into income. Get hired for performances, workshops, and freelance projects from organizers.",
   },
 ];
 
 const steps = [
-  { number: "01", title: "Create your profile", text: "Tell the scene who you are — your style, your crew, your city." },
-  { number: "02", title: "Find your event", text: "Get updates and pick the competitions you want to enter." },
-  { number: "03", title: "Register & pay", text: "Join categories online and pay your entry through UPI." },
-  { number: "04", title: "Battle & get hired", text: "Get scored live, rank up, and land the gigs." },
+  { number: "01", title: "Create your profile", text: "Showcase your skills, style, and experience." },
+  { number: "02", title: "Find your event", text: "Browse competitions, workshops, and gigs." },
+  { number: "03", title: "Register & confirm", text: "Join categories online and confirm your spot." },
+  { number: "04", title: "Perform & grow", text: "Get results, build your record, and land opportunities." },
 ];
 
 export default function ForArtistsPage() {
@@ -58,11 +58,11 @@ export default function ForArtistsPage() {
             For artists
           </p>
           <h1 className="mt-lg max-w-4xl font-display text-display-xl uppercase leading-tight tracking-[-0.03em]">
-            Build your name.
+            Discover opportunities. Build your career.
           </h1>
           <p className="mt-md max-w-2xl text-body-md text-ink-muted">
-            Compete, get scored live, and turn the floor into work. CYPHR puts your
-            talent in front of organizers who hire.
+            Find competitions, workshops, and gigs. Register easily, track your
+            history, and grow your professional network on one platform.
           </p>
           <div className="mt-xl flex flex-wrap gap-sm">
             <Link
@@ -75,7 +75,7 @@ export default function ForArtistsPage() {
               href="/events"
               className="border border-line px-lg py-sm text-button-md font-bold uppercase text-ink transition-colors hover:border-accent"
             >
-              Browse competitions
+              Discover events
             </Link>
           </div>
         </div>
@@ -89,7 +89,7 @@ export default function ForArtistsPage() {
             What you get
           </p>
           <h2 className="mt-md max-w-4xl font-display text-display-lg uppercase">
-            Everything to take you from the floor to the stage.
+            Everything to take your career forward.
           </h2>
           <div className="mt-lg grid gap-md md:grid-cols-2 lg:grid-cols-3">
             {features.map((feature) => (
@@ -126,10 +126,10 @@ export default function ForArtistsPage() {
             How to use
           </p>
           <h2 className="mt-md max-w-4xl font-display text-display-lg uppercase">
-            Get on the floor, step by step.
+            Get started, step by step.
           </h2>
           <p className="mt-sm max-w-3xl text-body-sm leading-relaxed text-ink-muted">
-            From signing up to paying your entry and landing gigs. Pick a topic to
+            From signing up to registering for events and landing gigs. Pick a topic to
             follow along.
           </p>
           <StepGuide tabs={artistGuideTabs} />
@@ -138,11 +138,11 @@ export default function ForArtistsPage() {
 
       <section className="mx-auto max-w-7xl px-md py-section text-center md:px-xl">
         <h2 className="font-display text-display-lg uppercase">
-          The floor is calling.
+          Ready to grow your career?
         </h2>
         <p className="mx-auto mt-md max-w-4xl text-body-md text-ink-muted">
-          Dancers, DJs, guitarists, drummers, performers — your profile is your
-          resume. Build it now and let the work find you.
+          Dancers, musicians, DJs, performers — your profile is your
+          portfolio. Build it now and let opportunities find you.
         </p>
         <div className="mt-xl flex flex-wrap justify-center gap-sm">
           <Link

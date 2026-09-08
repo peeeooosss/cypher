@@ -1,7 +1,7 @@
 export const metadata = {
-  title: "For Organizers | CYPHR — Run your event, hire top artists",
+  title: "For Organizers | CYPHR — Run better events, reach the right people",
   description:
-    "Create events, market them to the artist community, take online payments, and hire thousands of dancers, DJs, musicians, and performers.",
+    "Create events with full details, manage schedules and categories, communicate with participants, and track analytics in one dashboard.",
 };
 
 import Link from "next/link";
@@ -11,41 +11,41 @@ import { organizerGuideTabs } from "@/lib/guide-content";
 const features = [
   {
     number: "01",
-    title: "Hire top artists",
-    text: "Browse thousands of dancers, DJs, guitarists, drummers, and performers. Filter by style, city, and experience — find the exact talent your competition or stage needs.",
+    title: "Hire the right talent",
+    text: "Browse thousands of dancers, DJs, musicians, and performers. Filter by style, city, and experience — find the exact talent your event needs.",
   },
   {
     number: "02",
-    title: "Market your event",
-    text: "Publish your event and it reaches the artist community instantly. Artists discover your competition, register for categories, and fill your floor — no flyers needed.",
+    title: "Reach your audience",
+    text: "Publish your event and it reaches the artist community instantly. Participants discover your event, register, and fill your venue.",
   },
   {
     number: "03",
-    title: "Run your bracket",
-    text: "Set categories and entry fees, seed your artists, and run rounds from cypher to finals. The whole bracket lives in your dashboard.",
+    title: "Manage everything in one place",
+    text: "Create events with full details, set categories and schedules, manage registrations, and track everything in your dashboard.",
   },
   {
     number: "04",
-    title: "Take payments",
-    text: "Artists pay their entry online through UPI, tap \"I have paid\", and send you the proof. You approve each payment and confirm the artist in one click.",
+    title: "Communicate with participants",
+    text: "Broadcast updates, schedule changes, and important notices to all registered artists with one click. Email and in-app delivery.",
   },
   {
     number: "05",
-    title: "Live scoring & judging",
-    text: "Generate judge codes and let judges score battles in real time. Standings update live so every round is transparent.",
+    title: "Professional judging tools",
+    text: "Generate judge codes, run standardized scoring, and get transparent results. Works for battles, competitions, and showcases.",
   },
   {
     number: "06",
-    title: "Prizes & leaderboards",
-    text: "Set prize pools, track results, and crown your winners. The leaderboard stays live long after the last battle.",
+    title: "Analytics & reports",
+    text: "Track registrations, revenue, and performance. Download XLSX reports for completed events. Know what works.",
   },
 ];
 
 const steps = [
-  { number: "01", title: "Create your event", text: "Name it, add categories and entry fees, publish." },
-  { number: "02", title: "Artists register & pay", text: "The community sees your event and joins online." },
-  { number: "03", title: "Run it live", text: "Seed the bracket, assign judges, score every round." },
-  { number: "04", title: "Approve & pay out", text: "Confirm entries, crown winners, release prizes." },
+  { number: "01", title: "Create your event", text: "Add details, schedule, categories, and entry fees." },
+  { number: "02", title: "Participants register", text: "The community sees your event and joins online." },
+  { number: "03", title: "Run it live", text: "Manage schedule, communicate updates, run judging." },
+  { number: "04", title: "Analyze & grow", text: "Review results, download reports, plan the next one." },
 ];
 
 export default function ForOrganizersPage() {
@@ -53,15 +53,15 @@ export default function ForOrganizersPage() {
     <main className="min-h-screen bg-paper">
       <section className="border-b border-line">
         <div className="mx-auto max-w-7xl px-md py-section md:px-xl">
-          <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-accent">
+<p className="font-mono text-body-sm uppercase tracking-[0.18em] text-accent">
             For organizers
           </p>
           <h1 className="mt-lg max-w-4xl font-display text-display-xl uppercase leading-tight tracking-[-0.03em]">
-            Build your battle.
+            Run better events. Reach the right people.
           </h1>
           <p className="mt-md max-w-2xl text-body-md text-ink-muted">
-            Create your competition, put it in front of thousands of artists, run it
-            live, and walk away with a stage everyone remembers.
+            Create events with full details, manage schedules and categories, communicate
+            with participants, and track analytics in one dashboard.
           </p>
           <div className="mt-xl flex flex-wrap gap-sm">
             <Link
@@ -74,7 +74,7 @@ export default function ForOrganizersPage() {
               href="/for-organizers/demo"
               className="border border-line px-lg py-sm text-button-md font-bold uppercase text-ink transition-colors hover:border-accent"
             >
-              Try the judge portal demo
+              Try the demo
             </Link>
             <Link
               href="/events"
@@ -92,7 +92,7 @@ export default function ForOrganizersPage() {
             What you get
           </p>
           <h2 className="mt-md max-w-4xl font-display text-display-lg uppercase">
-            Everything you need to run the floor.
+            Everything you need to run professional events.
           </h2>
           <div className="mt-lg grid gap-md md:grid-cols-2 lg:grid-cols-3">
             {features.map((feature) => (
@@ -132,8 +132,8 @@ export default function ForOrganizersPage() {
             Run your event, step by step.
           </h2>
           <p className="mt-sm max-w-3xl text-body-sm leading-relaxed text-ink-muted">
-            Everything from signing up to running the Control Room and releasing
-            prizes. Pick a topic to follow along.
+            Everything from signing up to managing the dashboard and analyzing results. Pick a topic to
+            follow along.
           </p>
           <StepGuide tabs={organizerGuideTabs} />
         </div>
@@ -141,18 +141,18 @@ export default function ForOrganizersPage() {
 
       <section className="mx-auto max-w-7xl px-md py-section text-center md:px-xl">
         <h2 className="font-display text-display-lg uppercase">
-          Your stage. Your rules.
+          Your events. Professional results.
         </h2>
         <p className="mx-auto mt-md max-w-4xl text-body-md text-ink-muted">
-          Organizers, collectives, and organizations — hire the talent you need and
-          run events that artists actually line up for.
+          Organizers, collectives, and organizations — create events that run smoothly,
+          reach the right people, and grow your community.
         </p>
         <div className="mt-xl flex flex-wrap justify-center gap-sm">
           <Link
             href="/signup"
             className="border border-accent bg-accent px-lg py-sm text-button-md font-bold uppercase text-paper transition-opacity hover:opacity-80"
           >
-            Sign up as organizer
+            Create your event
           </Link>
           <Link
             href="/for-artists"

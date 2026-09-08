@@ -84,8 +84,41 @@ type EventWithRelations = {
   commissionPaymentStatus: PaymentStatus | null;
   commissionPaymentMethod: string | null;
   commissionPaymentSentAt: Date | string | null;
+  eventDetails: string | null;
+  accommodationAvailable: boolean;
+  accommodationDetails: string | null;
+  foodAvailable: boolean;
+  foodDetails: string | null;
+  rulesAndRegulations: string | null;
+  registrationInstructions: string | null;
+  contactDetails: string | null;
+  lastRegistrationAt: Date | string | null;
+  checkInInstructions: string | null;
   categories: Category[];
   judgeSlots: JudgeSlotWithCategory[];
+  scheduleItems: EventScheduleItem[];
+  notices: EventNotice[];
+};
+
+type EventScheduleItem = {
+  id: string;
+  eventId: string;
+  title: string;
+  startTime: Date | string;
+  endTime: Date | string | null;
+  description: string | null;
+  displayOrder: number;
+  isPublished: boolean;
+};
+
+type EventNotice = {
+  id: string;
+  eventId: string;
+  title: string;
+  message: string;
+  link: string | null;
+  publishedAt: Date | string;
+  isArchived: boolean;
 };
 
 type RegistrationRow = {
@@ -108,7 +141,7 @@ type RegistrationRow = {
   members?: Array<{ id: string; userId: string; role: string; status: string; user: { id: string; name: string | null; username: string | null; whatsappNumber: string | null } }>;
 };
 
-const TABS = ["Overview", "Categories", "Judges", "Registrations", "Prizes", "Leaderboard", "Control Room"] as const;
+const TABS = ["Overview", "Event Info", "Schedule", "Notices", "Categories", "Judges", "Registrations", "Prizes", "Leaderboard", "Control Room"] as const;
 
 const STATUS_OPTIONS: EventStatus[] = ["DRAFT", "PUBLISHED", "LIVE", "COMPLETED"];
 
@@ -229,6 +262,15 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
 
       {resolvedTab === "Overview" && (
         <OverviewTab event={event} setEvent={setEvent} />
+      )}
+      {resolvedTab === "Event Info" && (
+        <EventInfoTab event={event} setEvent={setEvent} />
+      )}
+      {resolvedTab === "Schedule" && (
+        <ScheduleTab event={event} refresh={refreshControlRoom} />
+      )}
+      {resolvedTab === "Notices" && (
+        <NoticesTab event={event} refresh={refreshControlRoom} />
       )}
       {resolvedTab === "Categories" && (
         <CategoriesTab event={event} refresh={refreshControlRoom} refreshing={refreshing} />
@@ -804,8 +846,439 @@ function OverviewTab({
             </p>
           ) : null}
         </div>
+</div>
       </div>
     </div>
+  );
+}
+
+function EventInfoTab({
+  event,
+  setEvent,
+}: {
+  event: EventWithRelations;
+  setEvent: (e: EventWithRelations) => void;
+}) {
+  const router = useRouter();
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSave(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError("");
+    setSaving(true);
+    const form = new FormData(e.currentTarget);
+    const body: Record<string, unknown> = {};
+
+    body.eventDetails = form.get("eventDetails") as string || null;
+    body.accommodationAvailable = form.get("accommodationAvailable") === "on";
+    body.accommodationDetails = form.get("accommodationDetails") as string || null;
+    body.foodAvailable = form.get("foodAvailable") === "on";
+    body.foodDetails = form.get("foodDetails") as string || null;
+    body.rulesAndRegulations = form.get("rulesAndRegulations") as string || null;
+    body.registrationInstructions = form.get("registrationInstructions") as string || null;
+    body.contactDetails = form.get("contactDetails") as string || null;
+    body.checkInInstructions = form.get("checkInInstructions") as string || null;
+    const lastReg = form.get("lastRegistrationAt") as string;
+    if (lastReg) body.lastRegistrationAt = new Date(lastReg).toISOString();
+
+    try {
+      const res = await fetch(`/api/events/${event.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        setError(await responseError(res, "Failed to save"));
+        return;
+      }
+      const updated = await res.json();
+      setEvent({ ...event, ...updated, startsAt: new Date(updated.startsAt) });
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form className="border border-line p-lg" onSubmit={handleSave}>
+      <p className="font-display text-title-md uppercase">Event Information</p>
+
+      <div className="mt-lg space-y-xl">
+        <section>
+          <h3 className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent">Event Details</h3>
+          <textarea
+            className="mt-sm w-full border border-line bg-paper px-md py-sm text-body-sm"
+            name="eventDetails"
+            rows={6}
+            defaultValue={event.eventDetails ?? ""}
+            placeholder="Detailed event description, highlights, what to expect..."
+          />
+        </section>
+
+        <section className="border-t border-line pt-xl">
+          <h3 className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent">Accommodation</h3>
+          <label className="mt-sm flex items-center gap-sm">
+            <input type="checkbox" name="accommodationAvailable" defaultChecked={event.accommodationAvailable} className="border border-line bg-paper" />
+            <span className="font-mono text-sm">Accommodation available</span>
+          </label>
+          <textarea
+            className="mt-sm w-full border border-line bg-paper px-md py-sm text-body-sm"
+            name="accommodationDetails"
+            rows={3}
+            defaultValue={event.accommodationDetails ?? ""}
+            placeholder="Hotel options, booking details, nearby stays..."
+          />
+        </section>
+
+        <section className="border-t border-line pt-xl">
+          <h3 className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent">Food & Catering</h3>
+          <label className="mt-sm flex items-center gap-sm">
+            <input type="checkbox" name="foodAvailable" defaultChecked={event.foodAvailable} className="border border-line bg-paper" />
+            <span className="font-mono text-sm">Food available</span>
+          </label>
+          <textarea
+            className="mt-sm w-full border border-line bg-paper px-md py-sm text-body-sm"
+            name="foodDetails"
+            rows={3}
+            defaultValue={event.foodDetails ?? ""}
+            placeholder="Meal arrangements, catering info, dietary options..."
+          />
+        </section>
+
+        <section className="border-t border-line pt-xl">
+          <h3 className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent">Rules & Regulations</h3>
+          <textarea
+            className="mt-sm w-full border border-line bg-paper px-md py-sm text-body-sm"
+            name="rulesAndRegulations"
+            rows={6}
+            defaultValue={event.rulesAndRegulations ?? ""}
+            placeholder="Competition rules, code of conduct, prohibited items, judging criteria..."
+          />
+        </section>
+
+        <section className="border-t border-line pt-xl">
+          <h3 className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent">Registration Instructions</h3>
+          <textarea
+            className="mt-sm w-full border border-line bg-paper px-md py-sm text-body-sm"
+            name="registrationInstructions"
+            rows={4}
+            defaultValue={event.registrationInstructions ?? ""}
+            placeholder="How to register, payment deadlines, required documents, team formation rules..."
+          />
+        </section>
+
+        <section className="border-t border-line pt-xl">
+          <h3 className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent">Contact & Check-in</h3>
+          <textarea
+            className="mt-sm w-full border border-line bg-paper px-md py-sm text-body-sm"
+            name="contactDetails"
+            rows={3}
+            defaultValue={event.contactDetails ?? ""}
+            placeholder="Organizer contact, emergency contact, WhatsApp group link..."
+          />
+          <label className="mt-sm block">
+            <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Last Registration Date</span>
+            <input
+              className="mt-xs w-full md:w-64 border border-line bg-paper px-md py-sm text-body-sm"
+              type="datetime-local"
+              name="lastRegistrationAt"
+              defaultValue={event.lastRegistrationAt ? new Date(event.lastRegistrationAt).toISOString().slice(0, 16) : ""}
+            />
+          </label>
+          <textarea
+            className="mt-sm w-full border border-line bg-paper px-md py-sm text-body-sm"
+            name="checkInInstructions"
+            rows={3}
+            defaultValue={event.checkInInstructions ?? ""}
+            placeholder="Check-in time, location, what to bring, ID requirements..."
+          />
+        </section>
+
+        {error && <p className="mt-md text-body-sm text-accent">{error}</p>}
+        <button
+          className="mt-lg border border-accent bg-accent px-lg py-sm font-bold uppercase text-paper disabled:opacity-60"
+          disabled={saving}
+          type="submit"
+        >
+          {saving ? "Saving..." : "Save Event Information"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function ScheduleTab({
+  event,
+  refresh,
+}: {
+  event: EventWithRelations;
+  refresh: () => void;
+}) {
+  const [items, setItems] = useState<EventScheduleItem[]>(event.scheduleItems?.sort((a, b) => a.displayOrder - b.displayOrder) ?? []);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formData, setFormData] = useState<Partial<EventScheduleItem>>({});
+  const [saving, setSaving] = useState(false);
+
+  function startEdit(item: EventScheduleItem) {
+    setEditingId(item.id);
+    const startTimeStr = item.startTime instanceof Date ? item.startTime.toISOString().slice(0, 16) : item.startTime;
+    const endTimeStr = item.endTime instanceof Date ? item.endTime.toISOString().slice(0, 16) : (item.endTime ?? "");
+    setFormData({ ...item, startTime: startTimeStr, endTime: endTimeStr });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setFormData({});
+  }
+
+  async function handleSave(itemId: string, isNew = false) {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/events/${event.id}/schedule`, {
+        method: isNew ? "POST" : "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: isNew ? undefined : itemId, ...formData, startTime: new Date(formData.startTime!).toISOString(), endTime: formData.endTime ? new Date(formData.endTime).toISOString() : null, eventId: event.id }),
+      });
+      if (!res.ok) throw new Error(await responseError(res, "Failed to save"));
+      cancelEdit();
+      refresh();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(itemId: string) {
+    if (!window.confirm("Delete this schedule item?")) return;
+    try {
+      const res = await fetch(`/api/events/${event.id}/schedule/${itemId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(await responseError(res, "Failed to delete"));
+      refresh();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to delete");
+    }
+  }
+
+  function startNew() {
+    setEditingId("new");
+    setFormData({ title: "", startTime: "", endTime: "", description: "", displayOrder: items.length, isPublished: true });
+  }
+
+  return (
+    <div className="space-y-xl">
+      <div className="flex items-center justify-between">
+        <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">
+          {items.length} schedule item{items.length !== 1 ? "s" : ""}
+        </p>
+        <button type="button" onClick={startNew} className="border border-accent bg-accent px-md py-sm font-bold uppercase text-paper">
+          + Add Schedule Item
+        </button>
+      </div>
+
+      {items.length === 0 ? (
+        <p className="border border-line p-lg text-ink-muted">No schedule items yet. Add the first one.</p>
+      ) : (
+        <div className="space-y-md">
+          {items.map((item) => (
+            <div key={item.id} className="border border-line bg-paper-soft p-lg">
+              {editingId === item.id ? (
+                <div className="space-y-sm">
+                  <input className="w-full border border-line bg-paper px-md py-sm text-body-sm" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} placeholder="Title (e.g., Registration, Check-in, Finals)" />
+                  <div className="grid gap-sm md:grid-cols-2">
+                    <input type="datetime-local" className="border border-line bg-paper px-md py-sm text-body-sm" value={formData.startTime instanceof Date ? formData.startTime.toISOString().slice(0, 16) : (formData.startTime ?? "")} onChange={(e) => setFormData({ ...formData, startTime: e.target.value })} placeholder="Start time" required />
+                    <input type="datetime-local" className="border border-line bg-paper px-md py-sm text-body-sm" value={formData.endTime instanceof Date ? formData.endTime.toISOString().slice(0, 16) : (formData.endTime ?? "")} onChange={(e) => setFormData({ ...formData, endTime: e.target.value })} placeholder="End time (optional)" />
+                  </div>
+                  <textarea className="w-full border border-line bg-paper px-md py-sm text-body-sm" value={formData.description ?? ""} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Description" rows={2} />
+                  <label className="flex items-center gap-sm">
+                    <input type="checkbox" checked={formData.isPublished} onChange={(e) => setFormData({ ...formData, isPublished: e.target.checked })} className="border border-line bg-paper" />
+                    <span className="font-mono text-sm">Published</span>
+                  </label>
+                  <div className="flex gap-sm">
+                    <button onClick={() => handleSave(item.id)} disabled={saving} className="border border-accent bg-accent px-md py-sm font-bold uppercase text-paper disabled:opacity-60">
+                      {saving ? "Saving..." : "Save"}
+                    </button>
+                    <button onClick={cancelEdit} className="border border-line px-md py-sm font-bold uppercase hover:border-accent">
+                      Cancel
+                    </button>
+                    <button onClick={() => handleDelete(item.id)} className="border border-line px-md py-sm font-bold uppercase text-accent hover:border-accent">
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-start justify-between gap-md">
+                  <div>
+                    <p className="font-display text-title-md uppercase">{item.title}</p>
+                    <p className="mt-xs text-body-sm text-ink-muted">
+                      {new Date(item.startTime).toLocaleString()} {item.endTime ? `– ${new Date(item.endTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
+                      {item.isPublished ? "" : " <span className=\"font-mono text-[0.65rem] uppercase text-ink-muted\">(Draft)</span>"}
+                    </p>
+                    {item.description && <p className="mt-xs text-body-sm text-ink-muted">{item.description}</p>}
+                  </div>
+                  <div className="flex gap-sm">
+                    <button onClick={() => startEdit(item)} className="border border-line px-md py-sm font-bold uppercase hover:border-accent">Edit</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NoticesTab({
+  event,
+  refresh,
+}: {
+  event: EventWithRelations;
+  refresh: () => void;
+}) {
+  const [notices, setNotices] = useState<EventNotice[]>(event.notices?.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()) ?? []);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formData, setFormData] = useState<Partial<EventNotice>>({});
+  const [saving, setSaving] = useState(false);
+
+  function startEdit(notice: EventNotice) {
+    setEditingId(notice.id);
+    setFormData({ ...notice });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setFormData({});
+  }
+
+  async function handleSave(noticeId: string, isNew = false) {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/events/${event.id}/notices`, {
+        method: isNew ? "POST" : "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: isNew ? undefined : noticeId, ...formData, eventId: event.id }),
+      });
+      if (!res.ok) throw new Error(await responseError(res, "Failed to save"));
+      cancelEdit();
+      refresh();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(noticeId: string) {
+    if (!window.confirm("Delete this notice?")) return;
+    try {
+      const res = await fetch(`/api/events/${event.id}/notices/${noticeId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(await responseError(res, "Failed to delete"));
+      refresh();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to delete");
+    }
+  }
+
+  async function handleArchive(noticeId: string, archive: boolean) {
+    try {
+      const res = await fetch(`/api/events/${event.id}/notices/${noticeId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isArchived: archive }),
+      });
+      if (!res.ok) throw new Error(await responseError(res, "Failed to update"));
+      refresh();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to update");
+    }
+  }
+
+  function startNew() {
+    setEditingId("new");
+    setFormData({ title: "", message: "", link: "", isArchived: false });
+  }
+
+  const activeNotices = notices.filter((n) => !n.isArchived);
+  const archivedNotices = notices.filter((n) => n.isArchived);
+
+  return (
+    <div className="space-y-xl">
+      <div className="flex items-center justify-between">
+        <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">
+          {activeNotices.length} active notice{activeNotices.length !== 1 ? "s" : ""}
+        </p>
+        <button type="button" onClick={startNew} className="border border-accent bg-accent px-md py-sm font-bold uppercase text-paper">
+          + Add Notice
+        </button>
+      </div>
+
+      {activeNotices.length === 0 && archivedNotices.length === 0 ? (
+        <p className="border border-line p-lg text-ink-muted">No notices yet. Add the first one.</p>
+      ) : (
+        <>
+          {activeNotices.map((notice) => (
+            <div key={notice.id} className="border border-line bg-paper-soft p-lg">
+              {editingId === notice.id ? (
+                <div className="space-y-sm">
+                  <input className="w-full border border-line bg-paper px-md py-sm text-body-sm" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} placeholder="Notice title" required />
+                  <textarea className="w-full border border-line bg-paper px-md py-sm text-body-sm" value={formData.message} onChange={(e) => setFormData({ ...formData, message: e.target.value })} placeholder="Message" rows={3} required />
+                  <input className="w-full border border-line bg-paper px-md py-sm text-body-sm" value={formData.link ?? ""} onChange={(e) => setFormData({ ...formData, link: e.target.value })} placeholder="Optional link (e.g., schedule, registration, external site)" />
+                  <label className="flex items-center gap-sm">
+                    <input type="checkbox" checked={formData.isArchived} onChange={(e) => setFormData({ ...formData, isArchived: e.target.checked })} className="border border-line bg-paper" />
+                    <span className="font-mono text-sm">Archived</span>
+                  </label>
+                  <div className="flex gap-sm">
+                    <button onClick={() => handleSave(notice.id)} disabled={saving} className="border border-accent bg-accent px-md py-sm font-bold uppercase text-paper disabled:opacity-60">
+                      {saving ? "Saving..." : "Save"}
+                    </button>
+                    <button onClick={cancelEdit} className="border border-line px-md py-sm font-bold uppercase hover:border-accent">Cancel</button>
+                    <button onClick={() => handleDelete(notice.id)} className="border border-line px-md py-sm font-bold uppercase text-accent hover:border-accent">Delete</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-start justify-between gap-md">
+                  <div>
+                    <p className="font-display text-title-md uppercase">{notice.title}</p>
+                    <p className="mt-sm text-body-md leading-relaxed text-ink-muted whitespace-pre-wrap">{notice.message}</p>
+                    {notice.link && (
+                      <a className="mt-sm inline-flex items-center gap-xs border border-accent bg-accent px-md py-xs font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper" href={notice.link} target="_blank" rel="noopener noreferrer">
+                        Open Link
+                      </a>
+                    )}
+                    <p className="mt-xs font-mono text-[0.65rem] uppercase text-ink-muted">Published: {new Date(notice.publishedAt).toLocaleString()}</p>
+                  </div>
+                  <div className="flex gap-sm">
+                    <button onClick={() => startEdit(notice)} className="border border-line px-md py-sm font-bold uppercase hover:border-accent">Edit</button>
+                    <button onClick={() => handleArchive(notice.id, true)} className="border border-line px-md py-sm font-bold uppercase text-ink-muted hover:border-accent">Archive</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+          {archivedNotices.length > 0 && (
+            <details className="border-t border-line pt-lg">
+              <summary className="font-mono text-[0.7rem] uppercase text-ink-muted cursor-pointer">
+                Archived Notices ({archivedNotices.length})
+              </summary>
+              <div className="mt-md space-y-md">
+                {archivedNotices.map((notice) => (
+                  <div key={notice.id} className="border border-line bg-paper-soft/50 p-lg opacity-60">
+                    <p className="font-display text-title-md uppercase line-through">{notice.title}</p>
+                    <p className="mt-sm text-body-sm text-ink-muted">{notice.message}</p>
+                    <p className="mt-xs font-mono text-[0.65rem] uppercase text-ink-muted">Published: {new Date(notice.publishedAt).toLocaleString()}</p>
+                    <button onClick={() => handleArchive(notice.id, false)} className="mt-sm border border-accent px-md py-sm font-bold uppercase text-accent hover:bg-accent hover:text-paper">
+                      Restore
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+        </>
+      )}
     </div>
   );
 }

@@ -97,6 +97,71 @@ export default async function RegisterPage({ params }: RegisterPageContext) {
         <p className="mt-md text-body-sm text-ink-muted">
           Pick the categories you want to enter, then pay the organizer to confirm your spot.
         </p>
+        <div className="mt-lg border border-line bg-cream p-md">
+          <div className="grid grid-cols-1 gap-sm sm:grid-cols-2">
+            {event.startsAt && (
+              <div>
+                <p className="font-mono text-[0.65rem] uppercase tracking-[0.15em] text-ink-muted">
+                  When
+                </p>
+                <p className="mt-xs text-body-sm">
+                  {event.startsAt.toLocaleDateString("en-IN", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })}{" "}
+                  {event.startsAt.toLocaleTimeString("en-IN", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </p>
+              </div>
+            )}
+            {(event.venue || event.city || event.state) && (
+              <div>
+                <p className="font-mono text-[0.65rem] uppercase tracking-[0.15em] text-ink-muted">
+                  Where
+                </p>
+                <p className="mt-xs text-body-sm">
+                  {[event.venue, event.city, event.state].filter(Boolean).join(", ")}
+                </p>
+              </div>
+            )}
+            {event.lastRegistrationAt && (
+              <div>
+                <p className="font-mono text-[0.65rem] uppercase tracking-[0.15em] text-ink-muted">
+                  Registration deadline
+                </p>
+                <p className="mt-xs text-body-sm">
+                  {event.lastRegistrationAt.toLocaleDateString("en-IN", {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </p>
+              </div>
+            )}
+            {event.contactDetails && (
+              <div>
+                <p className="font-mono text-[0.65rem] uppercase tracking-[0.15em] text-ink-muted">
+                  Contact
+                </p>
+                <p className="mt-xs whitespace-pre-line text-body-sm">{event.contactDetails}</p>
+              </div>
+            )}
+          </div>
+          {(event.eventDetails || event.registrationInstructions) && (
+            <div className="mt-sm border-t border-line pt-sm">
+              <p className="font-mono text-[0.65rem] uppercase tracking-[0.15em] text-ink-muted">
+                Before you sign up
+              </p>
+              <p className="mt-xs whitespace-pre-line text-body-sm">
+                {event.registrationInstructions || event.eventDetails}
+              </p>
+            </div>
+          )}
+        </div>
         {!isOpen ? (
           <div className="mt-section border border-line p-lg">
             <p className="font-display text-title-md uppercase text-ink-muted">

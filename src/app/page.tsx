@@ -78,15 +78,14 @@ export default async function Home() {
         <div className="mx-auto grid max-w-7xl grid-cols-1 gap-section md:grid-cols-[1fr_0.42fr]">
           <div className="px-md pt-section md:px-xl">
             <p className="font-mono text-center text-body-sm uppercase tracking-[0.18em] text-accent sm:text-left">
-              Underground artist network
+              The platform for artists, events & organizers
             </p>
             <h1 className="mt-lg font-display text-center text-display-xl uppercase tracking-[-0.03em] leading-tight text-ink sm:text-left md:max-w-2xl">
-              The floor is calling.
+              Discover events. Build experiences. Grow your work.
             </h1>
             <p className="mt-md text-center text-body-md text-ink-muted sm:text-left sm:max-w-2xl">
-              Find the next cypher. Enter the battle. Build your name. CYPHR connects
-              dancers, choreographers, DJs, guitarists, drummers, and performers to
-              the underground community.
+              One place to discover competitions, run better events, and connect with
+              the creative community. CYPHR serves artists, organizers, and judges.
             </p>
             <div className="mt-xl flex flex-wrap justify-center gap-sm sm:justify-start">
               <Link
@@ -111,13 +110,13 @@ export default async function Home() {
               </p>
               <ul className="mt-lg space-y-md">
                 <li className="border-b border-line pb-sm">
-                  <span className="text-accent">01 — </span>Battles & cyphers
+                  <span className="text-accent">01 — </span>Discover events
                 </li>
                 <li className="border-b border-line pb-sm">
-                  <span className="text-accent">02 — </span>Marketplace
+                  <span className="text-accent">02 — </span>Organize & manage
                 </li>
                 <li className="border-b border-line pb-sm">
-                  <span className="text-accent">03 — </span>Live scoring
+                  <span className="text-accent">03 — </span>Get hired & grow
                 </li>
               </ul>
             </div>
@@ -125,13 +124,13 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* For organizers / For artists */}
+{/* For organizers / For artists / For opportunities */}
       <section className="border-b border-line">
         <div className="mx-auto max-w-7xl px-md py-section md:px-xl">
           <p className="font-mono text-center text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted md:text-left">
             Built for the whole scene
           </p>
-          <div className="mt-lg grid gap-md md:grid-cols-2">
+          <div className="mt-lg grid gap-md md:grid-cols-3">
             <Link
               href="/for-organizers"
               className="group flex flex-col justify-between border border-line bg-paper-soft p-xl transition-colors hover:border-accent"
@@ -141,16 +140,16 @@ export default async function Home() {
                   For organizers
                 </p>
                 <h2 className="mt-md font-display text-display-lg uppercase">
-                  Run your event. Hire the best.
+                  Run better events. Reach the right people.
                 </h2>
                 <p className="mt-md max-w-prose text-body-sm leading-relaxed text-ink-muted">
-                  Create and market your competition to thousands of artists, take
-                  online payments, and hire the exact talent your stage needs.
+                  Create events with full details, manage schedules and categories, communicate
+                  with participants, and track analytics in one dashboard.
                 </p>
                 <ul className="mt-lg space-y-xs text-body-sm text-ink-muted">
-                  <li><span className="text-accent">01 — </span>Create your event &amp; categories</li>
-                  <li><span className="text-accent">02 — </span>Set phases, judges &amp; prizes</li>
-                  <li><span className="text-accent">03 — </span>Run it live from the Control Room</li>
+                  <li><span className="text-accent">01 — </span>Create events with full details</li>
+                  <li><span className="text-accent">02 — </span>Manage registrations & schedules</li>
+                  <li><span className="text-accent">03 — </span>Broadcast updates to participants</li>
                 </ul>
               </div>
               <span className="mt-lg font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted transition-colors group-hover:text-accent">
@@ -166,27 +165,52 @@ export default async function Home() {
                   For artists
                 </p>
                 <h2 className="mt-md font-display text-display-lg uppercase">
-                  Compete. Rank. Get hired.
+                  Discover opportunities. Build your career.
                 </h2>
                 <p className="mt-md max-w-prose text-body-sm leading-relaxed text-ink-muted">
-                  Never miss a competition, register in minutes, climb the live
-                  leaderboard, and land paid gigs and freelance work.
+                  Find competitions, workshops, and gigs. Register easily, track your
+                  history, and grow your professional network.
                 </p>
                 <ul className="mt-lg space-y-xs text-body-sm text-ink-muted">
                   <li><span className="text-accent">01 — </span>Build your artist profile</li>
-                  <li><span className="text-accent">02 — </span>Register &amp; pay your entry</li>
-                  <li><span className="text-accent">03 — </span>Battle live &amp; get hired</li>
+                  <li><span className="text-accent">02 — </span>Discover & register for events</li>
+                  <li><span className="text-accent">03 — </span>Get hired for gigs & freelance</li>
                 </ul>
               </div>
               <span className="mt-lg font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted transition-colors group-hover:text-accent">
                 See the step-by-step guide →
               </span>
             </Link>
+            <Link
+              href="/artist/marketplace"
+              className="group flex flex-col justify-between border border-line bg-paper-soft p-xl transition-colors hover:border-accent"
+            >
+              <div>
+                <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-accent">
+                  For opportunities
+                </p>
+                <h2 className="mt-md font-display text-display-lg uppercase">
+                  Post gigs. Hire talent. Get hired.
+                </h2>
+                <p className="mt-md max-w-prose text-body-sm leading-relaxed text-ink-muted">
+                  Post freelance work, browse artist profiles, and connect with the right
+                  people for your projects. The marketplace for creative work.
+                </p>
+                <ul className="mt-lg space-y-xs text-body-sm text-ink-muted">
+                  <li><span className="text-accent">01 — </span>Post gigs & freelance work</li>
+                  <li><span className="text-accent">02 — </span>Browse & hire verified artists</li>
+                  <li><span className="text-accent">03 — </span>Get discovered for paid work</li>
+                </ul>
+              </div>
+              <span className="mt-lg font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted transition-colors group-hover:text-accent">
+                Explore marketplace →
+              </span>
+            </Link>
           </div>
         </div>
       </section>
 
-      {/* Judge portal demo */}
+      {/* Platform demo */}
       <section className="border-b border-line">
         <div className="mx-auto max-w-7xl px-md py-section md:px-xl">
           <div className="flex flex-wrap items-center justify-between gap-md">
@@ -195,11 +219,11 @@ export default async function Home() {
                 See it in action
               </p>
               <h2 className="mt-md max-w-2xl font-display text-display-lg uppercase">
-                Preview the live 4-section judge portal.
+                Preview the organizer dashboard & judge portal.
               </h2>
               <p className="mt-sm max-w-2xl text-body-sm text-ink-muted">
-                No login needed. Score a battle, run a cypher, and check the leaderboard —
-                exactly how your panel will on the day.
+                No login needed. Manage events, score performances, and check standings —
+                exactly how your team will on event day.
               </p>
             </div>
             <Link

@@ -1,10 +1,10 @@
 import { CategoryFormat, EventType } from "@/generated/prisma/enums";
 
 export const EVENT_TYPE_LABELS: Record<EventType, string> = {
-  UNDERGROUND_BATTLE: "Underground battle",
-  DANCE_COMPETITION: "Dance competition",
-  MUSIC_COMPETITION: "Music competition",
-  WORKSHOP: "Workshop",
+  UNDERGROUND_BATTLE: "Battle / Cypher",
+  DANCE_COMPETITION: "Dance & Movement",
+  MUSIC_COMPETITION: "Music Competition",
+  WORKSHOP: "Workshop / Learning",
 };
 
 export const EVENT_TYPE_LIST: EventType[] = Object.keys(EVENT_TYPE_LABELS) as EventType[];

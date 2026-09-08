@@ -34,8 +34,8 @@ export function Footer() {
             />
           </Link>
           <p className="mt-md max-w-4xl font-display text-body-md uppercase leading-relaxed tracking-[0.02em] text-ink-muted">
-            The underground artist and performance platform. Battles, cyphers, live
-            scoring, and the marketplace — one home for the floor.
+            The platform for artists, events & organizers. Discover, organize, and grow —
+            one home for the creative community.
           </p>
         </div>
 

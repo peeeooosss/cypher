@@ -24,6 +24,14 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
         include: { prizePool: true, _count: { select: { registrations: true, matches: true } } },
         orderBy: { name: "asc" },
       },
+      scheduleItems: {
+        where: { isPublished: true },
+        orderBy: { displayOrder: "asc" },
+      },
+      notices: {
+        where: { isArchived: false },
+        orderBy: { publishedAt: "desc" },
+      },
     },
   });
 
@@ -154,6 +162,118 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
                   {event.description}
                 </p>
               </>
+            )}
+
+            {/* Event Information Sections */}
+            {event.eventDetails && (
+              <section className="mb-section">
+                <h2 className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Event Details</h2>
+                <div className="mt-md max-w-prose text-body-md leading-relaxed text-ink-muted whitespace-pre-wrap">
+                  {event.eventDetails}
+                </div>
+              </section>
+            )}
+
+            {(event.accommodationAvailable || event.accommodationDetails) && (
+              <section className="mb-section">
+                <h2 className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Accommodation</h2>
+                {event.accommodationDetails && (
+                  <div className="mt-md max-w-prose text-body-md leading-relaxed text-ink-muted whitespace-pre-wrap">
+                    {event.accommodationDetails}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {(event.foodAvailable || event.foodDetails) && (
+              <section className="mb-section">
+                <h2 className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Food & Catering</h2>
+                {event.foodDetails && (
+                  <div className="mt-md max-w-prose text-body-md leading-relaxed text-ink-muted whitespace-pre-wrap">
+                    {event.foodDetails}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {event.rulesAndRegulations && (
+              <section className="mb-section">
+                <h2 className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Rules & Regulations</h2>
+                <div className="mt-md max-w-prose text-body-md leading-relaxed text-ink-muted whitespace-pre-wrap">
+                  {event.rulesAndRegulations}
+                </div>
+              </section>
+            )}
+
+            {event.registrationInstructions && (
+              <section className="mb-section">
+                <h2 className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Registration Instructions</h2>
+                <div className="mt-md max-w-prose text-body-md leading-relaxed text-ink-muted whitespace-pre-wrap">
+                  {event.registrationInstructions}
+                </div>
+              </section>
+            )}
+
+            {event.checkInInstructions && (
+              <section className="mb-section">
+                <h2 className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Check-in Instructions</h2>
+                <div className="mt-md max-w-prose text-body-md leading-relaxed text-ink-muted whitespace-pre-wrap">
+                  {event.checkInInstructions}
+                </div>
+              </section>
+            )}
+
+            {/* Schedule */}
+            {event.scheduleItems && event.scheduleItems.length > 0 && (
+              <section className="mb-section">
+                <h2 className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Schedule</h2>
+                <div className="mt-md space-y-md">
+                  {event.scheduleItems.map((item) => (
+                    <div key={item.id} className="border border-line bg-paper-soft p-lg">
+                      <div className="flex flex-wrap items-start justify-between gap-md">
+                        <div>
+                          <h3 className="font-display text-title-md uppercase">{item.title}</h3>
+                          <p className="mt-xs text-body-sm text-ink-muted">
+                            {new Date(item.startTime).toLocaleDateString()} at {new Date(item.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            {item.endTime ? ` – ${new Date(item.endTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
+                          </p>
+                          {item.description && <p className="mt-xs text-body-sm text-ink-muted">{item.description}</p>}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Notices */}
+            {event.notices && event.notices.length > 0 && (
+              <section className="mb-section">
+                <h2 className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Important Notices</h2>
+                <div className="mt-md space-y-md">
+                  {event.notices.map((notice) => (
+                    <div key={notice.id} className="border border-accent bg-accent/5 p-lg">
+                      <h3 className="font-display text-title-md uppercase">{notice.title}</h3>
+                      <p className="mt-sm text-body-md leading-relaxed text-ink-muted whitespace-pre-wrap">{notice.message}</p>
+                      {notice.link && (
+                        <a className="mt-sm inline-flex items-center gap-xs border border-accent bg-accent px-md py-xs font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper" href={notice.link} target="_blank" rel="noopener noreferrer">
+                          Open Link
+                        </a>
+                      )}
+                      <p className="mt-xs font-mono text-[0.65rem] uppercase text-ink-muted">Posted: {new Date(notice.publishedAt).toLocaleDateString()}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {event.contactDetails && (
+              <section className="mb-section">
+                <h2 className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Contact Information</h2>
+                <div className="mt-md max-w-prose text-body-md leading-relaxed text-ink-muted whitespace-pre-wrap">
+                  {event.contactDetails}
+                </div>
+              </section>
             )}
 
             <div className={event.description ? "mt-section" : ""}>

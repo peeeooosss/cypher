@@ -7,7 +7,7 @@ export const EVENT_TYPE_FEES: Record<EventType, number> = {
   MUSIC_COMPETITION: 249,
 };
 
-export const COMMISSION_RATE = 0.0299;
+export const COMMISSION_RATE = 0.05;
 
 export const GIG_FLAT_FEE = 199;
 

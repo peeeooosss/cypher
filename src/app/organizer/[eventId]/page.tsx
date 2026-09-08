@@ -37,6 +37,14 @@ export default async function OrganizerEventPage({ params }: PageProps) {
           category: { select: { id: true, name: true } },
         },
       },
+      scheduleItems: {
+        where: { isPublished: true },
+        orderBy: { displayOrder: "asc" },
+      },
+      notices: {
+        where: { isArchived: false },
+        orderBy: { publishedAt: "desc" },
+      },
     },
   });
 

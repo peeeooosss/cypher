@@ -1,7 +1,7 @@
 export const metadata = {
-  title: "About Us | CYPHR — Underground Artist Platform",
+  title: "About Us | CYPHR — Platform for Artists, Events & Organizers",
   description:
-    "CYPHR exists to put Northeast Indian artists on the map — taking wild, multitalented performers from underground to India and the world.",
+    "CYPHR is the platform for artists, organizers, and judges to discover events, run competitions, and grow creative careers.",
 };
 
 import Link from "next/link";
@@ -18,41 +18,41 @@ const disciplines = [
 const pillars = [
   {
     number: "01",
-    title: "Battles & cyphers",
-    text: "Real stages, real rounds, real crowds. A proper bracket system from cypher to finals.",
+    title: "Discover & register",
+    text: "Find competitions, workshops, and gigs. Register in minutes with clear event details.",
   },
   {
     number: "02",
-    title: "Live scoring",
-    text: "Judges score in real time. Standings update live so every battle is transparent.",
+    title: "Run events professionally",
+    text: "Organizers manage schedules, categories, communications, and analytics in one dashboard.",
   },
   {
     number: "03",
-    title: "One platform",
-    text: "Registration, payment, judging, results, prizes, and the marketplace — everything in one place.",
+    title: "Transparent judging",
+    text: "Standardized scoring tools, live results, and clear criteria for fair evaluations.",
   },
 ];
 
 const roles = [
   {
-    tag: "Compete",
+    tag: "Discover",
     title: "For artists",
-    text: "Enter competitions, battles, and cyphers from one place. Apply to categories, pay your entry, get scored live by judges, and win real prizes.",
+    text: "Find competitions, workshops, and gigs. Register easily, track your history, and build your professional profile.",
   },
   {
     tag: "Organize",
     title: "For organizers",
-    text: "Create your own events and organizations. Set entry prices, manage categories and brackets, generate judge codes, and run the whole competition.",
+    text: "Create events with full details, manage schedules and categories, broadcast updates, and track analytics.",
   },
   {
     tag: "Hire",
     title: "For organizations",
-    text: "Book artists directly for your events. Dancers, DJs, guitarists, drummers, and performers — find and hire the talent you need from one platform.",
+    text: "Post gigs and freelance work. Browse artist profiles, review applications, and hire the talent you need.",
   },
   {
     tag: "Judge",
     title: "For judges",
-    text: "Score battles live from anywhere with a simple access code. Transparent rounds, real-time verdicts, and feedback for every artist.",
+    text: "Score performances with standardized tools. Transparent criteria, live results, and feedback for every participant.",
   },
 ];
 
@@ -65,11 +65,11 @@ export default function AboutPage() {
             About us
           </p>
           <h1 className="mt-lg max-w-4xl font-display text-display-xl uppercase leading-tight tracking-[-0.03em]">
-            One platform for everything.
+            One platform for every role.
           </h1>
           <p className="mt-md max-w-2xl text-body-md text-ink-muted">
-            CYPHR is an underground artist platform built to take Northeast Indian
-            artists to India and the world.
+            CYPHR connects artists, organizers, and judges in one place.
+            Discover events, run competitions, and build your creative career.
           </p>
         </div>
       </section>
@@ -81,13 +81,11 @@ export default function AboutPage() {
               The problem
             </p>
             <h2 className="mt-md font-display text-display-lg uppercase">
-              Crazy talent. No stage.
+              Talent scattered. No central stage.
             </h2>
             <p className="mt-md max-w-prose text-body-md leading-relaxed text-ink-muted">
-              The Northeast is bursting with culture — and some of the most
-              multitalented artists you will ever see. Yet they stay underrated.
-              They cannot find gigs, there is no single stage that sees them, and
-              their sound never leaves the region.
+              Artists struggle to find opportunities. Organizers can&apos;t reach the right
+              participants. Judges have no standard tools. Everyone operates in silos.
             </p>
           </div>
           <div>
@@ -95,12 +93,12 @@ export default function AboutPage() {
               The mission
             </p>
             <h2 className="mt-md font-display text-display-lg uppercase">
-              Northeast to the world.
+              Connect the creative ecosystem.
             </h2>
             <p className="mt-md max-w-prose text-body-md leading-relaxed text-ink-muted">
-              We want to promote Northeast artists to all of India and the global
-              level. When you get your dues, your culture moves with you — and the
-              world gets to feel how wild this scene really is.
+              We want to bring artists, organizers, and judges onto one platform.
+              When opportunities are visible and events are well-run, the whole
+              community grows.
             </p>
             <div className="mt-lg flex flex-wrap gap-sm">
               {disciplines.map((d) => (
@@ -111,6 +109,37 @@ export default function AboutPage() {
                   {d}
                 </span>
               ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-line">
+        <div className="mx-auto max-w-7xl px-md py-section md:px-xl">
+          <p className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">
+            Who we serve
+          </p>
+          <div className="mt-lg grid gap-md md:grid-cols-3">
+            <div className="border border-line bg-paper-soft p-lg">
+              <span className="font-mono text-body-sm text-accent">01 —</span>
+              <h3 className="mt-sm font-display text-title-md uppercase">Artists</h3>
+              <p className="mt-sm text-body-sm leading-relaxed text-ink-muted">
+                Dancers, musicians, DJs, performers — discover events, register, and get hired.
+              </p>
+            </div>
+            <div className="border border-line bg-paper-soft p-lg">
+              <span className="font-mono text-body-sm text-accent">02 —</span>
+              <h3 className="mt-sm font-display text-title-md uppercase">Organizers</h3>
+              <p className="mt-sm text-body-sm leading-relaxed text-ink-muted">
+                Create events, manage schedules, communicate with participants, track analytics.
+              </p>
+            </div>
+            <div className="border border-line bg-paper-soft p-lg">
+              <span className="font-mono text-body-sm text-accent">03 —</span>
+              <h3 className="mt-sm font-display text-title-md uppercase">Judges</h3>
+              <p className="mt-sm text-body-sm leading-relaxed text-ink-muted">
+                Score performances with standardized tools, transparent criteria, live results.
+              </p>
             </div>
           </div>
         </div>
@@ -166,21 +195,20 @@ export default function AboutPage() {
           We can do this.
         </h2>
         <p className="mx-auto mt-md max-w-4xl text-body-md text-ink-muted">
-          If you are an artist, an organizer, an organization, a judge, or someone
-          who just loves the floor — your platform is here.
+          Whether you create, perform, organize, or evaluate — your platform is here.
         </p>
         <div className="mt-xl flex flex-wrap justify-center gap-sm">
           <Link
             href="/events"
             className="border border-accent bg-accent px-lg py-sm text-button-md font-bold uppercase text-paper transition-opacity hover:opacity-80"
           >
-            Browse events
+            Discover events
           </Link>
           <Link
             href="/signup"
             className="border border-line px-lg py-sm text-button-md font-bold uppercase text-ink transition-colors hover:border-accent"
           >
-            Join the floor
+            Get started
           </Link>
         </div>
       </section>
