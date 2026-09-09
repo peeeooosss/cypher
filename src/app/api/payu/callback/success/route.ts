@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { verifyPayUCallbackHash, debugPayUCallbackHash, PayUCallbackData, resolveCallbackUrl } from "@/lib/payu";
+import { payuAmountPaise, verifyPayUCallbackHash, debugPayUCallbackHash, PayUCallbackData, resolveCallbackUrl } from "@/lib/payu";
 import { prisma } from "@/lib/prisma";
 import { applyPaymentEffects } from "@/lib/payu-applications";
 
@@ -30,12 +30,24 @@ export async function POST(request: Request) {
       return NextResponse.redirect(resolveCallbackUrl(request, "/payment/failed?reason=payment_not_found"));
     }
 
-    const receivedAmountPaise = Math.round(parseFloat(amt) * 100);
-    if (receivedAmountPaise !== payment.amountPaise) {
-      console.error("Amount mismatch", { txnid, expected: payment.amountPaise, received: receivedAmountPaise });
+    const receivedCandidates = payuAmountPaise(amt, callbackData.amount);
+    if (!receivedCandidates.includes(payment.amountPaise)) {
+      console.error("Amount mismatch", {
+        txnid,
+        expectedPaise: payment.amountPaise,
+        amt,
+        amount: callbackData.amount,
+        additionalCharges: callbackData.additional_charges,
+        netAmountDebit: callbackData.net_amount_debit,
+        candidatesPaise: receivedCandidates,
+      });
       await prisma.payment.update({
         where: { id: payment.id },
-        data: { status: "FAILED", failureReason: "Amount mismatch" },
+        data: {
+          status: "FAILED",
+          failureReason: `Amount mismatch: expected ${payment.amountPaise} paise, got amt=${amt ?? ""} amount=${callbackData.amount ?? ""}`,
+          metadata: { ...(payment.metadata as object), payuCallback: { ...callbackData } as Record<string, string> },
+        },
       });
       return NextResponse.redirect(resolveCallbackUrl(request, "/payment/failed?reason=amount_mismatch"));
     }

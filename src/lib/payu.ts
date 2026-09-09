@@ -72,6 +72,12 @@ export interface PayUCallbackData {
   hash: string;
 }
 
+export function payuAmountPaise(...amountFields: (string | undefined)[]): number[] {
+  return Array.from(
+    new Set(amountFields.filter((v): v is string => Boolean(v)).map((v) => Math.round(parseFloat(v) * 100))),
+  );
+}
+
 function generateHash(params: string): string {
   return crypto.createHash("sha512").update(params).digest("hex");
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { verifyPayUWebhookHash } from "@/lib/payu";
+import { payuAmountPaise, verifyPayUWebhookHash } from "@/lib/payu";
 import { applyPaymentEffects } from "@/lib/payu-applications";
 import { prisma } from "@/lib/prisma";
 
@@ -25,12 +25,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ status: "error", message: "Payment not found" }, { status: 404 });
     }
 
-    const receivedAmountPaise = Math.round(parseFloat(amt) * 100);
-    if (receivedAmountPaise !== payment.amountPaise) {
-      console.error("Amount mismatch in webhook", { txnid, expected: payment.amountPaise, received: receivedAmountPaise });
+    const receivedCandidates = payuAmountPaise(amt, data.amount);
+    if (!receivedCandidates.includes(payment.amountPaise)) {
+      console.error("Amount mismatch in webhook", {
+        txnid,
+        expectedPaise: payment.amountPaise,
+        amt,
+        amount: data.amount,
+        additionalCharges: data.additional_charges,
+        netAmountDebit: data.net_amount_debit,
+        candidatesPaise: receivedCandidates,
+      });
       await prisma.payment.update({
         where: { id: payment.id },
-        data: { status: "FAILED", failureReason: "Amount mismatch in webhook" },
+        data: {
+          status: "FAILED",
+          failureReason: `Amount mismatch in webhook: expected ${payment.amountPaise} paise, got amt=${amt ?? ""} amount=${data.amount ?? ""}`,
+          metadata: { ...(payment.metadata as object), payuWebhook: data },
+        },
       });
       return NextResponse.json({ status: "error", message: "Amount mismatch" }, { status: 400 });
     }
