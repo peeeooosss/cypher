@@ -73,6 +73,19 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
     0,
   );
 
+  const jumpLinks = [
+    { id: "about", label: "About", show: Boolean(event.description) },
+    { id: "details", label: "Event Details", show: Boolean(event.eventDetails) },
+    { id: "accommodation", label: "Accommodation", show: Boolean(event.accommodationAvailable || event.accommodationDetails) },
+    { id: "food", label: "Food", show: Boolean(event.foodAvailable || event.foodDetails) },
+    { id: "rules", label: "Rules & Regulations", show: Boolean(event.rulesAndRegulations) },
+    { id: "registration", label: "Registration Info", show: Boolean(event.registrationInstructions) },
+    { id: "checkin", label: "Check-in", show: Boolean(event.checkInInstructions) },
+    { id: "schedule", label: "Schedule", show: event.scheduleItems.length > 0 },
+    { id: "notices", label: "Notices", show: event.notices.length > 0 },
+    { id: "contact", label: "Contact", show: Boolean(event.contactDetails) },
+  ].filter((link) => link.show);
+
   return (
     <main className="min-h-screen bg-paper">
       <div className="border-b border-line bg-paper-soft">
@@ -155,18 +168,35 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
       <div className="mx-auto max-w-7xl px-md py-section md:px-xl">
         <div className="grid gap-xl lg:grid-cols-[1fr_0.42fr]">
           <section>
+            {jumpLinks.length > 0 && (
+              <nav className="mb-section flex flex-wrap gap-sm border border-line bg-paper-soft p-md">
+                <span className="mr-xs font-mono text-[0.65rem] uppercase tracking-[0.2em] text-ink-muted">
+                  Jump to:
+                </span>
+                {jumpLinks.map((link) => (
+                  <a
+                    key={link.id}
+                    href={`#${link.id}`}
+                    className="border border-line px-sm py-xs font-mono text-[0.65rem] font-bold uppercase tracking-[0.1em] text-accent transition-colors hover:bg-accent hover:text-paper"
+                  >
+                    {link.label}
+                  </a>
+                ))}
+              </nav>
+            )}
+
             {event.description && (
-              <>
+              <section id="about" className="mb-section">
                 <h2 className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">About</h2>
                 <p className="mt-md max-w-prose text-body-md leading-relaxed text-ink-muted whitespace-pre-wrap">
                   {event.description}
                 </p>
-              </>
+              </section>
             )}
 
             {/* Event Information Sections */}
             {event.eventDetails && (
-              <section className="mb-section">
+              <section id="details" className="mb-section">
                 <h2 className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Event Details</h2>
                 <div className="mt-md max-w-prose text-body-md leading-relaxed text-ink-muted whitespace-pre-wrap">
                   {event.eventDetails}
@@ -175,7 +205,7 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
             )}
 
             {(event.accommodationAvailable || event.accommodationDetails) && (
-              <section className="mb-section">
+              <section id="accommodation" className="mb-section">
                 <h2 className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Accommodation</h2>
                 {event.accommodationDetails && (
                   <div className="mt-md max-w-prose text-body-md leading-relaxed text-ink-muted whitespace-pre-wrap">
@@ -186,7 +216,7 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
             )}
 
             {(event.foodAvailable || event.foodDetails) && (
-              <section className="mb-section">
+              <section id="food" className="mb-section">
                 <h2 className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Food & Catering</h2>
                 {event.foodDetails && (
                   <div className="mt-md max-w-prose text-body-md leading-relaxed text-ink-muted whitespace-pre-wrap">
@@ -197,7 +227,7 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
             )}
 
             {event.rulesAndRegulations && (
-              <section className="mb-section">
+              <section id="rules" className="mb-section">
                 <h2 className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Rules & Regulations</h2>
                 <div className="mt-md max-w-prose text-body-md leading-relaxed text-ink-muted whitespace-pre-wrap">
                   {event.rulesAndRegulations}
@@ -206,7 +236,7 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
             )}
 
             {event.registrationInstructions && (
-              <section className="mb-section">
+              <section id="registration" className="mb-section">
                 <h2 className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Registration Instructions</h2>
                 <div className="mt-md max-w-prose text-body-md leading-relaxed text-ink-muted whitespace-pre-wrap">
                   {event.registrationInstructions}
@@ -215,7 +245,7 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
             )}
 
             {event.checkInInstructions && (
-              <section className="mb-section">
+              <section id="checkin" className="mb-section">
                 <h2 className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Check-in Instructions</h2>
                 <div className="mt-md max-w-prose text-body-md leading-relaxed text-ink-muted whitespace-pre-wrap">
                   {event.checkInInstructions}
@@ -225,7 +255,7 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
 
             {/* Schedule */}
             {event.scheduleItems && event.scheduleItems.length > 0 && (
-              <section className="mb-section">
+              <section id="schedule" className="mb-section">
                 <h2 className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Schedule</h2>
                 <div className="mt-md space-y-md">
                   {event.scheduleItems.map((item) => (
@@ -248,7 +278,7 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
 
             {/* Notices */}
             {event.notices && event.notices.length > 0 && (
-              <section className="mb-section">
+              <section id="notices" className="mb-section">
                 <h2 className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Important Notices</h2>
                 <div className="mt-md space-y-md">
                   {event.notices.map((notice) => (
@@ -268,7 +298,7 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
             )}
 
             {event.contactDetails && (
-              <section className="mb-section">
+              <section id="contact" className="mb-section">
                 <h2 className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Contact Information</h2>
                 <div className="mt-md max-w-prose text-body-md leading-relaxed text-ink-muted whitespace-pre-wrap">
                   {event.contactDetails}

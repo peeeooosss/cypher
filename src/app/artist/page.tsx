@@ -29,7 +29,29 @@ export default async function ArtistPage({ searchParams }: PageProps) {
              id: true,
              name: true,
              format: true,
-            event: { select: { id: true, title: true, slug: true, status: true } },
+            event: {
+              select: {
+                id: true,
+                title: true,
+                slug: true,
+                status: true,
+                accommodationAvailable: true,
+                foodAvailable: true,
+                scheduleItems: {
+                  where: { isPublished: true },
+                  select: { id: true, title: true, startTime: true },
+                  orderBy: { displayOrder: "asc" },
+                  take: 3,
+                },
+                notices: {
+                  where: { isArchived: false },
+                  select: { id: true, title: true, publishedAt: true },
+                  orderBy: { publishedAt: "desc" },
+                  take: 2,
+                },
+                _count: { select: { scheduleItems: true } },
+              },
+            },
             prizePool: { select: { distribution: true, isPaid: true } },
           },
         },
@@ -265,6 +287,11 @@ export default async function ArtistPage({ searchParams }: PageProps) {
                   userId={user.id}
                   regId={reg.id}
                   eventId={reg.category.event.id}
+                  eventAccommodation={reg.category.event.accommodationAvailable ?? false}
+                  eventFood={reg.category.event.foodAvailable ?? false}
+                  eventScheduleItems={reg.category.event.scheduleItems ?? []}
+                  eventNotices={reg.category.event.notices ?? []}
+                  eventScheduleCount={reg.category.event._count?.scheduleItems ?? 0}
                   memberCount={reg.members.length}
                   matches={allMatches.map((m) => {
                     const match = m as unknown as {

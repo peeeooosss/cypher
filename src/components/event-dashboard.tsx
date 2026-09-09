@@ -880,7 +880,7 @@ function EventInfoTab({
     body.contactDetails = form.get("contactDetails") as string || null;
     body.checkInInstructions = form.get("checkInInstructions") as string || null;
     const lastReg = form.get("lastRegistrationAt") as string;
-    if (lastReg) body.lastRegistrationAt = new Date(lastReg).toISOString();
+    body.lastRegistrationAt = lastReg ? new Date(lastReg).toISOString() : null;
 
     try {
       const res = await fetch(`/api/events/${event.id}`, {
@@ -1042,6 +1042,11 @@ function ScheduleTab({
         body: JSON.stringify({ id: isNew ? undefined : itemId, ...formData, startTime: new Date(formData.startTime!).toISOString(), endTime: formData.endTime ? new Date(formData.endTime).toISOString() : null, eventId: event.id }),
       });
       if (!res.ok) throw new Error(await responseError(res, "Failed to save"));
+      const saved = (await res.json()) as EventScheduleItem;
+      setItems((prev) => {
+        if (isNew) return [...prev, saved].sort((a, b) => a.displayOrder - b.displayOrder);
+        return prev.map((item) => (item.id === saved.id ? saved : item));
+      });
       cancelEdit();
       refresh();
     } catch (err) {
@@ -1056,6 +1061,8 @@ function ScheduleTab({
     try {
       const res = await fetch(`/api/events/${event.id}/schedule/${itemId}`, { method: "DELETE" });
       if (!res.ok) throw new Error(await responseError(res, "Failed to delete"));
+      setItems((prev) => prev.filter((item) => item.id !== itemId));
+      if (editingId === itemId) cancelEdit();
       refresh();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to delete");
@@ -1112,10 +1119,12 @@ function ScheduleTab({
                 <div className="flex flex-wrap items-start justify-between gap-md">
                   <div>
                     <p className="font-display text-title-md uppercase">{item.title}</p>
-                    <p className="mt-xs text-body-sm text-ink-muted">
-                      {new Date(item.startTime).toLocaleString()} {item.endTime ? `– ${new Date(item.endTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
-                      {item.isPublished ? "" : " <span className=\"font-mono text-[0.65rem] uppercase text-ink-muted\">(Draft)</span>"}
+<p className="mt-xs text-body-sm text-ink-muted">
+                      {new Date(item.startTime).toLocaleString()} {item.endTime ? ` – ${new Date(item.endTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
                     </p>
+                    {!item.isPublished && (
+                      <p className="mt-xs font-mono text-[0.65rem] uppercase text-ink-muted">(Draft)</p>
+                    )}
                     {item.description && <p className="mt-xs text-body-sm text-ink-muted">{item.description}</p>}
                   </div>
                   <div className="flex gap-sm">
@@ -1162,6 +1171,11 @@ function NoticesTab({
         body: JSON.stringify({ id: isNew ? undefined : noticeId, ...formData, eventId: event.id }),
       });
       if (!res.ok) throw new Error(await responseError(res, "Failed to save"));
+      const saved = (await res.json()) as EventNotice;
+      setNotices((prev) => {
+        const next = isNew ? [...prev, saved] : prev.map((n) => (n.id === saved.id ? saved : n));
+        return next.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+      });
       cancelEdit();
       refresh();
     } catch (err) {
@@ -1176,6 +1190,8 @@ function NoticesTab({
     try {
       const res = await fetch(`/api/events/${event.id}/notices/${noticeId}`, { method: "DELETE" });
       if (!res.ok) throw new Error(await responseError(res, "Failed to delete"));
+      setNotices((prev) => prev.filter((n) => n.id !== noticeId));
+      if (editingId === noticeId) cancelEdit();
       refresh();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to delete");
@@ -1190,6 +1206,10 @@ function NoticesTab({
         body: JSON.stringify({ isArchived: archive }),
       });
       if (!res.ok) throw new Error(await responseError(res, "Failed to update"));
+      const updated = (await res.json()) as EventNotice;
+      setNotices((prev) =>
+        prev.map((n) => (n.id === updated.id ? updated : n)).sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()),
+      );
       refresh();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to update");
@@ -2357,6 +2377,37 @@ const MESSAGE_TEMPLATES = [
   },
 ];
 
+function buildTemplateMessage(templateId: string, registration: RegistrationRow, event: EventWithRelations) {
+  const template = MESSAGE_TEMPLATES.find((t) => t.id === templateId);
+  if (!template) return "";
+  const eventDate = event.startsAt.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  const teamMembers = registration.members?.map((m) => m.user.name ?? "").filter(Boolean) ?? [];
+  switch (templateId) {
+    case "event_reminder":
+    case "checkin_reminder":
+      return (template.text as (title: string, date: string, venue: string | null, city: string | null) => string)(event.title, eventDate, event.venue, event.city);
+    case "schedule_reminder":
+    case "last_call":
+    case "bring_id_music":
+      return (template.text as (title: string, date: string) => string)(event.title, eventDate);
+    case "payment_reminder":
+      return (template.text as (title: string, amount?: number, currency?: string) => string)(event.title, registration.entryFee ?? undefined, registration.entryCurrency ?? undefined);
+    case "venue_details":
+      return (template.text as (title: string, date: string, venue: string | null, address: string | null) => string)(event.title, eventDate, event.venue, event.googleMapsUrl);
+    case "roster_confirmation":
+      return (template.text as (title: string, teamName: string, members: string[]) => string)(event.title, registration.teamName ?? registration.user.name ?? "Team", teamMembers);
+    default:
+      return "";
+  }
+}
+
+function whatsappURLFor(phone: string | null | undefined, message: string): string | null {
+  if (!phone) return null;
+  const cleaned = phone.replace(/[^0-9]/g, "");
+  if (!cleaned) return null;
+  return `https://wa.me/${cleaned}?text=${encodeURIComponent(message)}`;
+}
+
 function RegistrationsTab({ event }: { event: EventWithRelations }) {
   const [categoryId, setCategoryId] = useState(event.categories[0]?.id ?? "");
   const [registrations, setRegistrations] = useState<RegistrationRow[]>([]);
@@ -2364,6 +2415,9 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkTemplateId, setBulkTemplateId] = useState("");
+  const [bulkMessage, setBulkMessage] = useState("");
 
   useEffect(() => {
     if (!categoryId) return;
@@ -2448,6 +2502,58 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
     return searchText.includes(q);
   });
 
+  const filteredIds = filteredRegistrations.map((r) => r.id);
+  const allFilteredSelected = filteredIds.length > 0 && filteredIds.every((id) => selectedIds.has(id));
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allFilteredSelected) {
+        filteredIds.forEach((id) => next.delete(id));
+      } else {
+        filteredIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  }
+
+  function sendBulkWhatsApp() {
+    const targets = filteredRegistrations.filter((r) => selectedIds.has(r.id));
+    const withPhone: { url: string }[] = [];
+    const skipped: string[] = [];
+    for (const reg of targets) {
+      const phone = reg.user.whatsappNumber ?? reg.members?.find((m) => m.role === "CAPTAIN")?.user.whatsappNumber ?? null;
+      const message = bulkMessage.trim() || buildTemplateMessage(bulkTemplateId, reg, event);
+      const url = whatsappURLFor(phone, message);
+      if (url) {
+        withPhone.push({ url });
+      } else {
+        skipped.push(reg.teamName ?? reg.user.name ?? reg.user.email);
+      }
+    }
+    if (withPhone.length === 0) {
+      alert("None of the selected registrations have a WhatsApp number saved.");
+      return;
+    }
+    const ok = window.confirm(
+      `Open WhatsApp chats for ${withPhone.length} registrant(s)?\n\nYour browser will open ${withPhone.length} tab(s). Allow pop-ups for this site, then press Send on each chat.${skipped.length ? `\n\nSkipped (no whatsapp number): ${skipped.join(", ")}` : ""}`,
+    );
+    if (!ok) return;
+    withPhone.forEach((t) => window.open(t.url, "_blank"));
+  }
+
   return (
     <div>
       <div className="mb-lg flex flex-wrap items-center gap-sm">
@@ -2486,6 +2592,55 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
         </button>
       </div>
 
+      <div className="mb-lg flex flex-wrap items-end gap-md border border-accent/30 bg-accent/5 p-md">
+        <label className="flex items-center gap-sm">
+          <input
+            type="checkbox"
+            checked={allFilteredSelected}
+            onChange={toggleSelectAll}
+            className="border border-line bg-paper"
+          />
+          <span className="font-mono text-[0.7rem] uppercase text-ink-muted">
+            Select all ({filteredRegistrations.length})
+          </span>
+        </label>
+        <label className="flex-1 min-w-[220px]">
+          <span className="mb-xs block font-mono text-[0.65rem] uppercase text-ink-muted">WhatsApp template</span>
+          <select
+            className="w-full border border-line bg-paper px-md py-sm text-body-sm"
+            value={bulkTemplateId}
+            onChange={(e) => {
+              setBulkTemplateId(e.target.value);
+              setBulkMessage("");
+            }}
+          >
+            {MESSAGE_TEMPLATES.map((t) => (
+              <option key={t.id} value={t.id}>{t.label}</option>
+            ))}
+          </select>
+        </label>
+        <label className="flex-[2] min-w-[280px]">
+          <span className="mb-xs block font-mono text-[0.65rem] uppercase text-ink-muted">
+            Custom message (optional, overrides template for everyone)
+          </span>
+          <textarea
+            className="w-full border border-line bg-paper px-md py-sm text-body-sm"
+            rows={2}
+            value={bulkMessage}
+            onChange={(e) => setBulkMessage(e.target.value)}
+            placeholder="Type your own message here, or leave empty to use the template"
+          />
+        </label>
+        <button
+          className="border border-accent bg-accent px-lg py-sm font-bold uppercase text-paper disabled:cursor-not-allowed disabled:opacity-50"
+          type="button"
+          disabled={selectedIds.size === 0}
+          onClick={sendBulkWhatsApp}
+        >
+          Send WhatsApp to {selectedIds.size}
+        </button>
+      </div>
+
       {loading ? (
         <p className="border border-line p-lg text-ink-muted">Loading...</p>
       ) : registrations.length === 0 ? (
@@ -2497,6 +2652,15 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
           <table className="w-full border border-line text-body-sm">
             <thead>
               <tr className="border-b border-line bg-paper-soft text-left">
+                <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
+                  <input
+                    type="checkbox"
+                    checked={allFilteredSelected}
+                    onChange={toggleSelectAll}
+                    className="border border-line bg-paper"
+                    aria-label="Select all"
+                  />
+                </th>
                 <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
                   Entry / roster
                 </th>
@@ -2532,6 +2696,8 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
                   key={reg.id}
                   registration={reg}
                   event={event}
+                  selected={selectedIds.has(reg.id)}
+                  onSelectToggle={() => toggleSelect(reg.id)}
                   onUpdate={() => {
                     const url = `/api/events/${event.id}/registrations?categoryId=${categoryId}`;
                     fetch(url)
@@ -2565,10 +2731,14 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
 function RegistrationRow({
   registration,
   event,
+  selected = false,
+  onSelectToggle,
   onUpdate,
 }: {
   registration: RegistrationRow;
   event: EventWithRelations;
+  selected?: boolean;
+  onSelectToggle?: () => void;
   onUpdate: () => void;
 }) {
   const [seed, setSeed] = useState(registration.seed?.toString() ?? "");
@@ -2579,42 +2749,16 @@ function RegistrationRow({
   const [customMessage, setCustomMessage] = useState("");
 
   const captainPhone = registration.user.whatsappNumber ?? registration.members?.find((m) => m.role === "CAPTAIN")?.user.whatsappNumber ?? null;
-  const teamMembers = registration.members?.map((m) => m.user.name ?? "").filter(Boolean) ?? [];
-
-  function buildMessage(templateId: string) {
-    const template = MESSAGE_TEMPLATES.find((t) => t.id === templateId);
-    if (!template) return "";
-    const eventDate = event.startsAt.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-    switch (templateId) {
-      case "event_reminder":
-      case "checkin_reminder":
-        return (template.text as (title: string, date: string, venue: string | null, city: string | null) => string)(event.title, eventDate, event.venue, event.city);
-      case "schedule_reminder":
-        return (template.text as (title: string, date: string) => string)(event.title, eventDate);
-      case "payment_reminder":
-        return (template.text as (title: string, amount?: number, currency?: string) => string)(event.title, registration.entryFee ?? undefined, registration.entryCurrency ?? undefined);
-      case "venue_details":
-        return (template.text as (title: string, date: string, venue: string | null, address: string | null) => string)(event.title, eventDate, event.venue, event.googleMapsUrl);
-      case "last_call":
-        return (template.text as (title: string, date: string) => string)(event.title, eventDate);
-      case "bring_id_music":
-        return (template.text as (title: string, date: string) => string)(event.title, eventDate);
-      case "roster_confirmation":
-        return (template.text as (title: string, teamName: string, members: string[]) => string)(event.title, registration.teamName ?? registration.user.name ?? "Team", teamMembers);
-      default:
-        return "";
-    }
-  }
 
   function handleTemplateChange(templateId: string) {
     setSelectedTemplateId(templateId);
-    setCustomMessage(buildMessage(templateId));
+    setCustomMessage(buildTemplateMessage(templateId, registration, event));
   }
 
   function openWhatsApp() {
     if (!captainPhone) return;
-    const cleaned = captainPhone.replace(/[^0-9]/g, "");
-    const url = `https://wa.me/${cleaned}?text=${encodeURIComponent(customMessage)}`;
+    const url = whatsappURLFor(captainPhone, customMessage);
+    if (!url) return;
     window.open(url, "_blank");
   }
 
@@ -2653,6 +2797,17 @@ function RegistrationRow({
 
   return (
     <tr className="border-b border-line hover:bg-paper-soft">
+      {onSelectToggle && (
+        <td className="px-md py-sm">
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onSelectToggle}
+            className="border border-line bg-paper"
+            aria-label="Select registration"
+          />
+        </td>
+      )}
        <td className="px-md py-sm">
           <p className="font-bold uppercase">{registration.teamName ?? registration.user.name ?? "—"}</p>
           {registration.members && registration.members.length > 0 ? (

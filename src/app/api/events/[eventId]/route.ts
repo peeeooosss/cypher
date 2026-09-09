@@ -27,6 +27,16 @@ const updateEventSchema = z.object({
   }),
   startsAt: z.coerce.date().optional(),
   status: z.enum(EventStatus).optional(),
+  eventDetails: z.string().trim().max(5000).nullable().optional(),
+  accommodationAvailable: z.boolean().optional(),
+  accommodationDetails: z.string().trim().max(5000).nullable().optional(),
+  foodAvailable: z.boolean().optional(),
+  foodDetails: z.string().trim().max(5000).nullable().optional(),
+  rulesAndRegulations: z.string().trim().max(5000).nullable().optional(),
+  registrationInstructions: z.string().trim().max(5000).nullable().optional(),
+  contactDetails: z.string().trim().max(5000).nullable().optional(),
+  checkInInstructions: z.string().trim().max(5000).nullable().optional(),
+  lastRegistrationAt: z.coerce.date().nullable().optional(),
 }).superRefine((data, ctx) => {
   if (data.posterFileKey && (!data.posterUrl || !isUploadThingUrl(data.posterUrl))) {
     ctx.addIssue({ code: "custom", message: "Poster must be uploaded through UploadThing", path: ["posterUrl"] });
