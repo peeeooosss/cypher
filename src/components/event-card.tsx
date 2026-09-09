@@ -21,7 +21,6 @@ type EventCardData = {
   googleMapsUrl?: string | null;
   description?: string | null;
   eventDetails?: string | null;
-  flatFee?: number | null;
   accommodationAvailable?: boolean;
   foodAvailable?: boolean;
   scheduleItems?: ScheduleItemSummary[];
@@ -106,12 +105,6 @@ export function EventCard({ event }: { event: EventCardData }) {
                 </span>
               )}
             </div>
-          )}
-
-          {event.flatFee != null && event.flatFee > 0 && (
-            <p className="mt-md font-mono text-[0.65rem] font-bold uppercase tracking-[0.1em] text-accent">
-              ₹{event.flatFee} flat organizer fee
-            </p>
           )}
 
           {event.categories && event.categories.length > 0 && (

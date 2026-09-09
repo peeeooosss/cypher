@@ -70,7 +70,6 @@ export default async function EventsPage({ searchParams }: { searchParams: Searc
       googleMapsUrl: true,
       description: true,
       eventDetails: true,
-      flatFee: true,
       accommodationAvailable: true,
       foodAvailable: true,
       scheduleItems: {
