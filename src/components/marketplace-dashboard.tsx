@@ -6,7 +6,7 @@ import Link from "next/link";
 import { formatDate } from "@/lib/format";
 import { SKILLS, SKILL_LABELS } from "@/lib/skills";
 import { GIG_CONNECTION_FEE, GIG_WORK_FEE, formatInr } from "@/lib/pricing";
-import { ManualPayment } from "@/components/manual-payment";
+import { PayUCheckout } from "@/components/payu-checkout";
 import { MessagesPanel } from "@/components/messages-panel";
 import { BILL_WHATSAPP_NUMBER, whatsappLink } from "@/lib/payment";
 import { responseError } from "@/lib/client-error";
@@ -399,13 +399,14 @@ export function MarketplaceDashboard({
                         Pay the connection fee to unlock your private chat with the organizer.
                       </p>
                       <div className="mt-md">
-                        <ManualPayment
-                          amount={GIG_CONNECTION_FEE}
-                          note={`Connection fee — ${app.gig.title}`}
-                          submitUrl={`/api/agreements/${app.agreement!.id}/connection/submit`}
-                          submitBody={{ method: "UPI" }}
-                          buttonLabel={`I've paid ${formatInr(GIG_CONNECTION_FEE)} — send for verification`}
-                          sender={sender ?? undefined}
+                        <PayUCheckout
+                          purpose="GIG_CONNECTION"
+                          gigId={app.gig.id}
+                          agreementId={app.agreement!.id}
+                          amountInr={GIG_CONNECTION_FEE}
+                          productInfo={`Connection fee — ${app.gig.title}`}
+                          buttonLabel={`Pay ${formatInr(GIG_CONNECTION_FEE)} with PayU`}
+                          fullWidth
                         />
                       </div>
                     </div>
@@ -474,7 +475,7 @@ export function MarketplaceDashboard({
         </div>
       )}
 
-      {tab === "messages" && <MessagesPanel role="ARTIST" sender={sender} />}
+      {tab === "messages" && <MessagesPanel role="ARTIST" />}
     </div>
   );
 }

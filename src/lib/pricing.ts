@@ -1,19 +1,34 @@
 import { EventType } from "@/generated/prisma/enums";
 
+export const PAYU_TEST_MODE = process.env.NEXT_PUBLIC_PAYU_TEST_MODE === "true";
+
+const testRate = PAYU_TEST_MODE ? 1 : null;
+
 export const EVENT_TYPE_FEES: Record<EventType, number> = {
-  WORKSHOP: 99,
-  UNDERGROUND_BATTLE: 199,
-  DANCE_COMPETITION: 249,
-  MUSIC_COMPETITION: 249,
+  WORKSHOP: testRate ?? 99,
+  UNDERGROUND_BATTLE: testRate ?? 199,
+  DANCE_COMPETITION: testRate ?? 249,
+  MUSIC_COMPETITION: testRate ?? 249,
 };
 
 export const COMMISSION_RATE = 0.05;
 
-export const GIG_FLAT_FEE = 199;
+export const GIG_FLAT_FEE = testRate ?? 199;
 
-export const GIG_WORK_FEE = 99;
+export const GIG_WORK_FEE = testRate ?? 99;
 
-export const GIG_CONNECTION_FEE = 49;
+export const GIG_CONNECTION_FEE = testRate ?? 49;
+
+export function commissionFor(entryFeeSum: number): number {
+  if (!entryFeeSum || entryFeeSum <= 0) return 0;
+  if (PAYU_TEST_MODE) return 1;
+  return Math.round(entryFeeSum * COMMISSION_RATE);
+}
+
+export function chargeablePaise(amountInr: number): number {
+  if (PAYU_TEST_MODE) return 100;
+  return Math.max(0, Math.round(amountInr * 100));
+}
 
 export const GIG_WORK_DURATION_MS = 3 * 30 * 24 * 60 * 60 * 1000;
 

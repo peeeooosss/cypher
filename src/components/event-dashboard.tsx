@@ -6,7 +6,7 @@ import Link from "next/link";
 import { io } from "socket.io-client";
 import { LiveLeaderboard } from "@/components/live-leaderboard";
 import { PosterUpload } from "@/components/poster-upload";
-import { formatInr, isEventFlatFeePaid } from "@/lib/pricing";
+import { COMMISSION_RATE, formatInr, isEventFlatFeePaid } from "@/lib/pricing";
 import { BATTLE_FORMATS, CATEGORY_FORMAT_LABELS, COMPETITION_FORMATS, EVENT_TYPE_LABELS, EVENT_TYPE_LIST, defaultRosterSize, formatLabel, isCompetitionType, isWorkshopType, SINGLE_POINT_ROUND_TYPES } from "@/lib/event-types";
 import { INDIAN_STATES } from "@/lib/states";
 import { responseError } from "@/lib/client-error";
@@ -797,7 +797,7 @@ function OverviewTab({
               {event.commissionDue != null && event.commissionDue > 0 ? (
                 <span className="font-mono text-accent">{formatInr(event.commissionDue)}</span>
               ) : (
-                <span className="font-mono text-ink-muted">2.99% at completion</span>
+                <span className="font-mono text-ink-muted">{Math.round(COMMISSION_RATE * 100)}% at completion</span>
               )}
             </div>
           </div>
@@ -827,7 +827,7 @@ function OverviewTab({
                     Commission not paid — {formatInr(event.commissionDue)}
                   </p>
                   <p className="mt-xs text-body-sm text-ink-muted">
-                    Settle the 2.99% commission on confirmed entries before marking the event Completed.
+                    Settle the {Math.round(COMMISSION_RATE * 100)}% commission on confirmed entries before marking the event Completed.
                   </p>
                   <Link
                     href={`/organizer/${event.id}/bill#commission`}

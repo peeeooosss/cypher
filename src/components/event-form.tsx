@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { EVENT_TYPE_FEES, flatFeeForEventType, formatInr } from "@/lib/pricing";
+import { COMMISSION_RATE, EVENT_TYPE_FEES, flatFeeForEventType, formatInr } from "@/lib/pricing";
 import { PosterUpload } from "@/components/poster-upload";
 import { BATTLE_FORMATS, CATEGORY_FORMAT_LABELS, COMPETITION_FORMATS, EVENT_TYPE_LABELS, EVENT_TYPE_LIST, defaultRosterSize, isCompetitionType, isWorkshopType } from "@/lib/event-types";
 import { CategoryFormat, EventType } from "@/generated/prisma/enums";
@@ -102,7 +102,7 @@ export function EventForm() {
           </p>
         </div>
         <p className="mt-md border-t border-line pt-md text-body-sm text-ink-muted">
-          Paid once at creation. Unlimited categories and unlimited phases — one flat fee. Later, just 2.99% per confirmed entry — taken at event completion.
+          Paid once at creation. Unlimited categories and unlimited phases — one flat fee. Later, just {Math.round(COMMISSION_RATE * 100)}% per confirmed entry — taken at event completion.
         </p>
       </div>
       <div className="mt-lg">

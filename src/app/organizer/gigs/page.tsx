@@ -4,14 +4,13 @@ import { GigManager } from "@/components/gig-manager";
 import { MessagesPanel } from "@/components/messages-panel";
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
-import { displayName } from "@/lib/payment";
 
 export const dynamic = "force-dynamic";
 
 export default async function OrganizerGigsPage() {
   const user = await requireRole("ORGANIZER");
 
-  const [gigs, unreadMessages, me] = await Promise.all([
+  const [gigs, unreadMessages] = await Promise.all([
     prisma.gig.findMany({
       where: { organizerId: user.id },
       include: {
@@ -49,13 +48,7 @@ export default async function OrganizerGigsPage() {
         readAt: null,
       },
     }),
-    prisma.user.findUnique({
-      where: { id: user.id },
-      select: { name: true, username: true },
-    }),
   ]);
-
-  const sender = displayName(me?.name, me?.username);
 
   return (
     <main className="min-h-screen bg-paper px-md py-section md:px-xl">
@@ -78,7 +71,7 @@ export default async function OrganizerGigsPage() {
         <SignOutButton />
       </div>
 
-      <GigManager gigs={gigs} sender={sender} />
+      <GigManager gigs={gigs} />
 
       <section id="messages-section" className="mt-section">
         <div className="flex items-center justify-between">

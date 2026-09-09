@@ -2,9 +2,9 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
-import { COMMISSION_RATE, formatInr, isEventFlatFeePaid } from "@/lib/pricing";
+import { COMMISSION_RATE, commissionFor, formatInr, isEventFlatFeePaid } from "@/lib/pricing";
 import { displayName } from "@/lib/payment";
-import { ManualPayment } from "@/components/manual-payment";
+import { PayUCheckout } from "@/components/payu-checkout";
 import { PendingVerification } from "@/components/pending-verification";
 import { SignOutButton } from "@/components/sign-out-button";
 
@@ -72,7 +72,7 @@ export default async function EventBillPage({ params }: PageProps) {
       name: category.name,
       registrations: category.registrations.length,
       entryFeeSum,
-      commission: Math.round(entryFeeSum * COMMISSION_RATE),
+      commission: commissionFor(entryFeeSum),
     };
   });
   const commissionDue = commissionBreakdown.reduce((sum, c) => sum + c.commission, 0);
@@ -119,7 +119,7 @@ export default async function EventBillPage({ params }: PageProps) {
                 <Link href="#commission" className="underline">{formatInr(commissionDue)} — pay</Link>
               </span>
             ) : (
-              <span className="font-mono text-ink-muted">2.99% at completion</span>
+              <span className="font-mono text-ink-muted">{Math.round(COMMISSION_RATE * 100)}% at completion</span>
             )}
           </div>
         </div>
@@ -144,7 +144,7 @@ export default async function EventBillPage({ params }: PageProps) {
               </div>
             </div>
             <p className="mt-md text-body-sm text-ink-muted">
-              Paid once at creation. Later, just 2.99% per confirmed entry fee — settled at event completion.
+              Paid once at creation. Later, just {Math.round(COMMISSION_RATE * 100)}% per confirmed entry fee — settled at event completion.
             </p>
           </div>
 
@@ -158,13 +158,13 @@ export default async function EventBillPage({ params }: PageProps) {
               ) : event.flatFeePaymentStatus === "PENDING" ? (
                 <PendingVerification label={formatInr(flatAmount)} context={`Event flat fee — ${event.title}`} sender={sender ?? undefined} />
               ) : (
-                <ManualPayment
-                  amount={flatAmount}
-                  note={`Event flat fee — ${event.title}`}
-                  submitUrl={`/api/events/${event.id}/bill/submit`}
-                  submitBody={{ method: "UPI", type: "FLAT_FEE" }}
-                  buttonLabel={`I've paid ${formatInr(flatAmount)} — send for verification`}
-                  sender={sender ?? undefined}
+                <PayUCheckout
+                  purpose="FLAT_FEE"
+                  eventId={event.id}
+                  amountInr={flatAmount}
+                  productInfo={`Event flat fee — ${event.title}`}
+                  buttonLabel={`Pay ${formatInr(flatAmount)} with PayU`}
+                  fullWidth
                 />
               )}
             </div>
@@ -181,7 +181,7 @@ export default async function EventBillPage({ params }: PageProps) {
 
       <section id="commission" className="mt-section border border-line p-lg scroll-mt-24">
         <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">Commission</p>
-        <h2 className="mt-sm font-display text-title-md uppercase">Settle the 2.99% commission</h2>
+        <h2 className="mt-sm font-display text-title-md uppercase">Settle the {Math.round(COMMISSION_RATE * 100)}% commission</h2>
         <p className="mt-sm text-body-sm text-ink-muted">
           Charged on confirmed entry fees and due before the event can be marked Completed.
         </p>
@@ -196,7 +196,7 @@ export default async function EventBillPage({ params }: PageProps) {
                     <span className="font-mono text-accent">{formatInr(category.commission)}</span>
                   </div>
                   <p className="mt-xs text-body-sm text-ink-muted">
-                    {category.registrations} entries · {formatInr(category.entryFeeSum)} entry fees × 2.99%
+                    {category.registrations} entries · {formatInr(category.entryFeeSum)} entry fees × {Math.round(COMMISSION_RATE * 100)}%
                   </p>
                 </div>
               ))}
@@ -223,20 +223,20 @@ export default async function EventBillPage({ params }: PageProps) {
               ) : event.commissionPaymentStatus === "PENDING" ? (
                 <PendingVerification label={formatInr(commissionDue)} context={`Event commission — ${event.title}`} sender={sender ?? undefined} />
               ) : (
-                <ManualPayment
-                  amount={commissionDue}
-                  note={`Event commission — ${event.title}`}
-                  submitUrl={`/api/events/${event.id}/bill/submit`}
-                  submitBody={{ method: "UPI", type: "COMMISSION" }}
-                  buttonLabel={`I've paid ${formatInr(commissionDue)} — send for verification`}
-                  sender={sender ?? undefined}
+                <PayUCheckout
+                  purpose="COMMISSION"
+                  eventId={event.id}
+                  amountInr={commissionDue}
+                  productInfo={`Event commission — ${event.title}`}
+                  buttonLabel={`Pay ${formatInr(commissionDue)} commission with PayU`}
+                  fullWidth
                 />
               )}
             </div>
           </div>
         ) : (
           <p className="mt-lg border border-line p-lg text-body-sm text-ink-muted">
-            No commission due yet — it&apos;s 2.99% of confirmed entry fees, settled when the event completes.
+            No commission due yet — it&apos;s {Math.round(COMMISSION_RATE * 100)}% of confirmed entry fees, settled when the event completes.
           </p>
         )}
       </section>
@@ -247,7 +247,7 @@ export default async function EventBillPage({ params }: PageProps) {
           <li>Pay the flat fee above to activate the event.</li>
           <li>Add categories, rounds, judges and prize pools.</li>
           <li>Publish the event so artists can register.</li>
-           <li>At the end, settle the 2.99% commission on paid entry fees and complete the event.</li>
+           <li>At the end, settle the {Math.round(COMMISSION_RATE * 100)}% commission on paid entry fees and complete the event.</li>
         </ol>
       </div>
     </main>

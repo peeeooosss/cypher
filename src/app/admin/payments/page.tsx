@@ -153,6 +153,16 @@ function typeColor(type: PaymentRow["type"]) {
   return type === "FLAT_FEE" ? "text-ink-muted" : "text-accent";
 }
 
+function verifiedByLabel(verifiedBy: string | null): string {
+  if (verifiedBy === "system") return "PayU (auto)";
+  return verifiedBy ?? "—";
+}
+
+function methodLabel(method: string | null): string {
+  if (method === "PAYU") return "PayU";
+  return method ?? "—";
+}
+
 function rowScope(type: PaymentRow["type"]): "event" | "gig-work" | "gig-post" | "gig-connection" {
   switch (type) {
     case "GIG":
@@ -264,7 +274,7 @@ export default async function AdminPaymentsPage() {
                     </td>
                     <td className="px-md py-sm">{row.subjectName ?? "—"}</td>
                     <td className="px-md py-sm font-mono text-accent">{formatInr(row.amount)}</td>
-                    <td className="px-md py-sm">{row.method ?? "—"}</td>
+                    <td className="px-md py-sm">{methodLabel(row.method)}</td>
                     <td className="px-md py-sm">{row.sentAt ? row.sentAt.toLocaleString() : "—"}</td>
                     <td className="px-md py-sm">
                       <AdminPaymentActions
@@ -315,7 +325,7 @@ export default async function AdminPaymentsPage() {
                     <td className="px-md py-sm">{row.subjectName ?? "—"}</td>
                     <td className="px-md py-sm font-mono text-accent">{formatInr(row.amount)}</td>
                     <td className="px-md py-sm">{row.paidAt ? row.paidAt.toLocaleString() : "—"}</td>
-                    <td className="px-md py-sm">{row.verifiedBy ?? "—"}</td>
+                    <td className="px-md py-sm">{verifiedByLabel(row.verifiedBy)}</td>
                     <td className="px-md py-sm">
                       <AdminPaymentActions
                         id={row.targetId}

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { forbidden, notFound, serverError, unauthorized } from "@/lib/api";
 import { getEventForOwner } from "@/lib/event-access";
 import { getCurrentUser } from "@/lib/rbac";
-import { COMMISSION_RATE } from "@/lib/pricing";
+import { commissionFor } from "@/lib/pricing";
 import { prisma } from "@/lib/prisma";
 
 type Context = { params: Promise<{ eventId: string }> };
@@ -49,7 +49,7 @@ export async function GET(_: Request, { params }: Context) {
         name: category.name,
         registrations: category.registrations.length,
         entryFeeSum,
-        commission: Math.round(entryFeeSum * COMMISSION_RATE),
+        commission: commissionFor(entryFeeSum),
       };
     });
 

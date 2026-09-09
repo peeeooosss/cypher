@@ -6,7 +6,7 @@ import Link from "next/link";
 import { formatDate, formatExperience } from "@/lib/format";
 import { SKILLS, SKILL_LABELS, skillLabel } from "@/lib/skills";
 import { GIG_FLAT_FEE, formatInr } from "@/lib/pricing";
-import { ManualPayment } from "@/components/manual-payment";
+import { PayUCheckout } from "@/components/payu-checkout";
 import { responseError } from "@/lib/client-error";
 
 type GigApplication = {
@@ -50,7 +50,7 @@ type Gig = {
   applications: GigApplication[];
 };
 
-export function GigManager({ gigs, sender }: { gigs: Gig[]; sender?: string | null }) {
+export function GigManager({ gigs }: { gigs: Gig[] }) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -238,14 +238,16 @@ export function GigManager({ gigs, sender }: { gigs: Gig[]; sender?: string | nu
                 <p className="text-body-sm text-accent">
                   This gig is saved as a draft. Pay the {formatInr(GIG_FLAT_FEE)} posting fee to publish it and let artists apply.
                 </p>
-                <ManualPayment
-                  amount={GIG_FLAT_FEE}
-                  note={`Gig posting — ${gig.title}`}
-                  submitUrl={`/api/gigs/${gig.id}/pay`}
-                  submitBody={{ method: "UPI" }}
-                  buttonLabel={`I've paid ${formatInr(GIG_FLAT_FEE)} — send for verification`}
-                  sender={sender ?? undefined}
-                />
+                <div className="mt-md">
+                  <PayUCheckout
+                    purpose="GIG_POST"
+                    gigId={gig.id}
+                    amountInr={GIG_FLAT_FEE}
+                    productInfo={`Gig posting — ${gig.title}`}
+                    buttonLabel={`Pay ${formatInr(GIG_FLAT_FEE)} with PayU`}
+                    fullWidth
+                  />
+                </div>
               </div>
             ) : null}
             <p className="mt-sm text-body-sm text-ink whitespace-pre-wrap">{gig.description}</p>

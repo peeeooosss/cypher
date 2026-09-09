@@ -4,7 +4,7 @@ import { EventStatus, EventType } from "@/generated/prisma/enums";
 import type { Prisma } from "@/generated/prisma/client";
 import { badRequest, conflict, forbidden, isUniqueConstraintError, notFound, serverError, unauthorized } from "@/lib/api";
 import { getCurrentUser } from "@/lib/rbac";
-import { COMMISSION_RATE, flatFeeForEventType, isEventFlatFeePaid } from "@/lib/pricing";
+import { commissionFor, flatFeeForEventType, isEventFlatFeePaid } from "@/lib/pricing";
 import { isValidState } from "@/lib/states";
 import { prisma } from "@/lib/prisma";
 import { generateBracket, BracketError } from "@/lib/bracket";
@@ -120,7 +120,7 @@ export async function PATCH(request: Request, { params }: EventRouteContext) {
         (sum, r) => sum + (r.entryFee ?? r.category.entryFee ?? 0),
         0,
       );
-      const commissionDue = Math.round(totalEntryFees * COMMISSION_RATE);
+      const commissionDue = commissionFor(totalEntryFees);
 
       if (commissionDue > 0 && ownedEvent.commissionPaymentStatus !== "VERIFIED") {
         await prisma.event.update({
@@ -129,7 +129,7 @@ export async function PATCH(request: Request, { params }: EventRouteContext) {
         });
         return NextResponse.json(
           {
-            error: "Settle the 2.99% commission before completing the event.",
+            error: "Settle the commission before completing the event.",
             code: "COMMISSION_REQUIRED",
             commissionDue,
             billUrl: `/organizer/${eventId}/bill#commission`,

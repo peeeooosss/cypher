@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { GIG_CONNECTION_FEE, formatInr } from "@/lib/pricing";
-import { ManualPayment } from "@/components/manual-payment";
+import { PayUCheckout } from "@/components/payu-checkout";
 import { responseError } from "@/lib/client-error";
 
 type ConversationSummary = {
@@ -33,7 +33,7 @@ type Thread = {
   } | null;
 };
 
-export function MessagesPanel({ role, sender }: { role: "ORGANIZER" | "ARTIST"; sender?: string | null }) {
+export function MessagesPanel({ role }: { role: "ORGANIZER" | "ARTIST" }) {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [thread, setThread] = useState<Thread | null>(null);
@@ -261,13 +261,13 @@ export function MessagesPanel({ role, sender }: { role: "ORGANIZER" | "ARTIST"; 
                   </div>
                 ) : thread.agreement ? (
                   <div>
-                    <ManualPayment
-                      amount={GIG_CONNECTION_FEE}
-                      note={`Connection fee — ${thread.gigTitle ?? "Gig"}`}
-                      submitUrl={`/api/agreements/${thread.agreement.id}/connection/submit`}
-                      submitBody={{ method: "UPI" }}
-                      buttonLabel={`I've paid ${formatInr(GIG_CONNECTION_FEE)} — send for verification`}
-                      sender={sender ?? undefined}
+                    <PayUCheckout
+                      purpose="GIG_CONNECTION"
+                      agreementId={thread.agreement.id}
+                      amountInr={GIG_CONNECTION_FEE}
+                      productInfo={`Connection fee — ${thread.gigTitle ?? "Gig"}`}
+                      buttonLabel={`Pay ${formatInr(GIG_CONNECTION_FEE)} with PayU`}
+                      fullWidth
                     />
                   </div>
                 ) : null}

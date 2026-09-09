@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyPayUWebhookHash } from "@/lib/payu";
+import { gigWorkExpiryFrom } from "@/lib/pricing";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(request: Request) {
@@ -119,12 +120,14 @@ async function handlePaymentSuccess(metadata: PaymentMetadata) {
   }
 
   if (purpose === "GIG_WORK" && metadata.userId) {
+    const paidAt = new Date();
     await prisma.user.update({
       where: { id: metadata.userId },
       data: {
-        gigWorkEnabledAt: new Date(),
+        gigWorkEnabledAt: paidAt,
         gigWorkPaymentStatus: "VERIFIED",
-        gigWorkPaidAt: new Date(),
+        gigWorkPaidAt: paidAt,
+        gigWorkExpiresAt: gigWorkExpiryFrom(paidAt),
         gigWorkPaymentMethod: "PAYU",
         gigWorkPaymentVerifiedBy: "system",
       },
