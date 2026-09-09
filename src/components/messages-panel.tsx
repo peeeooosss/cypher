@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { GIG_CONNECTION_FEE, formatInr } from "@/lib/pricing";
+import { usePricing } from "@/components/pricing-provider";
+import { formatInr } from "@/lib/money";
 import { PayUCheckout } from "@/components/payu-checkout";
 import { responseError } from "@/lib/client-error";
 
@@ -34,6 +35,8 @@ type Thread = {
 };
 
 export function MessagesPanel({ role }: { role: "ORGANIZER" | "ARTIST" }) {
+  const pricing = usePricing();
+  const gigConnectionFee = pricing.gigConnectionFee;
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [thread, setThread] = useState<Thread | null>(null);
@@ -222,7 +225,7 @@ export function MessagesPanel({ role }: { role: "ORGANIZER" | "ARTIST" }) {
                   ) : null}
                   {!c.unlocked ? (
                     <span className="block text-[0.65rem] text-ink-muted">
-                      Chat locked — pay {formatInr(GIG_CONNECTION_FEE)} to unlock
+                      Chat locked — pay {formatInr(gigConnectionFee)} to unlock
                     </span>
                   ) : null}
                 </button>
@@ -246,7 +249,7 @@ export function MessagesPanel({ role }: { role: "ORGANIZER" | "ARTIST" }) {
                 <div className="border border-accent bg-accent/10 p-md">
                   <p className="text-body-sm font-bold uppercase text-accent">Chat is locked</p>
                   <p className="mt-xs text-body-sm text-ink-muted">
-                    Pay the {formatInr(GIG_CONNECTION_FEE)} connection fee to unlock this chat.
+                    Pay the {formatInr(gigConnectionFee)} connection fee to unlock this chat.
                     Once verified, you and the organizer can message each other.
                   </p>
                 </div>
@@ -264,9 +267,9 @@ export function MessagesPanel({ role }: { role: "ORGANIZER" | "ARTIST" }) {
                     <PayUCheckout
                       purpose="GIG_CONNECTION"
                       agreementId={thread.agreement.id}
-                      amountInr={GIG_CONNECTION_FEE}
+                      amountInr={gigConnectionFee}
                       productInfo={`Connection fee — ${thread.gigTitle ?? "Gig"}`}
-                      buttonLabel={`Pay ${formatInr(GIG_CONNECTION_FEE)} with PayU`}
+                      buttonLabel={`Pay ${formatInr(gigConnectionFee)} with PayU`}
                       fullWidth
                     />
                   </div>
@@ -283,7 +286,7 @@ export function MessagesPanel({ role }: { role: "ORGANIZER" | "ARTIST" }) {
                   Chat locked — awaiting artist payment
                 </p>
                 <p className="mt-xs text-body-sm text-ink-muted">
-                  {activeConv.otherParty} needs to pay the {formatInr(GIG_CONNECTION_FEE)} connection fee
+                  {activeConv.otherParty} needs to pay the {formatInr(gigConnectionFee)} connection fee
                   before you can exchange messages. The chat unlocks automatically once verified.
                 </p>
               </div>

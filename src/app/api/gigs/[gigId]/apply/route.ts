@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { badRequest, conflict, forbidden, notFound, serverError, unauthorized } from "@/lib/api";
 import { getCurrentUser } from "@/lib/rbac";
-import { GIG_WORK_FEE } from "@/lib/pricing";
+import { getPricingConfig } from "@/lib/pricing";
 import { prisma } from "@/lib/prisma";
 
 type Context = { params: Promise<{ gigId: string }> };
@@ -25,9 +25,10 @@ export async function POST(request: Request, { params }: Context) {
   });
 
   if (!artist || !artist.gigWorkExpiresAt || artist.gigWorkExpiresAt.getTime() <= Date.now()) {
+    const gigWorkFee = (await getPricingConfig()).gigWorkFee;
     return NextResponse.json(
       {
-        error: `Enable Gig Work (${GIG_WORK_FEE} for 3 months) to apply to gigs.`,
+        error: `Enable Gig Work (${gigWorkFee} for 3 months) to apply to gigs.`,
         code: "GIG_WORK_REQUIRED",
       },
       { status: 403 },

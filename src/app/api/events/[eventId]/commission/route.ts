@@ -39,19 +39,21 @@ export async function GET(_: Request, { params }: Context) {
       orderBy: { createdAt: "asc" },
     });
 
-    const breakdown = categories.map((category) => {
-      const entryFeeSum = category.registrations.reduce(
-        (sum, r) => sum + (r.entryFee ?? category.entryFee ?? 0),
-        0,
-      );
-      return {
-        id: category.id,
-        name: category.name,
-        registrations: category.registrations.length,
-        entryFeeSum,
-        commission: commissionFor(entryFeeSum),
-      };
-    });
+    const breakdown = await Promise.all(
+      categories.map(async (category) => {
+        const entryFeeSum = category.registrations.reduce(
+          (sum, r) => sum + (r.entryFee ?? category.entryFee ?? 0),
+          0,
+        );
+        return {
+          id: category.id,
+          name: category.name,
+          registrations: category.registrations.length,
+          entryFeeSum,
+          commission: await commissionFor(entryFeeSum),
+        };
+      }),
+    );
 
     const commissionDue = breakdown.reduce((sum, c) => sum + c.commission, 0);
 

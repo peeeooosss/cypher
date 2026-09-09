@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
 const LINKS = [
   { href: "/admin", label: "Dashboard", exact: true },
   { href: "/admin/payments", label: "Payments" },
+  { href: "/admin/pricing", label: "Pricing" },
   { href: "/admin/organizers", label: "Organizations" },
   { href: "/admin/artists", label: "Artists" },
   { href: "/admin/analytics", label: "Analytics" },

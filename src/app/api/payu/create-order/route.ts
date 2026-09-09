@@ -4,7 +4,7 @@ import { badRequest, forbidden, notFound, serverError, unauthorized } from "@/li
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { PAYU_BASE_URL, PAYU_WEBHOOK_URL, createPayUOrder, generateTxnId } from "@/lib/payu";
-import { GIG_CONNECTION_FEE, GIG_FLAT_FEE, GIG_WORK_FEE, chargeablePaise, commissionFor } from "@/lib/pricing";
+import { chargeablePaise, commissionFor, getPricingConfig } from "@/lib/pricing";
 
 const PURPOSE_TO_TYPE = {
   FLAT_FEE: "EVENT_FLAT_FEE",
@@ -42,6 +42,8 @@ export async function POST(request: Request) {
 
     const { purpose, eventId, gigId, agreementId, amount, productInfo, udf1, udf2, udf3, udf4, udf5 } = parsed.data;
 
+    const pricing = await getPricingConfig();
+
     let expectedPaise: number | null = null;
     let referenceId = user.id;
 
@@ -68,7 +70,7 @@ export async function POST(request: Request) {
           (sum, r) => sum + (r.entryFee ?? r.category.entryFee ?? 0),
           0,
         );
-        const commissionDue = commissionFor(entryFeeSum);
+        const commissionDue = await commissionFor(entryFeeSum);
         if (commissionDue <= 0) return badRequest("No commission due");
         expectedPaise = chargeablePaise(commissionDue);
         referenceId = eventId;
@@ -83,7 +85,7 @@ export async function POST(request: Request) {
       });
       if (!gig) return notFound("Gig");
       if (gig.feePaid || gig.feePaymentStatus === "VERIFIED") return badRequest("Gig posting fee already paid");
-      expectedPaise = chargeablePaise(GIG_FLAT_FEE);
+      expectedPaise = chargeablePaise(pricing.gigFlatFee);
       referenceId = gigId;
     }
 
@@ -97,7 +99,7 @@ export async function POST(request: Request) {
       if (artist.gigWorkPaymentStatus === "VERIFIED" || artist.gigWorkPaidAt) {
         return badRequest("Gig work access already active");
       }
-      expectedPaise = chargeablePaise(GIG_WORK_FEE);
+      expectedPaise = chargeablePaise(pricing.gigWorkFee);
       referenceId = user.id;
     }
 
@@ -111,7 +113,7 @@ export async function POST(request: Request) {
       if (agreement.connectionPaymentStatus === "VERIFIED" || agreement.connectionPaidAt) {
         return badRequest("Connection fee already paid");
       }
-      expectedPaise = chargeablePaise(GIG_CONNECTION_FEE);
+      expectedPaise = chargeablePaise(pricing.gigConnectionFee);
       referenceId = agreementId;
     }
 

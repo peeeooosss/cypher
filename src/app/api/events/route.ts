@@ -115,7 +115,7 @@ export async function POST(request: Request) {
       data: {
         ...rest,
         eventType,
-        flatFee: flatFeeForEventType(eventType),
+        flatFee: await flatFeeForEventType(eventType),
         status: EventStatus.DRAFT,
         organizer: { connect: { id: user.id } },
       },

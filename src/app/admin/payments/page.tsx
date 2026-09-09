@@ -6,7 +6,7 @@ import {
   getAdminPayments,
   requireAdmin,
 } from "@/lib/admin";
-import { formatInr, GIG_WORK_FEE, GIG_FLAT_FEE, GIG_CONNECTION_FEE } from "@/lib/pricing";
+import { formatInr } from "@/lib/money";
 import { AdminPaymentActions } from "@/components/admin-payment-actions";
 import type { PaymentStatus } from "@/generated/prisma/enums";
 
@@ -81,7 +81,7 @@ function gigRows(artists: Awaited<ReturnType<typeof getAdminGigPayments>>): Paym
     targetId: artist.id,
     title: "Gig Work access",
     subjectName: artist.name,
-    amount: GIG_WORK_FEE,
+    amount: artist.paymentAmountInr,
     method: artist.gigWorkPaymentMethod,
     sentAt: artist.gigWorkPaymentSentAt,
     status: artist.gigWorkPaidAt
@@ -101,7 +101,7 @@ function gigPostRows(gigs: Awaited<ReturnType<typeof getAdminGigPostPayments>>):
     targetId: gig.id,
     title: gig.title,
     subjectName: gig.organizer.name,
-    amount: GIG_FLAT_FEE,
+    amount: gig.paymentAmountInr,
     method: gig.feePaymentMethod,
     sentAt: gig.feePaymentSentAt,
     status: gig.feePaid ? "VERIFIED" : ((gig.feePaymentStatus ?? "NONE") as PaymentStatus),
@@ -121,7 +121,7 @@ function gigConnectionRows(
     targetId: agreement.id,
     title: agreement.gig.title,
     subjectName: agreement.artist.name,
-    amount: GIG_CONNECTION_FEE,
+    amount: agreement.paymentAmountInr,
     method: agreement.connectionPaymentMethod,
     sentAt: agreement.connectionPaymentSentAt,
     status: agreement.connectionPaidAt

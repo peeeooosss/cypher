@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatDate } from "@/lib/format";
 import { SKILLS, SKILL_LABELS } from "@/lib/skills";
-import { GIG_CONNECTION_FEE, GIG_WORK_FEE, formatInr } from "@/lib/pricing";
+import { usePricing } from "@/components/pricing-provider";
+import { formatInr } from "@/lib/money";
 import { PayUCheckout } from "@/components/payu-checkout";
 import { MessagesPanel } from "@/components/messages-panel";
 import { BILL_WHATSAPP_NUMBER, whatsappLink } from "@/lib/payment";
@@ -94,6 +95,9 @@ export function MarketplaceDashboard({
   sender?: string | null;
 }) {
   const router = useRouter();
+  const pricing = usePricing();
+  const gigWorkFee = pricing.gigWorkFee;
+  const gigConnectionFee = pricing.gigConnectionFee;
   const [tab, setTab] = useState<Tab>("browse");
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [applyingTo, setApplyingTo] = useState<string | null>(null);
@@ -263,7 +267,7 @@ export function MarketplaceDashboard({
             <a
               href={whatsappLink(
                 BILL_WHATSAPP_NUMBER,
-                `Hi CYPHR Admin, I'm ${sender ?? "an artist"}. I've sent ${formatInr(GIG_WORK_FEE)} for Gig Work access. Attaching the payment screenshot for verification.`,
+                `Hi CYPHR Admin, I'm ${sender ?? "an artist"}. I've sent ${formatInr(gigWorkFee)} for Gig Work access. Attaching the payment screenshot for verification.`,
               )}
               target="_blank"
               rel="noopener noreferrer"
@@ -278,11 +282,11 @@ export function MarketplaceDashboard({
           <div>
             <p className="font-display text-title-sm uppercase">Unlock the Marketplace</p>
             <p className="mt-xs text-body-sm text-ink-muted">
-              Pay {formatInr(GIG_WORK_FEE)} once for 3 months of marketplace access — browse gigs, send proposals, receive offers, and chat with organizers.
+              Pay {formatInr(gigWorkFee)} once for 3 months of marketplace access — browse gigs, send proposals, receive offers, and chat with organizers.
             </p>
           </div>
           <Link href="/artist/gig-bill" className="border border-accent bg-accent px-md py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper">
-            Unlock — {formatInr(GIG_WORK_FEE)} / 3 mo
+            Unlock — {formatInr(gigWorkFee)} / 3 mo
           </Link>
         </div>
       ) : gigWorkExpiresAt ? (
@@ -403,9 +407,9 @@ export function MarketplaceDashboard({
                           purpose="GIG_CONNECTION"
                           gigId={app.gig.id}
                           agreementId={app.agreement!.id}
-                          amountInr={GIG_CONNECTION_FEE}
+                          amountInr={gigConnectionFee}
                           productInfo={`Connection fee — ${app.gig.title}`}
-                          buttonLabel={`Pay ${formatInr(GIG_CONNECTION_FEE)} with PayU`}
+                          buttonLabel={`Pay ${formatInr(gigConnectionFee)} with PayU`}
                           fullWidth
                         />
                       </div>

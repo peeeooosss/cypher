@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
-import { GIG_WORK_FEE, formatInr } from "@/lib/pricing";
+import { formatInr, getPricingConfig } from "@/lib/pricing";
 import { PayUCheckout } from "@/components/payu-checkout";
 import { PendingVerification } from "@/components/pending-verification";
 import { SignOutButton } from "@/components/sign-out-button";
@@ -23,6 +23,9 @@ export default async function ArtistGigBillPage() {
   });
 
   const sender = [me?.name, me?.username].filter(Boolean).join(" ") || undefined;
+
+  const gigWorkFee = (await getPricingConfig()).gigWorkFee;
+
   const verified =
     me?.gigWorkPaymentStatus === "VERIFIED" || me?.gigWorkPaidAt != null;
   const pending = me?.gigWorkPaymentStatus === "PENDING" && !verified;
@@ -69,7 +72,7 @@ export default async function ArtistGigBillPage() {
       ) : pending ? (
         <section className="mt-section border border-accent bg-accent/10 p-lg">
           <PendingVerification
-            label={formatInr(GIG_WORK_FEE)}
+            label={formatInr(gigWorkFee)}
             context="Gig Work marketplace access"
             sender={sender}
           />
@@ -81,17 +84,17 @@ export default async function ArtistGigBillPage() {
               Marketplace access
             </p>
             <p className="mt-sm text-body-sm text-ink-muted">
-              Pay {formatInr(GIG_WORK_FEE)} once for 3 months of marketplace access — browse
+              Pay {formatInr(gigWorkFee)} once for 3 months of marketplace access — browse
               gigs, send proposals, receive offers, and chat with organizers.
             </p>
             <div className="mt-md space-y-sm text-body-sm">
               <div className="flex justify-between">
                 <span>Gig work fee</span>
-                <span className="font-mono text-accent">{formatInr(GIG_WORK_FEE)}</span>
+                <span className="font-mono text-accent">{formatInr(gigWorkFee)}</span>
               </div>
               <div className="flex justify-between border-t border-line pt-sm">
                 <span>Total due now</span>
-                <span className="font-mono text-accent">{formatInr(GIG_WORK_FEE)}</span>
+                <span className="font-mono text-accent">{formatInr(gigWorkFee)}</span>
               </div>
             </div>
           </div>
@@ -102,9 +105,9 @@ export default async function ArtistGigBillPage() {
             <div className="mt-md">
               <PayUCheckout
                 purpose="GIG_WORK"
-                amountInr={GIG_WORK_FEE}
+                amountInr={gigWorkFee}
                 productInfo="Gig Work marketplace access — 3 months"
-                buttonLabel={`Pay ${formatInr(GIG_WORK_FEE)} with PayU`}
+                buttonLabel={`Pay ${formatInr(gigWorkFee)} with PayU`}
                 fullWidth
               />
             </div>

@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatDate, formatExperience } from "@/lib/format";
 import { SKILLS, SKILL_LABELS, skillLabel } from "@/lib/skills";
-import { GIG_FLAT_FEE, formatInr } from "@/lib/pricing";
+import { usePricing } from "@/components/pricing-provider";
+import { formatInr } from "@/lib/money";
 import { PayUCheckout } from "@/components/payu-checkout";
 import { responseError } from "@/lib/client-error";
 
@@ -52,6 +53,8 @@ type Gig = {
 
 export function GigManager({ gigs }: { gigs: Gig[] }) {
   const router = useRouter();
+  const pricing = usePricing();
+  const gigFlatFee = pricing.gigFlatFee;
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
@@ -147,7 +150,7 @@ export function GigManager({ gigs }: { gigs: Gig[] }) {
       <form className="border border-line bg-paper-soft p-lg" onSubmit={handleCreate}>
         <p className="font-display text-title-md uppercase">Post freelance work</p>
         <p className="mt-xs text-body-sm text-ink-muted">
-          Create a gig and artists with matching skills can apply. Flat {formatInr(GIG_FLAT_FEE)} posting fee — no extra commission.
+          Create a gig and artists with matching skills can apply. Flat {formatInr(gigFlatFee)} posting fee — no extra commission.
         </p>
         <p className="mt-xs text-body-sm text-accent">
           Why spend on Meta ads? You&apos;ll get your target audience right here. No extra commission, no extra tension for organizers.
@@ -236,15 +239,15 @@ export function GigManager({ gigs }: { gigs: Gig[] }) {
             {!gig.feePaid ? (
               <div className="mt-md border border-accent/40 bg-paper p-md">
                 <p className="text-body-sm text-accent">
-                  This gig is saved as a draft. Pay the {formatInr(GIG_FLAT_FEE)} posting fee to publish it and let artists apply.
+                  This gig is saved as a draft. Pay the {formatInr(gigFlatFee)} posting fee to publish it and let artists apply.
                 </p>
                 <div className="mt-md">
                   <PayUCheckout
                     purpose="GIG_POST"
                     gigId={gig.id}
-                    amountInr={GIG_FLAT_FEE}
+                    amountInr={gigFlatFee}
                     productInfo={`Gig posting — ${gig.title}`}
-                    buttonLabel={`Pay ${formatInr(GIG_FLAT_FEE)} with PayU`}
+                    buttonLabel={`Pay ${formatInr(gigFlatFee)} with PayU`}
                     fullWidth
                   />
                 </div>

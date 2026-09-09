@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { UpiButtons } from "@/components/upi-buttons";
 import { PendingVerification } from "@/components/pending-verification";
 import { PAYMENT_UPI_ID, PAYMENT_NAME } from "@/lib/payment";
-import { formatInr } from "@/lib/pricing";
+import { formatInr } from "@/lib/money";
 
 export function ManualPayment({
   amount,

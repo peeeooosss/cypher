@@ -130,7 +130,7 @@ export async function PATCH(request: Request, { params }: EventRouteContext) {
         (sum, r) => sum + (r.entryFee ?? r.category.entryFee ?? 0),
         0,
       );
-      const commissionDue = commissionFor(totalEntryFees);
+      const commissionDue = await commissionFor(totalEntryFees);
 
       if (commissionDue > 0 && ownedEvent.commissionPaymentStatus !== "VERIFIED") {
         await prisma.event.update({
@@ -192,7 +192,7 @@ export async function PATCH(request: Request, { params }: EventRouteContext) {
       parsed.data.eventType !== ownedEvent.eventType &&
       !ownedEvent.flatFeePaid
     ) {
-      updateData.flatFee = flatFeeForEventType(parsed.data.eventType);
+      updateData.flatFee = await flatFeeForEventType(parsed.data.eventType);
     }
 
     const event = await prisma.event.update({

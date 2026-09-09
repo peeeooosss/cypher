@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/rbac";
 import { getAdminArtist } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
-import { GIG_WORK_DURATION_MS } from "@/lib/pricing";
+import { GIG_WORK_DURATION_MS } from "@/lib/money";
 
 type Context = { params: Promise<{ userId: string }> };
 

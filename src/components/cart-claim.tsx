@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { formatFee } from "@/lib/format";
-import { formatInr } from "@/lib/pricing";
+import { formatInr } from "@/lib/money";
 import { whatsappLink, BILL_WHATSAPP_NUMBER } from "@/lib/payment";
 
 export type CartRegistration = {

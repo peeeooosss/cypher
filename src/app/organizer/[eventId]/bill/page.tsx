@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
-import { COMMISSION_RATE, commissionFor, formatInr, isEventFlatFeePaid } from "@/lib/pricing";
+import { commissionFor, formatInr, getPricingConfig, isEventFlatFeePaid } from "@/lib/pricing";
 import { displayName } from "@/lib/payment";
 import { PayUCheckout } from "@/components/payu-checkout";
 import { PendingVerification } from "@/components/pending-verification";
@@ -62,20 +62,25 @@ export default async function EventBillPage({ params }: PageProps) {
     orderBy: { createdAt: "asc" },
   });
 
-  const commissionBreakdown = categories.map((category) => {
-    const entryFeeSum = category.registrations.reduce(
-      (sum, r) => sum + (r.entryFee ?? category.entryFee ?? 0),
-      0,
-    );
-    return {
-      id: category.id,
-      name: category.name,
-      registrations: category.registrations.length,
-      entryFeeSum,
-      commission: commissionFor(entryFeeSum),
-    };
-  });
+  const commissionBreakdown = await Promise.all(
+    categories.map(async (category) => {
+      const entryFeeSum = category.registrations.reduce(
+        (sum, r) => sum + (r.entryFee ?? category.entryFee ?? 0),
+        0,
+      );
+      return {
+        id: category.id,
+        name: category.name,
+        registrations: category.registrations.length,
+        entryFeeSum,
+        commission: await commissionFor(entryFeeSum),
+      };
+    }),
+  );
   const commissionDue = commissionBreakdown.reduce((sum, c) => sum + c.commission, 0);
+
+  const pricing = await getPricingConfig();
+  const commissionPct = Math.round(pricing.commissionBps / 100);
 
   const feePaid = isEventFlatFeePaid(event);
   const flatAmount = event.flatFee ?? 0;
@@ -119,7 +124,7 @@ export default async function EventBillPage({ params }: PageProps) {
                 <Link href="#commission" className="underline">{formatInr(commissionDue)} — pay</Link>
               </span>
             ) : (
-              <span className="font-mono text-ink-muted">{Math.round(COMMISSION_RATE * 100)}% at completion</span>
+              <span className="font-mono text-ink-muted">{commissionPct}% at completion</span>
             )}
           </div>
         </div>
@@ -144,7 +149,7 @@ export default async function EventBillPage({ params }: PageProps) {
               </div>
             </div>
             <p className="mt-md text-body-sm text-ink-muted">
-              Paid once at creation. Later, just {Math.round(COMMISSION_RATE * 100)}% per confirmed entry fee — settled at event completion.
+              Paid once at creation. Later, just {commissionPct}% per confirmed entry fee — settled at event completion.
             </p>
           </div>
 
@@ -181,7 +186,7 @@ export default async function EventBillPage({ params }: PageProps) {
 
       <section id="commission" className="mt-section border border-line p-lg scroll-mt-24">
         <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">Commission</p>
-        <h2 className="mt-sm font-display text-title-md uppercase">Settle the {Math.round(COMMISSION_RATE * 100)}% commission</h2>
+        <h2 className="mt-sm font-display text-title-md uppercase">Settle the {commissionPct}% commission</h2>
         <p className="mt-sm text-body-sm text-ink-muted">
           Charged on confirmed entry fees and due before the event can be marked Completed.
         </p>
@@ -196,7 +201,7 @@ export default async function EventBillPage({ params }: PageProps) {
                     <span className="font-mono text-accent">{formatInr(category.commission)}</span>
                   </div>
                   <p className="mt-xs text-body-sm text-ink-muted">
-                    {category.registrations} entries · {formatInr(category.entryFeeSum)} entry fees × {Math.round(COMMISSION_RATE * 100)}%
+                    {category.registrations} entries · {formatInr(category.entryFeeSum)} entry fees × {commissionPct}%
                   </p>
                 </div>
               ))}
@@ -236,7 +241,7 @@ export default async function EventBillPage({ params }: PageProps) {
           </div>
         ) : (
           <p className="mt-lg border border-line p-lg text-body-sm text-ink-muted">
-            No commission due yet — it&apos;s {Math.round(COMMISSION_RATE * 100)}% of confirmed entry fees, settled when the event completes.
+            No commission due yet — it&apos;s {commissionPct}% of confirmed entry fees, settled when the event completes.
           </p>
         )}
       </section>
@@ -247,7 +252,7 @@ export default async function EventBillPage({ params }: PageProps) {
           <li>Pay the flat fee above to activate the event.</li>
           <li>Add categories, rounds, judges and prize pools.</li>
           <li>Publish the event so artists can register.</li>
-           <li>At the end, settle the {Math.round(COMMISSION_RATE * 100)}% commission on paid entry fees and complete the event.</li>
+           <li>At the end, settle the {commissionPct}% commission on paid entry fees and complete the event.</li>
         </ol>
       </div>
     </main>

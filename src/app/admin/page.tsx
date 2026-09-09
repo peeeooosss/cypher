@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { getAdminStats, requireAdmin } from "@/lib/admin";
-import { formatInr, GIG_WORK_FEE } from "@/lib/pricing";
+import { formatInr, getPricingConfig } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
   await requireAdmin();
-  const stats = await getAdminStats();
+  const [stats, pricing] = await Promise.all([getAdminStats(), getPricingConfig()]);
 
   const roleLabels: Record<string, string> = {
     ORGANIZER: "Organizers",
@@ -43,7 +43,7 @@ export default async function AdminDashboardPage() {
       <div className="grid gap-md sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Flat fee revenue" value={formatInr(stats.flatFeeRevenue)} sub="Verified flat fees" />
         <StatCard label="Commission collected" value={formatInr(stats.commissionRevenue)} sub="Settled commissions" />
-        <StatCard label="Gig work revenue" value={formatInr(stats.gigWorkRevenue)} sub={`${formatInr(GIG_WORK_FEE)} marketplace access`} />
+        <StatCard label="Gig work revenue" value={formatInr(stats.gigWorkRevenue)} sub={`${formatInr(pricing.gigWorkFee)} marketplace access`} />
         <StatCard label="Commission due" value={formatInr(stats.commissionDue)} sub="Outstanding" />
       </div>
 

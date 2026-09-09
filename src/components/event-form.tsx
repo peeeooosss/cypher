@@ -2,7 +2,8 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { COMMISSION_RATE, EVENT_TYPE_FEES, flatFeeForEventType, formatInr } from "@/lib/pricing";
+import { usePricing } from "@/components/pricing-provider";
+import { formatInr } from "@/lib/money";
 import { PosterUpload } from "@/components/poster-upload";
 import { BATTLE_FORMATS, CATEGORY_FORMAT_LABELS, COMPETITION_FORMATS, EVENT_TYPE_LABELS, EVENT_TYPE_LIST, defaultRosterSize, isCompetitionType, isWorkshopType } from "@/lib/event-types";
 import { CategoryFormat, EventType } from "@/generated/prisma/enums";
@@ -10,6 +11,8 @@ import { INDIAN_STATES } from "@/lib/states";
 
 export function EventForm() {
   const router = useRouter();
+  const pricing = usePricing();
+  const commissionPct = Math.round(pricing.commissionBps / 100);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [posterUrl, setPosterUrl] = useState<string | null>(null);
@@ -95,14 +98,14 @@ export function EventForm() {
         <div className="flex flex-wrap items-center justify-between gap-md">
           <div>
             <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">Flat fee to activate</p>
-            <p className="mt-xs font-display text-title-md text-accent">{eventType ? formatInr(flatFeeForEventType(eventType)) : "Select a type"}</p>
+            <p className="mt-xs font-display text-title-md text-accent">{eventType ? formatInr(pricing.eventTypeFees[eventType] ?? 0) : "Select a type"}</p>
           </div>
           <p className="font-mono text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">
-            Workshop {formatInr(EVENT_TYPE_FEES.WORKSHOP)} · Underground battle {formatInr(EVENT_TYPE_FEES.UNDERGROUND_BATTLE)} · Competition {formatInr(EVENT_TYPE_FEES.DANCE_COMPETITION)}
+            Workshop {formatInr(pricing.eventTypeFees.WORKSHOP)} · Underground battle {formatInr(pricing.eventTypeFees.UNDERGROUND_BATTLE)} · Competition {formatInr(pricing.eventTypeFees.DANCE_COMPETITION)}
           </p>
         </div>
         <p className="mt-md border-t border-line pt-md text-body-sm text-ink-muted">
-          Paid once at creation. Unlimited categories and unlimited phases — one flat fee. Later, just {Math.round(COMMISSION_RATE * 100)}% per confirmed entry — taken at event completion.
+          Paid once at creation. Unlimited categories and unlimited phases — one flat fee. Later, just {commissionPct}% per confirmed entry — taken at event completion.
         </p>
       </div>
       <div className="mt-lg">

@@ -1,93 +1,82 @@
+import { cache } from "react";
+import { prisma } from "@/lib/prisma";
 import { EventType } from "@/generated/prisma/enums";
+import {
+  DEFAULT_PRICING,
+  PricingValues,
+  eventTypeFee as moneyEventTypeFee,
+  commissionFor as moneyCommissionFor,
+} from "@/lib/money";
 
-export const PAYU_TEST_MODE = process.env.NEXT_PUBLIC_PAYU_TEST_MODE === "true";
+export type { PricingValues } from "@/lib/money";
+export {
+  DEFAULT_PRICING,
+  chargeablePaise,
+  formatInr,
+  gigWorkExpiryFrom,
+  isEventFlatFeePaid,
+} from "@/lib/money";
 
-const testRate = PAYU_TEST_MODE ? 1 : null;
-
-export const EVENT_TYPE_FEES: Record<EventType, number> = {
-  WORKSHOP: testRate ?? 99,
-  UNDERGROUND_BATTLE: testRate ?? 199,
-  DANCE_COMPETITION: testRate ?? 249,
-  MUSIC_COMPETITION: testRate ?? 249,
-};
-
-export const COMMISSION_RATE = 0.05;
-
-export const GIG_FLAT_FEE = testRate ?? 199;
-
-export const GIG_WORK_FEE = testRate ?? 99;
-
-export const GIG_CONNECTION_FEE = testRate ?? 49;
-
-export function commissionFor(entryFeeSum: number): number {
-  if (!entryFeeSum || entryFeeSum <= 0) return 0;
-  if (PAYU_TEST_MODE) return 1;
-  return Math.round(entryFeeSum * COMMISSION_RATE);
-}
-
-export function chargeablePaise(amountInr: number): number {
-  if (PAYU_TEST_MODE) return 100;
-  return Math.max(0, Math.round(amountInr * 100));
-}
-
-export const GIG_WORK_DURATION_MS = 3 * 30 * 24 * 60 * 60 * 1000;
-
-export function gigWorkExpiryFrom(paidAt: Date): Date {
-  const expiresAt = new Date(paidAt);
-  expiresAt.setMonth(expiresAt.getMonth() + 3);
-  return expiresAt;
-}
-
-export function flatFeeForEventType(eventType: EventType): number {
-  return EVENT_TYPE_FEES[eventType];
-}
-
-export function isEventFlatFeePaid(event: {
-  flatFee: number | null;
-  flatFeePaid: boolean;
-}): boolean {
-  if (event.flatFee == null || event.flatFee <= 0) return true;
-  return event.flatFeePaid;
-}
-
-export interface CommissionBreakdown {
-  categoryId: string;
-  name: string;
-  paidRegistrations: number;
-  entryFeeSum: number;
-  commission: number;
-}
-
-export interface CommissionCalculation {
-  commissionDue: number;
-  categories: CommissionBreakdown[];
-}
-
-export interface CommissionRegistration {
-  entryFee: number | null;
-  paid: boolean;
-  categoryEntryFee: number | null;
-}
-
-export function calculateCommission(registrations: CommissionRegistration[]): CommissionCalculation {
-  const breakdown: CommissionBreakdown[] = [];
-
-  let totalEntryFees = 0;
-
-  for (const r of registrations) {
-    if (!r.paid) continue;
-    const entryFee = r.entryFee ?? r.categoryEntryFee ?? 0;
-    totalEntryFees += entryFee;
+function normalize(row: {
+  eventTypeFees: unknown;
+  commissionBps: number;
+  gigFlatFee: number;
+  gigWorkFee: number;
+  gigConnectionFee: number;
+}): PricingValues {
+  const raw = (row.eventTypeFees ?? {}) as Record<string, unknown>;
+  const eventTypeFees = { ...DEFAULT_PRICING.eventTypeFees } as Record<EventType, number>;
+  for (const type of Object.keys(DEFAULT_PRICING.eventTypeFees) as EventType[]) {
+    const value = raw[type];
+    if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
+      eventTypeFees[type] = Math.round(value);
+    }
   }
-
-  const totalCommission = Math.round(totalEntryFees * COMMISSION_RATE);
-
   return {
-    commissionDue: totalCommission,
-    categories: breakdown,
+    eventTypeFees,
+    commissionBps:
+      Number.isFinite(row.commissionBps) && row.commissionBps >= 0 ? Math.round(row.commissionBps) : DEFAULT_PRICING.commissionBps,
+    gigFlatFee:
+      Number.isFinite(row.gigFlatFee) && row.gigFlatFee >= 0 ? Math.round(row.gigFlatFee) : DEFAULT_PRICING.gigFlatFee,
+    gigWorkFee:
+      Number.isFinite(row.gigWorkFee) && row.gigWorkFee >= 0 ? Math.round(row.gigWorkFee) : DEFAULT_PRICING.gigWorkFee,
+    gigConnectionFee:
+      Number.isFinite(row.gigConnectionFee) && row.gigConnectionFee >= 0
+        ? Math.round(row.gigConnectionFee)
+        : DEFAULT_PRICING.gigConnectionFee,
   };
 }
 
-export function formatInr(amount: number): string {
-  return `₹${amount.toLocaleString("en-IN")}`;
+export const getPricingConfig = cache(async (): Promise<PricingValues> => {
+  try {
+    const row = await prisma.pricingConfig.findFirst();
+    if (!row) {
+      await prisma.pricingConfig.upsert({
+        where: { id: "singleton" },
+        update: {},
+        create: {
+          id: "singleton",
+          eventTypeFees: DEFAULT_PRICING.eventTypeFees,
+          commissionBps: DEFAULT_PRICING.commissionBps,
+          gigFlatFee: DEFAULT_PRICING.gigFlatFee,
+          gigWorkFee: DEFAULT_PRICING.gigWorkFee,
+          gigConnectionFee: DEFAULT_PRICING.gigConnectionFee,
+        },
+      });
+      return DEFAULT_PRICING;
+    }
+    return normalize(row);
+  } catch {
+    return DEFAULT_PRICING;
+  }
+});
+
+export async function flatFeeForEventType(eventType: EventType): Promise<number> {
+  const pricing = await getPricingConfig();
+  return moneyEventTypeFee(pricing, eventType);
+}
+
+export async function commissionFor(entryFeeSum: number): Promise<number> {
+  const pricing = await getPricingConfig();
+  return moneyCommissionFor(entryFeeSum, pricing.commissionBps);
 }

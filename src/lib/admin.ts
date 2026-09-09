@@ -1,7 +1,20 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/rbac";
-import { GIG_WORK_FEE } from "@/lib/pricing";
 import { prisma } from "@/lib/prisma";
+import { PaymentType } from "@/generated/prisma/enums";
+
+async function latestPaidAmountMap(type: PaymentType, referenceIds: string[]): Promise<Map<string, number>> {
+  const map = new Map<string, number>();
+  if (referenceIds.length === 0) return map;
+  const rows = await prisma.payment.findMany({
+    where: { type, referenceId: { in: referenceIds }, status: "PAID" },
+    select: { referenceId: true, amountPaise: true },
+  });
+  for (const row of rows) {
+    if (!map.has(row.referenceId)) map.set(row.referenceId, Math.round(row.amountPaise / 100));
+  }
+  return map;
+}
 
 export async function requireAdmin() {
   const user = await getCurrentUser();
@@ -18,7 +31,7 @@ export async function requireAdmin() {
 }
 
 export async function getAdminStats() {
-  const [users, events, registrations, teamEntries, teamMembers, pendingInvitations, flatFeePending, flatFeeRevenue, commissionRevenue, commissionDue, gigCount, gigsOpen, gigWorkVerified, gigWorkPending, categoryCount] =
+  const [users, events, registrations, teamEntries, teamMembers, pendingInvitations, flatFeePending, flatFeeRevenue, commissionRevenue, commissionDue, gigCount, gigsOpen, gigWorkPending, gigWorkRevenuePaise, categoryCount] =
     await Promise.all([
       prisma.user.groupBy({
         by: ["role"],
@@ -47,8 +60,11 @@ export async function getAdminStats() {
       }),
       prisma.gig.count(),
       prisma.gig.count({ where: { status: "OPEN" } }),
-      prisma.user.count({ where: { role: "ARTIST", gigWorkPaymentStatus: "VERIFIED" } }),
       prisma.user.count({ where: { role: "ARTIST", gigWorkPaymentStatus: "PENDING" } }),
+      prisma.payment.aggregate({
+        _sum: { amountPaise: true },
+        where: { type: "GIG_WORK", status: "PAID" },
+      }),
       prisma.category.count(),
     ]);
 
@@ -73,7 +89,7 @@ export async function getAdminStats() {
     commissionDue: commissionDue._sum.commissionDue ?? 0,
     gigCount,
     gigsOpen,
-    gigWorkRevenue: gigWorkVerified * GIG_WORK_FEE,
+    gigWorkRevenue: Math.round((gigWorkRevenuePaise._sum.amountPaise ?? 0) / 100),
     gigWorkPending,
     categoryCount,
   };
@@ -101,7 +117,7 @@ export async function getAdminPayments() {
 }
 
 export async function getAdminGigPayments() {
-  return prisma.user.findMany({
+  const artists = await prisma.user.findMany({
     where: {
       role: "ARTIST",
       OR: [{ gigWorkPaymentStatus: "PENDING" }, { gigWorkPaidAt: { not: null } }],
@@ -119,10 +135,12 @@ export async function getAdminGigPayments() {
     },
     orderBy: { gigWorkPaymentSentAt: "desc" },
   });
+  const amounts = await latestPaidAmountMap("GIG_WORK", artists.map((a) => a.id));
+  return artists.map((artist) => ({ ...artist, paymentAmountInr: amounts.get(artist.id) ?? 0 }));
 }
 
 export async function getAdminGigPostPayments() {
-  return prisma.gig.findMany({
+  const gigs = await prisma.gig.findMany({
     where: {
       OR: [{ feePaymentStatus: "PENDING" }, { feePaid: true }],
     },
@@ -139,10 +157,12 @@ export async function getAdminGigPostPayments() {
     },
     orderBy: { feePaymentSentAt: "desc" },
   });
+  const amounts = await latestPaidAmountMap("GIG_POST", gigs.map((g) => g.id));
+  return gigs.map((gig) => ({ ...gig, paymentAmountInr: amounts.get(gig.id) ?? 0 }));
 }
 
 export async function getAdminGigConnectionPayments() {
-  return prisma.gigAgreement.findMany({
+  const agreements = await prisma.gigAgreement.findMany({
     where: {
       OR: [{ connectionPaymentStatus: "PENDING" }, { connectionPaidAt: { not: null } }],
     },
@@ -161,6 +181,8 @@ export async function getAdminGigConnectionPayments() {
     },
     orderBy: { connectionPaymentSentAt: "desc" },
   });
+  const amounts = await latestPaidAmountMap("GIG_CONNECTION", agreements.map((a) => a.id));
+  return agreements.map((agreement) => ({ ...agreement, paymentAmountInr: amounts.get(agreement.id) ?? 0 }));
 }
 
 export async function getAdminOrganizers() {
@@ -352,10 +374,10 @@ export async function getAdminAnalytics() {
         FROM "Event"
         WHERE "commissionPaid" = true AND "commissionPaidAt" >= ${sixMonthsAgo}
         GROUP BY month ORDER BY month`,
-      prisma.$queryRaw<Array<{ month: string; count: bigint }>>`
-        SELECT to_char("gigWorkPaidAt", 'YYYY-MM') AS month, COUNT(*)::bigint AS count
-        FROM "User"
-        WHERE "role" = 'ARTIST' AND "gigWorkPaidAt" IS NOT NULL AND "gigWorkPaidAt" >= ${sixMonthsAgo}
+      prisma.$queryRaw<Array<{ month: string; revenue: bigint }>>`
+        SELECT to_char("createdAt", 'YYYY-MM') AS month, COALESCE(SUM("amountPaise"), 0)::bigint AS revenue
+        FROM "Payment"
+        WHERE "type" = 'GIG_WORK' AND "status" = 'PAID' AND "createdAt" >= ${sixMonthsAgo}
         GROUP BY month ORDER BY month`,
       prisma.$queryRaw<Array<{ month: string; count: bigint }>>`
         SELECT to_char("createdAt", 'YYYY-MM') AS month, COUNT(*)::bigint AS count
@@ -391,7 +413,7 @@ export async function getAdminAnalytics() {
     eventsByMonth: eventsByMonth.map((r) => ({ month: r.month, count: Number(r.count) })),
     revenueByMonth: revenueByMonth.map((r) => ({ month: r.month, revenue: Number(r.revenue) })),
     commissionRevenueByMonth: commissionRevenueByMonth.map((r) => ({ month: r.month, revenue: Number(r.revenue) })),
-    gigWorkRevenueByMonth: gigWorkRevenueByMonth.map((r) => ({ month: r.month, revenue: Number(r.count) * GIG_WORK_FEE })),
+    gigWorkRevenueByMonth: gigWorkRevenueByMonth.map((r) => ({ month: r.month, revenue: Math.round(Number(r.revenue) / 100) })),
     gigsByMonth: gigsByMonth.map((r) => ({ month: r.month, count: Number(r.count) })),
     registrationsByStatus: registrationsByStatus.reduce<Record<string, number>>((acc, row) => {
       acc[row.status] = row._count._all;

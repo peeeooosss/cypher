@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { PAYU_TEST_MODE, chargeablePaise, formatInr } from "@/lib/pricing";
+import { chargeablePaise, formatInr } from "@/lib/money";
 
 type PayUPurpose = "FLAT_FEE" | "COMMISSION" | "GIG_POST" | "GIG_WORK" | "GIG_CONNECTION";
 
@@ -67,11 +67,6 @@ export function PayUCheckout({
 
   return (
     <div>
-      {PAYU_TEST_MODE ? (
-        <p className="mb-sm text-body-sm text-ink-muted">
-          Test mode — you&apos;ll be charged {formatInr(1)}.
-        </p>
-      ) : null}
       <button
         type="button"
         disabled={starting || disabled}
