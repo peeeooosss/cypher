@@ -94,24 +94,98 @@ export function buildPayUHash(
   return generateHash(hashString);
 }
 
+interface PayUHashFields {
+  status?: string;
+  unmappedstatus?: string;
+  udf1?: string;
+  udf2?: string;
+  udf3?: string;
+  udf4?: string;
+  udf5?: string;
+  email?: string;
+  firstname?: string;
+  productinfo?: string;
+  amount?: string;
+  amt?: string;
+  txnid?: string;
+  key?: string;
+  hash?: string;
+}
+
+function fromCallbackOrWebhook(source: Record<string, string>): PayUHashFields {
+  return {
+    status: source.status,
+    unmappedstatus: source.unmappedstatus,
+    udf1: source.udf1,
+    udf2: source.udf2,
+    udf3: source.udf3,
+    udf4: source.udf4,
+    udf5: source.udf5,
+    email: source.email,
+    firstname: source.firstname,
+    productinfo: source.productinfo,
+    amount: source.amount,
+    amt: source.amt,
+    txnid: source.txnid,
+    key: source.key,
+    hash: source.hash,
+  };
+}
+
+function payUHashCandidates(fields: PayUHashFields, salt: string) {
+  const rawAmounts = [fields.amount, fields.amt].filter((v): v is string => Boolean(v));
+  const amounts = Array.from(new Set([...rawAmounts, ...rawAmounts.map(normalizeAmount)]));
+  const key = fields.key || PAYU_MERCHANT_KEY;
+  const email = fields.email ?? "";
+  const firstname = fields.firstname ?? "";
+  const productinfo = fields.productinfo ?? "";
+  const txnid = fields.txnid ?? "";
+  const status = fields.status ?? "";
+  const out: { label: string; hashString: string }[] = [];
+
+  for (const amount of amounts) {
+    // PayU v2 verification hash (includes unmappedstatus + reversed udf1..5)
+    out.push({
+      label: `v2[${amount}]`,
+      hashString: `${salt}|${status}|${fields.unmappedstatus ?? ""}||||||${fields.udf5 ?? ""}|${fields.udf4 ?? ""}|${fields.udf3 ?? ""}|${fields.udf2 ?? ""}|${fields.udf1 ?? ""}|${email}|${firstname}|${productinfo}|${amount}|${txnid}|${key}`,
+    });
+    // v2 without unmappedstatus
+    out.push({
+      label: `v2-noUMS[${amount}]`,
+      hashString: `${salt}|${status}||||||${fields.udf5 ?? ""}|${fields.udf4 ?? ""}|${fields.udf3 ?? ""}|${fields.udf2 ?? ""}|${fields.udf1 ?? ""}|${email}|${firstname}|${productinfo}|${amount}|${txnid}|${key}`,
+    });
+    // legacy v1 variants (10 and 11 blank pipes between status and email)
+    for (const pads of [10, 11]) {
+      out.push({
+        label: `v1(${pads})[${amount}]`,
+        hashString: `${salt}|${status}${"|".repeat(pads)}${email}|${firstname}|${productinfo}|${amount}|${txnid}|${key}`,
+      });
+    }
+  }
+  return out;
+}
+
+function buildPayUHashResult(fields: PayUHashFields, salt: string) {
+  const expected = (fields.hash ?? "").toLowerCase();
+  const candidates = payUHashCandidates(fields, salt);
+  const debug = candidates.map((c) => {
+    const calculatedHash = generateHash(c.hashString);
+    return {
+      label: c.label,
+      hashString: c.hashString,
+      calculatedHash,
+      matches: calculatedHash === expected,
+    };
+  });
+  return { matches: debug.some((d) => d.matches), debug };
+}
+
 export function verifyPayUCallbackHash(data: PayUCallbackData, salt: string): boolean {
-  return computePayUCallbackHashMatches(data, salt).matches;
+  return buildPayUHashResult(fromCallbackOrWebhook(data as unknown as Record<string, string>), salt).matches;
 }
 
 export function debugPayUCallbackHash(data: PayUCallbackData, salt: string) {
-  return computePayUCallbackHashMatches(data, salt).debug;
-}
-
-function computePayUCallbackHashMatches(data: PayUCallbackData, salt: string) {
-  const amountCandidates = Array.from(
-    new Set([data.amount, data.amt].filter(Boolean).map(normalizeAmount)),
-  );
-  const debug = amountCandidates.map((amount) => {
-    const hashString = `${salt}|${data.status}||||||||||${data.email}|${data.firstname}|${data.productinfo}|${amount}|${data.txnid}|${data.key}`;
-    const calculatedHash = generateHash(hashString);
-    return { amount, hashString, calculatedHash, matches: calculatedHash === data.hash };
-  });
-  return { matches: debug.some((d) => d.matches), debug };
+  return buildPayUHashResult(fromCallbackOrWebhook(data as unknown as Record<string, string>), salt).debug;
 }
 
 function normalizeAmount(amount: string): string {
@@ -122,13 +196,7 @@ function normalizeAmount(amount: string): string {
 }
 
 export function verifyPayUWebhookHash(data: Record<string, string>, salt: string): boolean {
-  const amountCandidates = Array.from(
-    new Set([data.amount, data.amt].filter(Boolean).map(normalizeAmount)),
-  );
-  return amountCandidates.some((amount) => {
-    const hashString = `${salt}|${data.status}||||||||||${data.email}|${data.firstname}|${data.productinfo}|${amount}|${data.txnid}|${data.key || PAYU_MERCHANT_KEY}`;
-    return generateHash(hashString) === data.hash;
-  });
+  return buildPayUHashResult(fromCallbackOrWebhook(data), salt).matches;
 }
 
 export function createPayUOrder(params: {
