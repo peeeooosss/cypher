@@ -1,6 +1,6 @@
-import { PayUCallbackData } from "@/lib/payu";
+import { NextResponse } from "next/server";
+import { PayUCallbackData, resolveCallbackUrl } from "@/lib/payu";
 import { prisma } from "@/lib/prisma";
-import { redirect } from "next/navigation";
 
 export async function POST(request: Request) {
   try {
@@ -21,10 +21,15 @@ export async function POST(request: Request) {
       });
     }
 
-    return redirect(`${process.env.NEXT_PUBLIC_APP_URL}/payment/failed?txnid=${txnid}&reason=${encodeURIComponent(error_Message || "Payment failed")}`);
+    return NextResponse.redirect(
+      resolveCallbackUrl(
+        request,
+        `/payment/failed?txnid=${encodeURIComponent(txnid ?? "")}&reason=${encodeURIComponent(error_Message || "Payment failed")}`,
+      ),
+    );
   } catch (error) {
     console.error("PayU failure callback error:", error);
-    return redirect(`${process.env.NEXT_PUBLIC_APP_URL}/payment/failed?reason=server_error`);
+    return NextResponse.redirect(resolveCallbackUrl(request, "/payment/failed?reason=server_error"));
   }
 }
 

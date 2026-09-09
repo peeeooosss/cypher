@@ -95,21 +95,40 @@ export function buildPayUHash(
 }
 
 export function verifyPayUCallbackHash(data: PayUCallbackData, salt: string): boolean {
-  const { status, txnid, amt, productinfo, firstname, email, hash, key } = data;
-  
-  const hashString = `${salt}|${status}||||||||||${email}|${firstname}|${productinfo}|${amt}|${txnid}|${key}`;
-  const calculatedHash = generateHash(hashString);
-  
-  return calculatedHash === hash;
+  return computePayUCallbackHashMatches(data, salt).matches;
+}
+
+export function debugPayUCallbackHash(data: PayUCallbackData, salt: string) {
+  return computePayUCallbackHashMatches(data, salt).debug;
+}
+
+function computePayUCallbackHashMatches(data: PayUCallbackData, salt: string) {
+  const amountCandidates = Array.from(
+    new Set([data.amount, data.amt].filter(Boolean).map(normalizeAmount)),
+  );
+  const debug = amountCandidates.map((amount) => {
+    const hashString = `${salt}|${data.status}||||||||||${data.email}|${data.firstname}|${data.productinfo}|${amount}|${data.txnid}|${data.key}`;
+    const calculatedHash = generateHash(hashString);
+    return { amount, hashString, calculatedHash, matches: calculatedHash === data.hash };
+  });
+  return { matches: debug.some((d) => d.matches), debug };
+}
+
+function normalizeAmount(amount: string): string {
+  const parsed = parseFloat(amount);
+  if (Number.isNaN(parsed)) return amount;
+  const plain = String(parsed);
+  return plain === amount ? amount : plain;
 }
 
 export function verifyPayUWebhookHash(data: Record<string, string>, salt: string): boolean {
-  const { status, txnid, amt, productinfo, firstname, email, hash } = data;
-  
-  const hashString = `${salt}|${status}||||||||||${email}|${firstname}|${productinfo}|${amt}|${txnid}|${data.key || PAYU_MERCHANT_KEY}`;
-  const calculatedHash = generateHash(hashString);
-  
-  return calculatedHash === hash;
+  const amountCandidates = Array.from(
+    new Set([data.amount, data.amt].filter(Boolean).map(normalizeAmount)),
+  );
+  return amountCandidates.some((amount) => {
+    const hashString = `${salt}|${data.status}||||||||||${data.email}|${data.firstname}|${data.productinfo}|${amount}|${data.txnid}|${data.key || PAYU_MERCHANT_KEY}`;
+    return generateHash(hashString) === data.hash;
+  });
 }
 
 export function createPayUOrder(params: {
@@ -184,4 +203,12 @@ export function formatAmountForPayU(amount: number): string {
 
 export function parsePayUAmount(amount: string): number {
   return Math.round(parseFloat(amount) * 100);
+}
+
+export function resolveCallbackUrl(request: Request, path: string): string {
+  const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "");
+  if (base) return new URL(path, /^https?:\/\//.test(base) ? base : `https://${base}`).toString();
+  const host = request.headers.get("host") ?? "localhost:3000";
+  const proto = request.headers.get("x-forwarded-proto") ?? "https";
+  return new URL(path, `${proto}://${host}`).toString();
 }

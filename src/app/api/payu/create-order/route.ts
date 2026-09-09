@@ -3,7 +3,7 @@ import { z } from "zod";
 import { badRequest, forbidden, notFound, serverError, unauthorized } from "@/lib/api";
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
-import { PAYU_BASE_URL, createPayUOrder, generateTxnId } from "@/lib/payu";
+import { PAYU_BASE_URL, PAYU_WEBHOOK_URL, createPayUOrder, generateTxnId } from "@/lib/payu";
 import { GIG_CONNECTION_FEE, GIG_FLAT_FEE, GIG_WORK_FEE, chargeablePaise, commissionFor } from "@/lib/pricing";
 
 const PURPOSE_TO_TYPE = {
@@ -146,6 +146,7 @@ export async function POST(request: Request) {
       udf3: udf3 || `event:${eventId || ""}`,
       udf4: udf4 || `gig:${gigId || ""}`,
       udf5: udf5 || `idempotency:${idempotencyKey}`,
+      curl: PAYU_WEBHOOK_URL,
     });
 
     await prisma.payment.create({

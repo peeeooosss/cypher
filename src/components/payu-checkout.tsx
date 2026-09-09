@@ -106,6 +106,7 @@ function submitPayUForm(checkoutUrl: string, fields: OrderFields) {
     "phone",
     "surl",
     "furl",
+    "curl",
     "udf1",
     "udf2",
     "udf3",
