@@ -1,18 +1,9 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { DANCE_STYLES, EXPERIENCE_OPTIONS } from "@/lib/styles";
 import { EmailVerifyForm } from "@/components/email-verify-form";
 
 type Role = "ORGANIZER" | "ARTIST";
-
-const ARTIST_PROFILE_FIELDS = [
-  { name: "crew", label: "Crew", placeholder: "e.g. Soul Mechanics (optional)", required: false },
-  { name: "city", label: "City", placeholder: "e.g. Guwahati", required: true },
-  { name: "country", label: "Country", placeholder: "e.g. India", required: true },
-  { name: "socialHandle", label: "Social handle", placeholder: "@yourname", required: true },
-  { name: "referral", label: "How did you hear about us?", placeholder: "e.g. Instagram, Friend (optional)", required: false },
-] as const;
 
 export default function SignupPage() {
   const [role, setRole] = useState<Role>("ARTIST");
@@ -55,18 +46,6 @@ export default function SignupPage() {
 
     const username = String(formData.get("username") ?? "").trim().toLowerCase();
     if (username) body.username = username;
-
-    if (role === "ARTIST") {
-      for (const field of ARTIST_PROFILE_FIELDS) {
-        const value = String(formData.get(field.name) ?? "").trim();
-        if (value) body[field.name] = value;
-      }
-
-      const style = String(formData.get("style") ?? "").trim();
-      if (style) body.style = style;
-      const experience = String(formData.get("experience") ?? "").trim();
-      if (experience) body.experience = experience;
-    }
 
     const response = await fetch("/api/auth/signup", {
       method: "POST",
@@ -124,6 +103,9 @@ export default function SignupPage() {
         </h1>
         <p className="mt-sm text-body-sm text-ink-muted">
           Create an account to host battles, enter the floor, or take the stage.
+        </p>
+        <p className="mt-xs text-body-sm text-ink-muted">
+          Artists, sign up with the basics — you&rsquo;ll build your battle profile in your dashboard after signing in.
         </p>
 
         <div className="mt-xl grid grid-cols-2 gap-sm" role="tablist" aria-label="Account type">
@@ -230,67 +212,6 @@ export default function SignupPage() {
               type="password"
             />
           </label>
-
-          {role === "ARTIST" ? (
-            <div className="border border-line bg-paper p-md">
-              <p className="font-display text-title-md uppercase">Battle profile</p>
-              <p className="mt-xs text-body-sm text-ink-muted">
-                This is shown to organizers so they know who&rsquo;s on the floor.
-              </p>
-              <div className="mt-lg grid gap-md sm:grid-cols-2">
-                <label className="block text-body-sm font-bold uppercase">
-                  Style — dance style
-                  <span className="font-normal normal-case text-ink-muted"> (optional)</span>
-                  <select
-                    autoComplete="off"
-                    className="mt-sm block w-full border border-line bg-paper px-md py-md text-body-md outline-none focus:border-accent"
-                    name="style"
-                    defaultValue=""
-                  >
-                    <option value="">Not a dancer / skip</option>
-                    {DANCE_STYLES.map((style) => (
-                      <option key={style} value={style}>
-                        {style}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="block text-body-sm font-bold uppercase">
-                  Years of experience
-                  <select
-                    required
-                    autoComplete="off"
-                    className="mt-sm block w-full border border-line bg-paper px-md py-md text-body-md outline-none focus:border-accent"
-                    name="experience"
-                    defaultValue=""
-                  >
-                    <option value="">Select years</option>
-                    {EXPERIENCE_OPTIONS.map((years) => (
-                      <option key={years} value={years}>
-                        {years === "0" ? "Under 1 year" : `${years} ${years === "1" ? "year" : "years"}`}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {ARTIST_PROFILE_FIELDS.map((field) => (
-                  <label
-                    key={field.name}
-                    className={`block text-body-sm font-bold uppercase ${field.name === "referral" ? "sm:col-span-2" : ""}`}
-                  >
-                    {field.label}
-                    {!field.required && <span className="font-normal normal-case text-ink-muted"> (optional)</span>}
-                    <input
-                      required={field.required}
-                      autoComplete="off"
-                      className="mt-sm block w-full border border-line bg-paper px-md py-md text-body-md outline-none focus:border-accent"
-                      name={field.name}
-                      placeholder={field.placeholder}
-                    />
-                  </label>
-                ))}
-              </div>
-            </div>
-          ) : null}
 
           {error ? <p className="text-body-sm text-accent">{error}</p> : null}
 
