@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 
 interface ArtistProfileHeroProps {
@@ -29,13 +28,11 @@ export function ArtistProfileHero({ artist, isOwnProfile, canHire, stats }: Arti
     <section className="relative">
       {artist.coverUrl && (
         <div className="relative h-48 md:h-72 overflow-hidden border-b border-line">
-          <Image
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             src={artist.coverUrl}
             alt=""
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover"
+            className="absolute inset-0 h-full w-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-paper via-paper/40 to-transparent" />
         </div>
@@ -47,13 +44,11 @@ export function ArtistProfileHero({ artist, isOwnProfile, canHire, stats }: Arti
             <div className="flex flex-col gap-lg lg:flex-row lg:items-end lg:gap-lg">
               <div className="shrink-0">
                 {artist.avatarUrl ? (
-                  <Image
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
                     src={artist.avatarUrl}
                     alt={`${artist.name ?? "Artist"} profile picture`}
-                    width={160}
-                    height={160}
                     className="h-32 w-32 md:h-40 md:w-40 rounded-2xl border-[3px] border-paper bg-paper-soft object-cover shadow-card"
-                    priority
                   />
                 ) : (
                   <div className="flex h-32 w-32 md:h-40 md:w-40 items-center justify-center rounded-2xl border-[3px] border-paper bg-paper-soft font-display text-5xl uppercase text-ink-muted shadow-card">
