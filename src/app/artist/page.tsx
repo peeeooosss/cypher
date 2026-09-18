@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SignOutButton } from "@/components/sign-out-button";
 import { ArtistProfileForm, type ArtistProfile } from "@/components/artist-profile-form";
+import { ArtistWorks } from "@/components/artist-works";
 import { ArtistAchievements, type Achievement } from "@/components/artist-achievements";
 import { MarketplaceComingSoon } from "@/components/marketplace-coming-soon";
 import { requireRole } from "@/lib/rbac";
@@ -102,6 +103,11 @@ export default async function ArtistPage({ searchParams }: PageProps) {
         avatarUrl: true,
         isProfilePublic: true,
         whatsappNumber: true,
+        bio: true,
+        coverUrl: true,
+        hourlyRate: true,
+        responseTime: true,
+        socialLinks: true,
       },
     }),
     prisma.artistAchievement.findMany({
@@ -200,6 +206,8 @@ export default async function ArtistPage({ searchParams }: PageProps) {
           <ArtistAchievements achievements={achievements as Achievement[]} />
         </div>
       </section>
+
+      <ArtistWorks />
 
        <MarketplaceComingSoon compact />
        <MarketplaceComingSoon variant="rates" compact />

@@ -175,6 +175,12 @@ model User {
   keywords                 String?
   referral                 String?
   skills                   Skill[]                  @default([])
+  bio                      String?                  @db.Text
+  coverUrl                 String?
+  coverFileKey             String?
+  hourlyRate               Int?
+  responseTime             String?
+  socialLinks              Json?
   organizedEvents          Event[]                  @relation("EventOrganizer")
   registrations            Registration[]
   teamMemberships          RegistrationMember[]     @relation("RegistrationMemberUser")
@@ -184,6 +190,7 @@ model User {
   agreementsAsOrganizer    GigAgreement[]           @relation("AgreementOrganizer")
   agreementsAsArtist       GigAgreement[]           @relation("AgreementArtist")
   achievements             ArtistAchievement[]
+  works                    ArtistWork[]
   gigWorkEnabledAt         DateTime?
   gigWorkExpiresAt         DateTime?
   gigWorkPaymentStatus     PaymentStatus            @default(NONE)
@@ -203,6 +210,24 @@ model User {
   judgedSlots              JudgeSlot[]              @relation("JudgeSlotsJudge")
   createdAt                DateTime                 @default(now())
   updatedAt                DateTime                 @updatedAt
+}
+
+model ArtistWork {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  description String?
+  videoUrl    String
+  thumbnailUrl String?
+  platform    String?
+  order       Int      @default(0)
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model EmailVerificationToken {

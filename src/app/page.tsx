@@ -1,113 +1,68 @@
 import Link from "next/link";
-import { EventStatus } from "@/generated/prisma/enums";
-import { EventCard } from "@/components/event-card";
+import { EventStatus, UserRole, GigStatus, RegistrationStatus } from "@/generated/prisma/enums";
 import { ArtistSlider } from "@/components/artist-slider";
-import { LiveLeaderboard } from "@/components/live-leaderboard";
+import { HomeEvents } from "@/components/home-events";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
+
+const EVENT_SELECT = {
+  id: true,
+  title: true,
+  slug: true,
+  venue: true,
+  city: true,
+  state: true,
+  startsAt: true,
+  status: true,
+  eventType: true,
+  posterUrl: true,
+  googleMapsUrl: true,
+  categories: { select: { id: true, name: true }, orderBy: { name: "asc" }, take: 4 },
+  scheduleItems: {
+    where: { isPublished: true },
+    select: { id: true, title: true, startTime: true },
+    orderBy: { displayOrder: "asc" },
+    take: 3,
+  },
+  notices: {
+    where: { isArchived: false },
+    select: { id: true, title: true, publishedAt: true },
+    orderBy: { publishedAt: "desc" },
+    take: 2,
+  },
+  _count: { select: { categories: true, scheduleItems: true, notices: true } },
+} as const;
 
 export default async function Home() {
   const where = {
     status: { in: [EventStatus.PUBLISHED, EventStatus.LIVE, EventStatus.COMPLETED] },
   };
 
-  const [liveEvents, upcomingEvents, closedEvents] = await Promise.all([
+  const [liveEvents, upcomingEvents, closedEvents, stats] = await Promise.all([
     prisma.event.findMany({
       where: { ...where, status: EventStatus.LIVE },
-      select: {
-        id: true,
-        title: true,
-        slug: true,
-        venue: true,
-        city: true,
-        state: true,
-        startsAt: true,
-        status: true,
-        eventType: true,
-        posterUrl: true,
-        googleMapsUrl: true,
-        categories: { select: { id: true, name: true }, orderBy: { name: "asc" }, take: 4 },
-        scheduleItems: {
-          where: { isPublished: true },
-          select: { id: true, title: true, startTime: true },
-          orderBy: { displayOrder: "asc" },
-          take: 3,
-        },
-        notices: {
-          where: { isArchived: false },
-          select: { id: true, title: true, publishedAt: true },
-          orderBy: { publishedAt: "desc" },
-          take: 2,
-        },
-        _count: { select: { categories: true, scheduleItems: true, notices: true } },
-      },
+      select: EVENT_SELECT,
       orderBy: { startsAt: "asc" },
     }),
     prisma.event.findMany({
       where: { ...where, status: EventStatus.PUBLISHED },
-      select: {
-        id: true,
-        title: true,
-        slug: true,
-        venue: true,
-        city: true,
-        state: true,
-        startsAt: true,
-        status: true,
-        eventType: true,
-        posterUrl: true,
-        googleMapsUrl: true,
-        categories: { select: { id: true, name: true }, orderBy: { name: "asc" }, take: 4 },
-        scheduleItems: {
-          where: { isPublished: true },
-          select: { id: true, title: true, startTime: true },
-          orderBy: { displayOrder: "asc" },
-          take: 3,
-        },
-        notices: {
-          where: { isArchived: false },
-          select: { id: true, title: true, publishedAt: true },
-          orderBy: { publishedAt: "desc" },
-          take: 2,
-        },
-        _count: { select: { categories: true, scheduleItems: true, notices: true } },
-      },
+      select: EVENT_SELECT,
       orderBy: { startsAt: "asc" },
       take: 6,
     }),
     prisma.event.findMany({
       where: { ...where, status: EventStatus.COMPLETED },
-      select: {
-        id: true,
-        title: true,
-        slug: true,
-        venue: true,
-        city: true,
-        state: true,
-        startsAt: true,
-        status: true,
-        eventType: true,
-posterUrl: true,
-        googleMapsUrl: true,
-        categories: { select: { id: true, name: true }, orderBy: { name: "asc" }, take: 4 },
-        scheduleItems: {
-          where: { isPublished: true },
-          select: { id: true, title: true, startTime: true },
-          orderBy: { displayOrder: "asc" },
-          take: 3,
-        },
-        notices: {
-          where: { isArchived: false },
-          select: { id: true, title: true, publishedAt: true },
-          orderBy: { publishedAt: "desc" },
-          take: 2,
-        },
-        _count: { select: { categories: true, scheduleItems: true, notices: true } },
-      },
+      select: EVENT_SELECT,
       orderBy: { startsAt: "desc" },
       take: 4,
     }),
+    Promise.all([
+      prisma.user.count({ where: { role: UserRole.ARTIST, isSuspended: false } }),
+      prisma.event.count({ where }),
+      prisma.registration.count({ where: { status: { in: [RegistrationStatus.CONFIRMED, RegistrationStatus.PENDING] } } }),
+      prisma.gig.count({ where: { status: GigStatus.OPEN } }),
+    ]).then(([artists, events, registrations, gigs]) => ({ artists, events, registrations, gigs })),
   ]);
 
   return (
@@ -134,10 +89,10 @@ posterUrl: true,
                 Browse events
               </Link>
               <Link
-                href="/login"
-                className="border border-line px-lg py-sm text-button-md font-bold uppercase text-ink transition-colors hover:border-accent"
+                href="/artist/directory"
+                className="border border-accent/40 px-lg py-sm text-button-md font-bold uppercase text-ink transition-colors hover:border-accent hover:text-accent"
               >
-                Sign in
+                Meet the artists
               </Link>
             </div>
           </div>
@@ -158,12 +113,49 @@ posterUrl: true,
                   <span className="text-accent">03 — </span>Get hired & grow
                 </li>
               </ul>
+
+              <div className="mt-lg grid grid-cols-2 gap-md">
+                <div>
+                  <p className="font-display text-title-md text-accent">
+                    {stats.artists > 0 ? `${stats.artists}+` : "—"}
+                  </p>
+                  <p className="mt-xs font-mono text-[0.6rem] uppercase tracking-[0.1em] text-ink-muted">Artists</p>
+                </div>
+                <div>
+                  <p className="font-display text-title-md text-accent">
+                    {stats.registrations > 0 ? `${stats.registrations}+` : "—"}
+                  </p>
+                  <p className="mt-xs font-mono text-[0.6rem] uppercase tracking-[0.1em] text-ink-muted">Registrations</p>
+                </div>
+              </div>
             </div>
           </aside>
         </div>
       </section>
 
-{/* For organizers / For artists / For opportunities */}
+      {/* Social proof strip */}
+      <section className="border-b border-line bg-paper-soft">
+        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-md px-md py-lg md:grid-cols-4 md:px-xl">
+          <div className="flex items-baseline justify-center gap-sm">
+            <span className="font-display text-display-lg text-accent">{stats.events > 0 ? stats.events : "—"}</span>
+            <span className="font-mono text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">Events hosted</span>
+          </div>
+          <div className="flex items-baseline justify-center gap-sm">
+            <span className="font-display text-display-lg text-accent">{stats.artists > 0 ? stats.artists : "—"}</span>
+            <span className="font-mono text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">Artists onboard</span>
+          </div>
+          <div className="flex items-baseline justify-center gap-sm">
+            <span className="font-display text-display-lg text-accent">{stats.registrations > 0 ? stats.registrations : "—"}</span>
+            <span className="font-mono text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">Sign-ups</span>
+          </div>
+          <div className="flex items-baseline justify-center gap-sm">
+            <span className="font-display text-display-lg text-accent">{stats.gigs > 0 ? stats.gigs : "—"}</span>
+            <span className="font-mono text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">Open gigs</span>
+          </div>
+        </div>
+      </section>
+
+      {/* For organizers / For artists / For opportunities */}
       <section className="border-b border-line">
         <div className="mx-auto max-w-7xl px-md py-section md:px-xl">
           <p className="font-mono text-center text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted md:text-left">
@@ -277,62 +269,80 @@ posterUrl: true,
 
       {/* Artist slider */}
       <ArtistSlider />
-      {/* Live now */}
-      {liveEvents.length > 0 && (
-        <section className="mx-auto max-w-7xl px-md py-lg md:px-xl">
-          <div className="flex items-center gap-md border-b border-line pb-sm">
-            <span className="h-sm w-sm bg-accent" />
-            <h2 className="font-display text-title-md uppercase tracking-[-0.04em] text-accent">Live now</h2>
-          </div>
-          <div className="mt-md grid gap-md sm:grid-cols-2 lg:grid-cols-3">
-            {liveEvents.map((event) => (
-              <EventCard key={event.id} event={event} />
-            ))}
-          </div>
-          {liveEvents.map((event) => (
-            <div className="mt-lg" key={`${event.id}-board`}>
-              <LiveLeaderboard eventId={event.id} title={`${event.title} — Standings`} compact />
-            </div>
-          ))}
-        </section>
-      )}
 
-      {/* Upcoming */}
-      <section className="mx-auto max-w-7xl px-md py-lg md:px-xl">
-        <div className="flex items-center justify-between border-b border-line pb-sm">
-          <h2 className="font-display text-title-md uppercase tracking-[-0.04em]">Upcoming</h2>
-          <Link href="/events?status=PUBLISHED" className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted hover:text-accent">
-            View all
-          </Link>
-        </div>
-        {upcomingEvents.length === 0 ? (
-          <p className="mt-md border border-line p-lg text-body-sm text-ink-muted">No upcoming events scheduled yet.</p>
-        ) : (
-          <div className="mt-md grid gap-md sm:grid-cols-2 lg:grid-cols-3">
-            {upcomingEvents.map((event) => (
-              <EventCard key={event.id} event={event} />
+      {/* Events tabs */}
+      <HomeEvents liveEvents={liveEvents} upcomingEvents={upcomingEvents} closedEvents={closedEvents} />
+
+      {/* Testimonials */}
+      <section className="border-t border-line bg-paper-soft">
+        <div className="mx-auto max-w-7xl px-md py-section md:px-xl">
+          <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-accent">
+            From the community
+          </p>
+          <h2 className="mt-md font-display text-display-lg uppercase">
+            Built with the scene, for the scene
+          </h2>
+          <div className="mt-lg grid gap-md md:grid-cols-3">
+            {[
+              {
+                quote:
+                  "CYPHR turned our multi-day event into something we could actually run. Registrations, schedules, live scoring — all in one place.",
+                name: "Event organizer",
+                role: "Multi-category battle series",
+              },
+              {
+                quote:
+                  "As an artist, having a professional profile with my battle record and achievements makes a huge difference when organizers reach out.",
+                name: "Battle artist",
+                role: "Breaking & all-style",
+              },
+              {
+                quote:
+                  "Judging went from clipboard chaos to clean, live scoring. Every match, every round, exactly on time.",
+                name: "Judge",
+                role: "Panel lead",
+              },
+            ].map((t) => (
+              <figure key={t.name} className="flex h-full flex-col justify-between border border-line bg-paper p-lg">
+                <blockquote className="text-body-sm leading-relaxed text-ink">“{t.quote}”</blockquote>
+                <figcaption className="mt-lg">
+                  <p className="font-display text-title-sm uppercase">{t.name}</p>
+                  <p className="mt-xs font-mono text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">{t.role}</p>
+                </figcaption>
+              </figure>
             ))}
           </div>
-        )}
+        </div>
       </section>
 
-      {/* Completed */}
-      <section className="mx-auto max-w-7xl px-md py-lg md:px-xl">
-        <div className="flex items-center justify-between border-b border-line pb-sm">
-          <h2 className="font-display text-title-md uppercase tracking-[-0.04em] text-ink-muted">Past events</h2>
-          <Link href="/events?status=COMPLETED" className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted hover:text-accent">
-            View all
+      {/* Footer CTA */}
+      <section className="border-t border-line">
+        <div className="mx-auto grid max-w-7xl gap-md px-md py-section md:grid-cols-2 md:px-xl">
+          <Link
+            href="/signup"
+            className="group border border-accent bg-accent p-xl transition-opacity hover:opacity-90"
+          >
+            <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-paper/80">For artists</p>
+            <h2 className="mt-md font-display text-display-lg uppercase text-paper">
+              Claim your profile. Put your work on stage.
+            </h2>
+            <p className="mt-sm font-mono text-[0.7rem] uppercase tracking-[0.15em] text-paper/80 transition-colors group-hover:text-paper">
+              Join CYPHR →
+            </p>
+          </Link>
+          <Link
+            href="/for-organizers"
+            className="group border border-line bg-paper-soft p-xl transition-colors hover:border-accent"
+          >
+            <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-accent">For organizers</p>
+            <h2 className="mt-md font-display text-display-lg uppercase">
+              Ready to run your next event the right way?
+            </h2>
+            <p className="mt-sm font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted transition-colors group-hover:text-accent">
+              See how it works →
+            </p>
           </Link>
         </div>
-        {closedEvents.length === 0 ? (
-          <p className="mt-md border border-line p-lg text-body-sm text-ink-muted">No completed events yet.</p>
-        ) : (
-          <div className="mt-md grid gap-md sm:grid-cols-2 lg:grid-cols-4">
-            {closedEvents.map((event) => (
-              <EventCard key={event.id} event={event} />
-            ))}
-          </div>
-        )}
       </section>
     </main>
   );

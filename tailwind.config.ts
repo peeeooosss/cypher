@@ -5,13 +5,14 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        paper: "#0A0A0A",
-        ink: "#F2F2F2",
-        accent: "#FF2B2B",
-        "ink-muted": "#8C8C8C",
-        line: "#2A2A2A",
-        "paper-soft": "#141414",
-        "accent-dark": "#B51F1F",
+        paper: "var(--paper)",
+        "paper-soft": "var(--paper-soft)",
+        ink: "var(--ink)",
+        "ink-muted": "var(--ink-muted)",
+        line: "var(--line)",
+        accent: "var(--accent)",
+        "accent-dark": "var(--accent-dark)",
+        "accent-light": "var(--accent-light)",
       },
       fontFamily: {
         sans: ["Arial", "Helvetica Neue", "Helvetica", "sans-serif"],
@@ -37,13 +38,24 @@ const config: Config = {
       },
       borderRadius: {
         none: "0px",
-        sm: "0px",
-        md: "0px",
-        lg: "0px",
-        full: "0px",
+        sm: "var(--radius-sm)",
+        md: "var(--radius-md)",
+        lg: "var(--radius-lg)",
+        xl: "var(--radius-xl)",
+        full: "9999px",
       },
       boxShadow: {
         accent: "0 0 0 1px rgba(255, 43, 43, 0.28)",
+        "accent-soft": "0 4px 24px rgba(255, 43, 43, 0.15)",
+        card: "0 2px 12px rgba(0, 0, 0, 0.3)",
+        "card-hover": "0 8px 32px rgba(0, 0, 0, 0.4)",
+      },
+      transitionDuration: {
+        "200": "200ms",
+        "300": "300ms",
+      },
+      transitionTimingFunction: {
+        "ease-out": "ease-out",
       },
     },
   },

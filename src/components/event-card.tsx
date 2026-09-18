@@ -7,7 +7,7 @@ import { EVENT_TYPE_LABELS, formatLabel, isWorkshopType } from "@/lib/event-type
 type ScheduleItemSummary = { id: string; title: string; startTime: Date };
 type NoticeSummary = { id: string; title: string; publishedAt: Date };
 
-type EventCardData = {
+export type EventCardData = {
   id: string;
   title: string;
   slug: string;
@@ -46,9 +46,9 @@ export function EventCard({ event }: { event: EventCardData }) {
     <div className="group flex flex-col border border-line bg-paper-soft transition-colors hover:border-accent">
       <Link href={`/events/${event.slug}`} className="block flex-1">
         {event.posterUrl ? (
-          <div className="relative aspect-[4/3] overflow-hidden border-b border-line">
+          <div className="relative aspect-[4/3] overflow-hidden bg-line/20 border-b border-line">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={event.posterUrl} alt={`${event.title} poster`} className="h-full w-full object-cover" />
+            <img src={event.posterUrl} alt={`${event.title} poster`} className="h-full w-full object-contain" />
           </div>
         ) : null}
         <div className="flex items-center gap-sm border-b border-line px-md py-xs">

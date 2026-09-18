@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { useState } from "react";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -74,6 +75,8 @@ export function Nav() {
             </Link>
           ))}
 
+          <ThemeToggle />
+
           {status === "authenticated" ? (
             <div className="flex items-center gap-sm">
               {session?.user?.avatarUrl ? (
@@ -142,6 +145,9 @@ export function Nav() {
                 {link.label}
               </Link>
             ))}
+            <div className="pt-md border-t border-line flex justify-center">
+              <ThemeToggle />
+            </div>
             {status === "authenticated" ? (
               <button
                 type="button"

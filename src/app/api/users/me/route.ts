@@ -14,6 +14,13 @@ const nullableString = (max: number) =>
     .optional()
     .transform((value) => (value === "" ? null : value));
 
+const socialLinksSchema = z.object({
+  instagram: z.string().url().nullable().optional(),
+  youtube: z.string().url().nullable().optional(),
+  soundcloud: z.string().url().nullable().optional(),
+  twitter: z.string().url().nullable().optional(),
+}).optional();
+
 const updateMeSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
   upiId: nullableString(120),
@@ -30,6 +37,10 @@ const updateMeSchema = z.object({
   minJudgingPricePerDay: z.number().int().min(0).max(1000000).nullable().optional(),
   minWorkshopPricePerDay: z.number().int().min(0).max(1000000).nullable().optional(),
   isProfilePublic: z.boolean().optional(),
+  bio: nullableString(5000),
+  hourlyRate: z.number().int().min(0).max(1000000).nullable().optional(),
+  responseTime: nullableString(100),
+  socialLinks: socialLinksSchema,
 });
 
 export async function PATCH(request: Request) {
@@ -68,6 +79,11 @@ export async function PATCH(request: Request) {
         minWorkshopPricePerDay: true,
         avatarUrl: true,
         isProfilePublic: true,
+        bio: true,
+        coverUrl: true,
+        hourlyRate: true,
+        responseTime: true,
+        socialLinks: true,
       },
     });
 

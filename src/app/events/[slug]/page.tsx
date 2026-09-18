@@ -110,9 +110,9 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
           </div>
           <h1 className="mt-lg max-w-4xl font-display text-display-xl uppercase">{event.title}</h1>
           {event.posterUrl ? (
-            <div className="mt-lg max-w-3xl">
+            <div className="mt-lg max-w-3xl border border-line bg-line/20">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={event.posterUrl} alt={`${event.title} poster`} className="w-full border border-line" />
+              <img src={event.posterUrl} alt={`${event.title} poster`} className="w-full" />
             </div>
           ) : null}
           {event.organizer.studioLogoUrl ? (

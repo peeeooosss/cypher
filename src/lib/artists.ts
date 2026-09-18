@@ -74,6 +74,13 @@ export async function getArtistProfile(userId: string, viewerRole?: UserRole | n
       name: true,
       username: true,
       avatarUrl: true,
+      coverUrl: true,
+      bio: true,
+      socialLinks: true,
+      hourlyRate: true,
+      responseTime: true,
+      isProfilePublic: true,
+      createdAt: true,
       style: true,
       crew: true,
       city: true,
@@ -82,6 +89,10 @@ export async function getArtistProfile(userId: string, viewerRole?: UserRole | n
       socialHandle: true,
       keywords: true,
       skills: true,
+      works: {
+        where: { isPublished: privileged ? undefined : true },
+        orderBy: [{ isPublished: "desc" }, { order: "asc" }],
+      },
       achievements: { orderBy: [{ year: "desc" }, { createdAt: "desc" }] },
       registrations: {
         include: {
