@@ -11,11 +11,11 @@ export const organizerGuideTabs: GuideTab[] = [
       },
       {
         title: "Choose Organizer",
-        text: "Select the Organizer tab on the account-type selector so the name field becomes your organization name.",
+        text: "Select the Organizer tab on the account-type selector.",
       },
       {
         title: "Enter your details",
-        text: "Fill in Organization name, username, your mobile number, and a password (8+ characters), then confirm the password.",
+        text: "Fill in your username, mobile number, and a password (8+ characters), then confirm the password.",
       },
       {
         title: "Create your account",
@@ -248,7 +248,7 @@ export const artistGuideTabs: GuideTab[] = [
       },
       {
         title: "Enter your details",
-        text: "Fill in your stage name, username, mobile number, and a password (8+ characters), then confirm the password.",
+        text: "Fill in your username, mobile number, and a password (8+ characters), then confirm the password.",
       },
       {
         title: "Create your account",
