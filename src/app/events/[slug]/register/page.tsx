@@ -1,13 +1,12 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
+import { ArtistIdentityBox } from "@/components/artist-identity-box";
 import { RegistrationForm } from "@/components/registration-form";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/rbac";
 import { EventStatus } from "@/generated/prisma/enums";
 
 export const dynamic = "force-dynamic";
-
-const REQUIRED_PROFILE_FIELDS = ["style", "city", "country", "experience", "socialHandle"] as const;
 
 type RegisterPageContext = { params: Promise<{ slug: string }> };
 
@@ -55,11 +54,7 @@ export default async function RegisterPage({ params }: RegisterPageContext) {
       select: {
         name: true,
         username: true,
-        style: true,
-        city: true,
-        country: true,
-        experience: true,
-        socialHandle: true,
+        phone: true,
       },
     }),
   ]);
@@ -75,9 +70,8 @@ export default async function RegisterPage({ params }: RegisterPageContext) {
     }
   }
 
-  const profileComplete = REQUIRED_PROFILE_FIELDS.every((field) =>
-    Boolean(profileUser?.[field]),
-  );
+  const needsName = !profileUser?.name;
+  const needsPhone = !profileUser?.phone;
 
   return (
     <main className="min-h-screen bg-paper">
@@ -171,22 +165,8 @@ export default async function RegisterPage({ params }: RegisterPageContext) {
               Registrations are not open for this event right now.
             </p>
           </div>
-        ) : !profileComplete ? (
-          <div className="mt-section border border-line p-lg">
-            <p className="font-display text-title-md uppercase text-accent">
-              Complete your battle profile
-            </p>
-            <p className="mt-sm text-body-sm text-ink-muted">
-              Add your style, city, country, experience and social handle before you register.
-              Organizers see these details on your entry.
-            </p>
-            <Link
-              href="/artist"
-              className="mt-lg inline-block border border-accent bg-accent px-md py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper hover:opacity-80"
-            >
-              Update profile
-            </Link>
-          </div>
+        ) : needsName || needsPhone ? (
+          <ArtistIdentityBox needsName={needsName} needsPhone={needsPhone} />
         ) : (
           <RegistrationForm
             eventId={event.id}

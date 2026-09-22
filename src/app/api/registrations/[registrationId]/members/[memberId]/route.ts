@@ -43,8 +43,8 @@ export async function PATCH(request: Request, { params }: Context) {
     }
     if (parsed.data.status === RegistrationMemberStatus.ACCEPTED && !isMember && !isOrganizer) return forbidden();
     if (parsed.data.status === RegistrationMemberStatus.DECLINED && !isMember) return forbidden();
-    if (parsed.data.status === RegistrationMemberStatus.ACCEPTED && [member.user.style, member.user.city, member.user.country, member.user.experience, member.user.socialHandle].some((value) => !value)) {
-      return badRequest("Complete your artist profile before joining a team");
+    if (parsed.data.status === RegistrationMemberStatus.ACCEPTED && (!member.user.name || !member.user.phone)) {
+      return badRequest("Add your artist name and phone number before joining a team");
     }
     if (member.registration.paid || member.registration.rosterLockedAt || member.registration.status !== RegistrationStatus.PENDING) {
       return conflict("This roster is locked");

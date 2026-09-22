@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { Skill } from "@/generated/prisma/enums";
-import { badRequest, serverError, unauthorized } from "@/lib/api";
+import { badRequest, conflict, isUniqueConstraintError, serverError, unauthorized } from "@/lib/api";
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
+import { normalizePhone } from "@/lib/phone";
 
 const nullableString = (max: number) =>
   z
@@ -23,6 +24,7 @@ const socialLinksSchema = z.object({
 
 const updateMeSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
+  phone: z.string().optional(),
   upiId: nullableString(120),
   whatsappNumber: nullableString(20),
   style: nullableString(80),
@@ -57,12 +59,22 @@ export async function PATCH(request: Request) {
       return badRequest(parsed.error.issues[0]?.message ?? "Invalid data");
     }
 
+    const data = { ...parsed.data };
+    if (data.phone !== undefined) {
+      const normalized = normalizePhone(data.phone);
+      if (!normalized) {
+        return badRequest("Enter a valid 10-digit mobile number.");
+      }
+      data.phone = normalized;
+    }
+
     const updated = await prisma.user.update({
       where: { id: user.id },
-      data: parsed.data,
+      data,
       select: {
         id: true,
         name: true,
+        phone: true,
         email: true,
         upiId: true,
         whatsappNumber: true,
@@ -89,6 +101,9 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json(updated);
   } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      return conflict("That phone number is already in use");
+    }
     console.error(error);
     return serverError();
   }

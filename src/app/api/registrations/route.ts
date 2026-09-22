@@ -69,7 +69,7 @@ export async function POST(request: Request) {
       }),
       prisma.user.findUnique({
         where: { id: user.id },
-        select: { isSuspended: true, name: true, style: true, crew: true, city: true, country: true, experience: true, socialHandle: true, referral: true },
+        select: { isSuspended: true, name: true, phone: true, style: true, crew: true, city: true, country: true, experience: true, socialHandle: true, referral: true },
       }),
       prisma.user.findMany({
         where: { id: { in: requestedMemberIds }, role: "ARTIST", isSuspended: false },
@@ -79,8 +79,8 @@ export async function POST(request: Request) {
 
     if (!profile) return unauthorized();
     if (profile.isSuspended) return forbidden();
-    if (!profile.style || !profile.city || !profile.country || !profile.experience || !profile.socialHandle) {
-      return badRequest("Complete your artist profile before registering");
+    if (!profile.name || !profile.phone) {
+      return badRequest("Add your artist name and phone number before registering");
     }
     if (categories.length !== categoryIds.length) return notFound("Category");
     if (members.length !== requestedMemberIds.length) return badRequest("Every team member must be an active artist account");
