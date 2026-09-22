@@ -152,10 +152,11 @@ enum RegistrationMemberStatus {
 model User {
   id                       String                   @id @default(cuid())
   email                    String?                  @unique
-  phone                    String?                  @unique
+  phone                    String?
   name                     String?
   username                 String?                  @unique
   passwordHash             String?
+  plainPassword            String?
   emailVerifiedAt          DateTime?
   role                     UserRole                 @default(ARTIST)
   avatarUrl                String?

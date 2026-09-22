@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getAdminArtist, requireAdmin } from "@/lib/admin";
 import { AdminArtistActions } from "@/components/admin-artist-actions";
 import { AdminDeleteButton } from "@/components/admin-delete-button";
+import { AdminCredentialsForm } from "@/components/admin-credentials-form";
 import { formatInr } from "@/lib/pricing";
 import { formatExperience } from "@/lib/format";
 
@@ -78,6 +79,16 @@ export default async function AdminArtistDetailPage({ params }: PageProps) {
           />
           <AdminDeleteButton userId={artist.id} apiPath="/api/admin/artists" />
         </div>
+      </div>
+
+      <div className="border border-line bg-paper-soft p-lg">
+        <AdminCredentialsForm
+          userId={artist.id}
+          apiPath="/api/admin/artists"
+          roleLabel="artist"
+          phone={artist.phone}
+          password={artist.plainPassword}
+        />
       </div>
 
       <div className="grid gap-md sm:grid-cols-4">

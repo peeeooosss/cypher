@@ -16,6 +16,11 @@ const signupSchema = z.object({
     role: z.enum([UserRole.ORGANIZER, UserRole.ARTIST]),
   });
 
+const ROLE_LABEL: Record<string, string> = {
+  ORGANIZER: "Organizer",
+  ARTIST: "Artist",
+};
+
 export async function POST(request: Request) {
   const parsed = signupSchema.safeParse(await request.json().catch(() => null));
 
@@ -31,6 +36,19 @@ export async function POST(request: Request) {
   }
 
   try {
+    const existing = await prisma.user.findMany({
+      where: { phone: normalizedPhone },
+      select: { role: true },
+    });
+
+    if (existing.some((user) => user.role === role)) {
+      return conflict(`That phone number is already registered as an ${ROLE_LABEL[role]}`);
+    }
+
+    if (existing.length >= 2) {
+      return conflict("This phone number is already linked to two profiles");
+    }
+
     const user = await prisma.user.create({
       data: {
         phone: normalizedPhone,
@@ -38,6 +56,7 @@ export async function POST(request: Request) {
         name: username,
         username,
         passwordHash: await hash(password, 12),
+        plainPassword: password,
         role,
       },
       select: { id: true, phone: true, name: true, role: true },
@@ -46,7 +65,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ...user }, { status: 201 });
   } catch (error) {
     if (isUniqueConstraintError(error)) {
-      return conflict("That phone number or username is already in use");
+      return conflict("That username is already in use");
     }
 
     console.error(error);

@@ -4,6 +4,7 @@ import { getAdminOrganizer, requireAdmin } from "@/lib/admin";
 import { formatInr } from "@/lib/pricing";
 import { AdminSuspendButton } from "@/components/admin-suspend-button";
 import { AdminDeleteButton } from "@/components/admin-delete-button";
+import { AdminCredentialsForm } from "@/components/admin-credentials-form";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,16 @@ export default async function AdminOrganizerDetailPage({ params }: PageProps) {
           <AdminSuspendButton userId={organizer.id} isSuspended={organizer.isSuspended} />
           <AdminDeleteButton userId={organizer.id} apiPath="/api/admin/organizers" />
         </div>
+      </div>
+
+      <div className="border border-line bg-paper-soft p-lg">
+        <AdminCredentialsForm
+          userId={organizer.id}
+          apiPath="/api/admin/organizers"
+          roleLabel="organizer"
+          phone={organizer.phone}
+          password={organizer.plainPassword}
+        />
       </div>
 
       <div>

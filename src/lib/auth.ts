@@ -8,6 +8,7 @@ import { normalizePhone } from "@/lib/phone";
 const credentialsSchema = z.object({
   identifier: z.string().trim().min(10),
   password: z.string().min(8),
+  profileId: z.string().optional(),
 });
 
 export const authOptions: NextAuthOptions = {
@@ -31,29 +32,51 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        const { identifier, password } = parsed.data;
+        const { identifier, password, profileId } = parsed.data;
 
         const phone = normalizePhone(identifier);
-        let user = phone
-          ? await prisma.user.findUnique({ where: { phone } })
-          : null;
+        let candidates = phone
+          ? await prisma.user.findMany({
+              where: { phone },
+              select: { id: true, email: true, phone: true, name: true, role: true, avatarUrl: true, passwordHash: true },
+            })
+          : [];
 
         // Legacy fallback: pre-phone accounts that still sign in with email.
-        if (!user && identifier.includes("@")) {
-          user = await prisma.user.findUnique({
+        if (candidates.length === 0 && identifier.includes("@")) {
+          const emailUser = await prisma.user.findUnique({
             where: { email: identifier.toLowerCase() },
+            select: { id: true, email: true, phone: true, name: true, role: true, avatarUrl: true, passwordHash: true },
           });
+          if (emailUser) candidates = [emailUser];
         }
 
-        if (!user?.passwordHash) {
+        if (candidates.length === 0) {
           return null;
         }
 
-        const passwordMatches = await compare(password, user.passwordHash);
+        let matched: typeof candidates;
+        if (profileId) {
+          const target = candidates.find((candidate) => candidate.id === profileId);
+          if (!target?.passwordHash) {
+            return null;
+          }
+          matched = (await compare(password, target.passwordHash)) ? [target] : [];
+        } else {
+          const selected: typeof candidates = [];
+          for (const candidate of candidates) {
+            if (candidate.passwordHash && (await compare(password, candidate.passwordHash))) {
+              selected.push(candidate);
+            }
+          }
+          matched = selected;
+        }
 
-        if (!passwordMatches) {
+        if (matched.length !== 1) {
           return null;
         }
+
+        const user = matched[0];
 
         return {
           id: user.id,

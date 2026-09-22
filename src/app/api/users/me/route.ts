@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { Skill } from "@/generated/prisma/enums";
-import { badRequest, conflict, isUniqueConstraintError, serverError, unauthorized } from "@/lib/api";
+import { badRequest, conflict, serverError, unauthorized } from "@/lib/api";
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { normalizePhone } from "@/lib/phone";
@@ -65,6 +65,12 @@ export async function PATCH(request: Request) {
       if (!normalized) {
         return badRequest("Enter a valid 10-digit mobile number.");
       }
+      const sameRole = await prisma.user.count({
+        where: { phone: normalized, role: user.role, NOT: { id: user.id } },
+      });
+      if (sameRole > 0) {
+        return conflict(`That phone number is already used by another ${user.role === "ARTIST" ? "Artist" : "Organizer"}`);
+      }
       data.phone = normalized;
     }
 
@@ -101,9 +107,6 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json(updated);
   } catch (error) {
-    if (isUniqueConstraintError(error)) {
-      return conflict("That phone number is already in use");
-    }
     console.error(error);
     return serverError();
   }
