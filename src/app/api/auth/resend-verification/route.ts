@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     select: { id: true, email: true, emailVerifiedAt: true },
   });
 
-  if (!user || user.emailVerifiedAt) return NextResponse.json(genericResponse);
+  if (!user || user.emailVerifiedAt || !user.email) return NextResponse.json(genericResponse);
 
   const recentToken = await prisma.emailVerificationToken.findFirst({
     where: {

@@ -2,9 +2,9 @@ import { expect, test, type Page } from "@playwright/test";
 
 const password = process.env.E2E_PASSWORD ?? "";
 
-async function signIn(page: Page, email: string) {
+async function signIn(page: Page, phone: string) {
   await page.goto("/login");
-  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Phone number").fill(phone);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
 }
@@ -24,7 +24,7 @@ test.describe("CallOut core flow", () => {
 
   test("organizer can create an event and category", async ({ page }) => {
     test.skip(!password, "Set E2E_PASSWORD to run authenticated tests");
-    await signIn(page, "organizer@callout.local");
+    await signIn(page, "9810000001");
     await page.goto("/organizer");
 
     const suffix = Date.now().toString();
@@ -43,7 +43,7 @@ test.describe("CallOut core flow", () => {
 
   test("artist can access the artist space but not organizer routes", async ({ page }) => {
     test.skip(!password, "Set E2E_PASSWORD to run authenticated tests");
-    await signIn(page, "artist@callout.local");
+    await signIn(page, "9810000010");
     await page.goto("/artist");
     await expect(page.getByRole("heading", { name: "Find your next battle." })).toBeVisible();
 

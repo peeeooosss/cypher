@@ -46,7 +46,7 @@ export default async function AdminArtistsPage() {
                         </Link>
                       </div>
                     </td>
-                    <td className="px-md py-sm">{artist.email}</td>
+                    <td className="px-md py-sm">{artist.email ?? artist.phone ?? "—"}</td>
                     <td className="px-md py-sm">
                       {artist.isProfilePublic ? (
                         <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Public</span>

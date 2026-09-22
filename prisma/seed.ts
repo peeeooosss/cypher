@@ -52,8 +52,23 @@ console.log("Database wiped.");
 // ============================================================
 await prisma.user.upsert({
   where: { email: "admin@joincyphr.in" },
-  update: { name: "CYPHR Admin", role: UserRole.ADMIN, passwordHash, emailVerifiedAt: now },
-  create: { email: "admin@joincyphr.in", name: "CYPHR Admin", role: UserRole.ADMIN, passwordHash, emailVerifiedAt: now },
+  update: {
+    name: "CYPHR Admin",
+    role: UserRole.ADMIN,
+    passwordHash,
+    emailVerifiedAt: now,
+    phone: "+919810000000",
+    whatsappNumber: "+919810000000",
+  },
+  create: {
+    email: "admin@joincyphr.in",
+    name: "CYPHR Admin",
+    role: UserRole.ADMIN,
+    passwordHash,
+    emailVerifiedAt: now,
+    phone: "+919810000000",
+    whatsappNumber: "+919810000000",
+  },
 });
 
 // ============================================================
@@ -66,6 +81,8 @@ const organizer1 = await prisma.user.create({
     role: UserRole.ORGANIZER,
     passwordHash,
     emailVerifiedAt: now,
+    phone: "+919810000001",
+    whatsappNumber: "+919810000001",
     upiId: "mumbaicypher@upi",
   },
 });
@@ -77,6 +94,8 @@ const organizer2 = await prisma.user.create({
     role: UserRole.ORGANIZER,
     passwordHash,
     emailVerifiedAt: now,
+    phone: "+919810000002",
+    whatsappNumber: "+919810000002",
     upiId: "negroove@upi",
   },
 });
@@ -121,6 +140,8 @@ for (const [idx, def] of artistDefs.entries()) {
   const user = await prisma.user.create({
     data: {
       email: idx === 0 ? "artist@joincyphr.in" : `${def.username}@artists.joincyphr.in`,
+      phone: `+919810${String(10 + idx).padStart(6, "0")}`,
+      whatsappNumber: `+919810${String(10 + idx).padStart(6, "0")}`,
       name: def.name,
       username: def.username,
       role: UserRole.ARTIST,

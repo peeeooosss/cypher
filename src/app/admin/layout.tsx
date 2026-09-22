@@ -23,7 +23,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <div>
           <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-accent">CYPHR admin</p>
           <h1 className="font-display text-display-lg uppercase">Control room</h1>
-          <p className="mt-sm text-body-sm text-ink-muted">Signed in as {user.email}</p>
+          <p className="mt-sm text-body-sm text-ink-muted">Signed in as {user.email ?? user.phone}</p>
         </div>
         <SignOutButton />
       </div>

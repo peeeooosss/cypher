@@ -37,7 +37,7 @@ export default async function AdminOrganizersPage() {
                       {organizer.name ?? "—"}
                     </Link>
                   </td>
-                  <td className="px-md py-sm">{organizer.email}</td>
+                  <td className="px-md py-sm">{organizer.email ?? organizer.phone ?? "—"}</td>
                   <td className="px-md py-sm font-mono text-ink-muted">{organizer.upiId ?? "—"}</td>
                   <td className="px-md py-sm">{organizer._count.organizedEvents}</td>
                   <td className="px-md py-sm">{organizer._count.gigs}</td>

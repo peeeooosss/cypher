@@ -27,7 +27,7 @@ export default async function AdminOrganizerDetailPage({ params }: PageProps) {
       <div className="flex flex-wrap items-start justify-between gap-md border border-line bg-paper-soft p-lg">
         <div>
           <h2 className="font-display text-title-md uppercase">{organizer.name ?? "Unnamed"}</h2>
-          <p className="mt-xs text-body-sm text-ink-muted">{organizer.email}</p>
+          <p className="mt-xs text-body-sm text-ink-muted">{organizer.email ?? organizer.phone ?? "—"}</p>
           <p className="mt-xs text-body-sm text-ink-muted">
             UPI {organizer.upiId ?? "—"} · Joined {organizer.createdAt.toLocaleDateString()}
           </p>

@@ -35,7 +35,7 @@ export default async function OrganizerPage() {
       <div className="mt-lg flex flex-wrap items-end justify-between gap-md">
         <div>
           <h1 className="font-display text-display-lg uppercase">Build the next floor.</h1>
-          <p className="mt-sm text-body-sm text-ink-muted">Signed in as {user.email}</p>
+          <p className="mt-sm text-body-sm text-ink-muted">Signed in as {user.email ?? user.phone}</p>
         </div>
         <SignOutButton />
       </div>

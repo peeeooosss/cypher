@@ -28,7 +28,7 @@ type RegistrationDisplay = {
   members?: { user: { name: string | null; username: string | null } }[];
   city: string | null;
   status: string;
-  user: { name: string | null; email: string };
+  user: { name: string | null; email: string | null };
   dancerScores: { roundFormatId: string; score: number; judgeSlotId: string; feedback?: string | null; musicality?: number | null; foundation?: number | null; presentation?: number | null; execution?: number | null }[];
 };
 

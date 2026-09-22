@@ -4,10 +4,13 @@ import { z } from "zod";
 import { UserRole } from "@/generated/prisma/enums";
 import { badRequest, conflict, isUniqueConstraintError, serverError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
-import { consumeVerifiedEmail } from "@/lib/email-verification";
+import { normalizePhone } from "@/lib/phone";
 
 const signupSchema = z.object({
-    email: z.string().trim().email(),
+    phone: z
+      .string()
+      .trim()
+      .regex(/^\+?[0-9]{10,13}$/, "Enter a valid mobile number (10 digits)"),
     password: z.string().min(8, "Password must be at least 8 characters"),
     name: z.string().trim().min(2, "Name must be at least 2 characters").max(120),
     username: z.string().trim().toLowerCase().regex(/^[a-z0-9_]{3,30}$/, "Username must use 3–30 letters, numbers, or underscores").optional(),
@@ -21,34 +24,30 @@ export async function POST(request: Request) {
     return badRequest(parsed.error.issues[0]?.message ?? "Invalid signup data");
   }
 
-  const { email, password, name, role, username } = parsed.data;
-  const normalizedEmail = email.toLowerCase();
+  const { phone, password, name, role, username } = parsed.data;
+  const normalizedPhone = normalizePhone(phone);
+
+  if (!normalizedPhone) {
+    return badRequest("Enter a valid Indian mobile number");
+  }
 
   try {
-    const verified = await consumeVerifiedEmail(normalizedEmail);
-    if (!verified) {
-      return NextResponse.json(
-        { error: "Please verify your email before creating the account." },
-        { status: 400 },
-      );
-    }
-
     const user = await prisma.user.create({
       data: {
-        email: normalizedEmail,
+        phone: normalizedPhone,
+        whatsappNumber: normalizedPhone,
         name,
         username: username ?? null,
         passwordHash: await hash(password, 12),
         role,
-        emailVerifiedAt: new Date(),
       },
-      select: { id: true, email: true, name: true, role: true },
+      select: { id: true, phone: true, name: true, role: true },
     });
 
     return NextResponse.json({ ...user }, { status: 201 });
   } catch (error) {
     if (isUniqueConstraintError(error)) {
-      return conflict("That email or username is already in use");
+      return conflict("That phone number or username is already in use");
     }
 
     console.error(error);

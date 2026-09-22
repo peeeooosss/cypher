@@ -136,7 +136,7 @@ type RegistrationRow = {
   paid: boolean;
   paidAt: Date | null;
   paidClaimedAt: Date | null;
-  user: { name: string | null; email: string; whatsappNumber: string | null };
+  user: { name: string | null; email: string | null; phone: string | null; whatsappNumber: string | null };
   teamName?: string | null;
   format?: CategoryFormat | null;
   members?: Array<{ id: string; userId: string; role: string; status: string; user: { id: string; name: string | null; username: string | null; whatsappNumber: string | null } }>;
@@ -2495,6 +2495,7 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
     const searchText = [
       reg.user.name,
       reg.user.email,
+      reg.user.phone,
       reg.teamName,
       reg.crew,
       memberNames,
@@ -2543,7 +2544,7 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
       if (url) {
         withPhone.push({ url });
       } else {
-        skipped.push(reg.teamName ?? reg.user.name ?? reg.user.email);
+        skipped.push(reg.teamName ?? reg.user.name ?? reg.user.email ?? reg.user.phone ?? "Unnamed");
       }
     }
     if (withPhone.length === 0) {
@@ -2576,7 +2577,7 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
         </select>
         <input
           type="text"
-          placeholder="Search name, email, crew, team, members..."
+          placeholder="Search name, phone, email, crew, team, members..."
           className="border border-line bg-paper px-md py-sm text-body-sm flex-1 min-w-[200px] max-w-md"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
@@ -2817,7 +2818,7 @@ function RegistrationRow({
             <p className="mt-xs max-w-64 text-[0.7rem] text-ink-muted">
               {registration.members.map((member) => `${member.user.name ?? member.user.username ?? "Unnamed"} (${member.status.toLowerCase()})`).join(" · ")}
             </p>
-          ) : <p className="mt-xs text-[0.7rem] text-ink-muted">{registration.user.email}</p>}
+          ) : <p className="mt-xs text-[0.7rem] text-ink-muted">{registration.user.email ?? registration.user.phone ?? ""}</p>}
         </td>
        <td className="px-md py-sm">{registration.crew ?? "—"}</td>
        <td className="px-md py-sm">{registration.style ?? "—"}</td>

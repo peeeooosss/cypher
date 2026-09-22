@@ -2,11 +2,14 @@
 
 ## Project Overview
 - **Stack**: Next.js 16 App Router (`src/app`), Prisma 7.9 + Postgres (Neon), Socket.io (separate `server/socket.ts`), NextAuth, Tailwind, `"type": "module"`
-- **Project root**: `/Users/apple/Desktop/Cyphr/callout`
+- **Project root**: `/Users/apple/Developer/Cyphr/callout` (NOTE: older notes say Desktop path, actual is Developer)
 - **GitHub**: `https://github.com/peeeooosss/cypher.git`
 - **Live site**: `https://www.joincyphr.in`
 - **Vercel project**: `dhanda/cypher` (auto-deploys from `main` branch)
-- **DB**: Neon Postgres, schema synced via `prisma migrate deploy`
+- **DB**: Neon Postgres, schema synced via `prisma migrate deploy` (deploy) / `prisma db push` (local dev)
+- **PRISMA WARNING**: `prisma migrate dev` FAILS locally (P3006, shadow DB broken by migration `20260806180000_add_event_billing`, "relation Gig does not exist") → always use `npx prisma db push` + `npx prisma generate` locally
+- **ESLINT RULE**: `react-hooks/set-state-in-effect` is an ERROR — no `setState()` directly inside `useEffect`; use `useMemo`/render-time computation or the async+cancel-flag pattern
+- **IMAGE RULE**: `next.config.ts` has NO `remotePatterns` → `next/image` will NOT render external `ufs.sh` (UploadThing) URLs. All user-uploaded images must use plain `<img>` with `// eslint-disable-next-line @next/next/no-img-element`
 - **Socket.io server**: separate process (`npm run socket`), not part of Vercel
 
 ---
@@ -237,6 +240,77 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 
 ---
 
+## Session 11: Brand Refresh — Theme Toggle, My Works Portfolio, Professional Artist Profiles, Homepage, Poster Fit
+
+### User requirements
+- Dark/Light theme toggle site-wide (red accent stays; light accent = `#C00` for WCAG AA)
+- "MY WORKS" video portfolio section on artist dashboard
+- Public artist profile redesigned professional (Freelancer/Instagram hybrid)
+- Homepage replan with good vibes
+- Fix poster images to fit full screen (like KINETIC VOL.1) — `object-contain`
+- Circular avatar on artist dashboard (already circular in profile form)
+- Soften brutalist radius 0px → 4/8/12/16px via CSS vars
+
+### Phase 0 — Schema (via `prisma db push`, NOT migrate dev)
+- New `ArtistWork` model: `id, userId, title, description, videoUrl, thumbnailUrl, platform, order, isPublished(default true), createdAt, updatedAt`, `@@index([userId])`, `onDelete: Cascade`
+- `User` gained: `bio @db.Text`, `coverUrl`, `coverFileKey`, `hourlyRate Int?`, `responseTime String?`, `socialLinks Json?`, relation `works ArtistWork[]`
+
+### Phase 1 — Theme system
+- `globals.css`: CSS vars for dark (paper `#0B0B0F`, ink `#F2F2F2`, line, accent `#FF2B2B`) and `[data-theme="light"]` overrides (paper `#FFFFFF`, ink `#111`, line `rgba(0,0,0,.12)`, accent `#C00`), radius vars (`radius-sm 4/md 8/lg 12/xl 16`)
+- `tailwind.config.ts`: mapped colors to `var(--*)`, new radius tokens, card shadow tokens
+- `src/components/theme-provider.tsx`: ThemeProvider via `useSyncExternalStore`, reads `localStorage("theme")` → falls back to `prefers-color-scheme`; exposes `useTheme()` with `theme/toggleTheme/setTheme`, sets `data-theme` attribute on `documentElement`
+- `src/components/theme-toggle.tsx`: sun/moon toggle button
+- `src/app/layout.tsx`: wrapped body in `<ThemeProvider>`, added pre-hydration inline `<script>` that sets `data-theme` from localStorage + `suppressHydrationWarning` on `<html>` (prevents flash + hydration mismatch)
+
+### Phase 2 — API routes (new)
+- `POST/GET /api/artist/works` — create + list works (ownership-scoped)
+- `GET/PATCH/DELETE /api/artist/works/[id]` — per-work management
+- `PATCH /api/artist/works/reorder` — transactional reorder
+- `POST/DELETE /api/users/me/cover` — cover photo upload/remove via UploadThing `avatarUploader` (5MB, jpg/png/webp)
+- `PATCH /api/users/me` extended: `bio`, `hourlyRate`, `responseTime`, `socialLinks`
+
+### Phase 3 — Artist Dashboard "My Works"
+- `src/components/artist-works.tsx`: works grid (thumbnail hover + watch/edit/delete), add/edit modal, thumbnail auto-fetch (`img.youtube.com/vi/{id}/maxresdefault.jpg` for YT) + manual upload, loading skeleton, empty state
+- `src/components/video-modal.tsx`: portal-based player, auto-detects platform (youtube/vimeo/instagram/other), ESC to close
+- `src/components/artist-profile-form.tsx`: added cover upload/preview/remove, bio, hourlyRate, responseTime, socialLinks (instagram/youtube/soundcloud/twitter) fields
+- `src/app/artist/page.tsx`: Prisma query extended with new fields, renders `<ArtistWorks />` after achievements
+- Platform detection: `youtube.com|youtu.be` / `vimeo.com` / `instagram.com` else `other`
+
+### Phase 4 — Public Artist Profile (Redesign)
+- `src/lib/artists.ts`: `getArtistProfile` now selects `coverUrl, bio, socialLinks, hourlyRate, responseTime, isProfilePublic, createdAt` + `works` (drafts hidden to non-privileged unless organizer/artist/admin)
+- `src/components/artist-profile-hero.tsx`: cover image + gradient, rounded avatar (rounded-2xl, border-paper, shadow-card), name/style/crew/location/experience row, bio, action buttons (Edit profile / Book / Message), stats strip (Battles/Wins/Win-rate/Achievements)
+- `src/components/artist-profile-view.tsx`: sticky tab nav — About / Works (count) / Achievements (count) / Battles; renders About + Works + Achievement cards + battle record (WIN/LOSS badge per round)
+- `src/components/artist-profile-about.tsx`: bio, specialties chips (keywords), skills chips, Availability card (₹/session + response time), Connect card (social handle + social links)
+- `src/components/artist-profile-works.tsx`: public read-only works grid + VideoModal
+- `src/app/artist/directory/[userId]/page.tsx`: rewritten to pass data into `ArtistProfileView`; `canHire` = ORGANIZER/ADMIN
+- IMAGE RULE: hero avatar/cover use plain `<img>` (not `next/image`) — see rule at top
+
+### Phase 5 — Homepage Restructure
+- `src/app/page.tsx`: hero + "Meet the artists" CTA, social-proof stats strip (events / artists / registrations / open gigs via counts), value-prop cards (Organizers/Artists/Opportunities), platform demo CTA, ArtistSlider, events tabs, testimonials, footer CTA (artist signup + organizer guide)
+- `src/components/home-events.tsx`: client tabs Live now / Upcoming / Past with counts, grids, live leaderboards; disabled past/live tabs when empty
+- Uses `EventStatus.LIVE | COMPLETED`, `RegistrationStatus` enum in counts
+
+### Phase 6 — Poster Fit
+- `src/components/event-card.tsx`: poster `object-cover` → `object-contain` on `bg-line/20` backdrop so full poster shows
+- `src/app/events/[slug]/page.tsx`: event poster wrapped in bordered `bg-line/20` container (was `w-full` already, no crop)
+
+### Phase 7 — Polish
+- Circular avatars already in dashboard form (`rounded-full`)
+- Radius softening via CSS vars (Phase 1)
+- Pre-hydration theme script + `suppressHydrationWarning`
+
+### Known follow-ups / gotchas
+- `ArtistWork.createdAt` returns `Date` from Prisma but `Work` zui type uses `string` — page maps `.toISOString()` before passing
+- `artist-works.tsx` exports `Work` type; `artist-profile-works.tsx` re-exports as `ArtistProfileWork`
+- Registration count query uses `RegistrationStatus.CONFIRMED | PENDING`
+- Build verified: `npx tsc --noEmit` clean, `npm run lint` 0 errors (only pre-existing `<img>` + unused `router` warnings), `npm run build` succeeds
+
+### Commits
+- `97ba45d` — feat(artist): theme toggle, my works portfolio, and professional profile pages (26 files, +2274/-358)
+- `08bb633` — fix(profile): hero avatar/cover as plain `<img>` (next/image has no remotePatterns for ufs.sh)
+
+---
+
 ## Key Files Reference (Updated)
 
 ### Schema
@@ -282,9 +356,36 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 
 ### Profile & Privacy
 - `src/app/api/users/me/avatar/route.ts` — avatar upload/delete
-- `src/components/artist-profile-form.tsx` — avatar + privacy UI
+- `src/app/api/users/me/cover/route.ts` — cover photo upload/delete
+- `src/components/artist-profile-form.tsx` — avatar + privacy + cover/bio/rates/socials UI
 - `src/lib/artists.ts` — privacy-aware directory + profile queries
 - `src/lib/auth.ts` — NextAuth config with avatarUrl in session
+
+### Artist Portfolio ("My Works")
+- `src/app/api/artist/works/route.ts` — create + list works
+- `src/app/api/artist/works/[id]/route.ts` — get/patch/delete work
+- `src/app/api/artist/works/reorder/route.ts` — reorder works
+- `src/components/artist-works.tsx` — dashboard works grid + modal (exports `Work` type)
+- `src/components/video-modal.tsx` — video player modal (portal, auto platform detect)
+
+### Artist Public Profile (Redesign)
+- `src/app/artist/directory/[userId]/page.tsx` — server page → ArtistProfileView
+- `src/components/artist-profile-view.tsx` — tabs (About/Works/Achievements/Battles)
+- `src/components/artist-profile-hero.tsx` — cover + avatar hero, stats, CTAs
+- `src/components/artist-profile-about.tsx` — bio/skills/specialties/availability/socials
+- `src/components/artist-profile-works.tsx` — public works grid (re-exports `ArtistProfileWork`)
+
+### Theme System
+- `src/components/theme-provider.tsx` — useSyncExternalStore theme provider
+- `src/components/theme-toggle.tsx` — dark/light toggle button
+- `src/app/layout.tsx` — ThemeProvider + pre-hydration `data-theme` script
+- `src/app/globals.css` — dark + `[data-theme="light"]` CSS vars, radius tokens
+- `tailwind.config.ts` — colors → `var(--*)`, radius/shadows
+
+### Homepage
+- `src/app/page.tsx` — hero, stats strip, value props, demo, events tabs, testimonials, footer CTA
+- `src/components/home-events.tsx` — Live/Upcoming/Past event tabs
+- `src/components/event-card.tsx` — poster `object-contain` + directions + prize pool
 
 ### Admin
 - `src/app/admin/page.tsx` — dashboard
@@ -347,6 +448,18 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 - **Next.js 16 rule**: event handlers (onClick, onChange) cannot be used in server components — only client components with `"use client"`
 
 ### Git History (Recent)
+- `08bb633` — fix: artist profile hero avatar/cover with plain <img> (next/image no remotePatterns)
+- `97ba45d` — feat: theme toggle, My Works portfolio, professional artist profiles, homepage restructure, poster fit
+- `f65bf35` — feat(signup): only name, username, email & password — battle profile moves to dashboard
+- `7842d71` — refactor(events): remove organizer flat fee from public event cards
+- `52718b3` — feat(admin): configurable pricing + remove PayU test mode
+- `e0087ad` — feat(events): event info/schedule/notice persistence, card summaries, bulk WhatsApp
+- `1d887d7` — fix(payu): accept amount from amt or amount; persist callback payload on mismatch
+- `b76ab49` — fix(payu): verify return hash with PayU v2 format (unmappedstatus + reversed udf1-5)
+- `7230bb6` — fix(payu): stop swallowing callbacks; apply effects on callback + webhook
+- `9993b97` — feat: PayU checkout across all payment flows with ₹1 test mode
+- `5d55cf8` — ci: init test DB schema with prisma db push before e2e
+- `3c9b6cd` — feat: platform repositioning, structured event details, and PayU production payments
 - `49df163` — fix: remove onClick from server component EventCard
 - `4296d66` — feat: add Google Maps directions link to events
 - `e2ab4c6` — feat: show prize pool on event detail page and events listing cards

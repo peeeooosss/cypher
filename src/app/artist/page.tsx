@@ -10,6 +10,7 @@ import { Pagination } from "@/components/pagination";
 import { TeamInvitations } from "@/components/team-invitations";
 import { TeamEntries } from "@/components/team-entries";
 import { ArtistEventCard } from "@/components/artist-event-card";
+import { AccountDetails } from "@/components/account-details";
 import type { BattleMatchBreakdown, RosterRound } from "@/components/artist-scoreboard";
 
 export const dynamic = "force-dynamic";
@@ -88,6 +89,9 @@ export default async function ArtistPage({ searchParams }: PageProps) {
       where: { id: user.id },
       select: {
         name: true,
+        phone: true,
+        email: true,
+        emailVerifiedAt: true,
         style: true,
         crew: true,
         city: true,
@@ -152,7 +156,7 @@ export default async function ArtistPage({ searchParams }: PageProps) {
       <div className="mt-lg flex flex-wrap items-end justify-between gap-md">
         <div>
           <h1 className="font-display text-display-lg uppercase">Find your next battle.</h1>
-          <p className="mt-sm text-body-sm text-ink-muted">Signed in as {user.email}</p>
+          <p className="mt-sm text-body-sm text-ink-muted">Signed in as {user.email ?? user.phone}</p>
         </div>
         <div className="flex flex-wrap gap-sm">
           <Link
@@ -170,6 +174,12 @@ export default async function ArtistPage({ searchParams }: PageProps) {
           <SignOutButton />
         </div>
       </div>
+
+      <AccountDetails
+        phone={profile?.phone ?? null}
+        email={profile?.email ?? null}
+        emailVerifiedAt={profile?.emailVerifiedAt ?? null}
+      />
 
       <section className="mt-section">
         <ArtistProfileForm profile={profile as ArtistProfile} />

@@ -15,18 +15,14 @@ export const organizerGuideTabs: GuideTab[] = [
       },
       {
         title: "Enter your details",
-        text: "Fill in Organization name, username, email, and a password (8+ characters), then confirm the password.",
-      },
-      {
-        title: "Verify your email",
-        text: "Click Verify email next to the email field, open the 6-digit code sent to your inbox, enter it, and click Verify code. The button changes to Verified ✓.",
+        text: "Fill in Organization name, username, your mobile number, and a password (8+ characters), then confirm the password.",
       },
       {
         title: "Create your account",
-        text: "Click Create account. Once the success panel appears, click Sign in, log in, and you land on your organizer dashboard at /organizer.",
+        text: "Click Create account. Once the success panel appears, click Sign in, log in with your phone number, and you land on your organizer dashboard at /organizer.",
       },
     ],
-    note: "Your email must be verified before you can create the account.",
+    note: "No email needed to sign up. You can add an email for updates later.",
   },
   {
     id: "logo",
@@ -252,18 +248,14 @@ export const artistGuideTabs: GuideTab[] = [
       },
       {
         title: "Enter your details",
-        text: "Fill in your stage name, username, email, and a password (8+ characters), then confirm the password.",
-      },
-      {
-        title: "Verify your email",
-        text: "Click Verify email, enter the 6-digit code from your inbox, and click Verify code. The button changes to Verified ✓.",
+        text: "Fill in your stage name, username, mobile number, and a password (8+ characters), then confirm the password.",
       },
       {
         title: "Create your account",
-        text: "Click Create account, then Sign in. You land on your artist dashboard at /artist.",
+        text: "Click Create account, then Sign in with your phone number. You land on your artist dashboard at /artist.",
       },
     ],
-    note: "Your email must be verified before you can create the account.",
+    note: "No email needed to sign up. You can add an email for updates later in your dashboard.",
   },
   {
     id: "profile",

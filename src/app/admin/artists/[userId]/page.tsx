@@ -44,7 +44,7 @@ export default async function AdminArtistDetailPage({ params }: PageProps) {
           )}
           <div>
             <h2 className="font-display text-title-md uppercase">{artist.name ?? "Unnamed"}</h2>
-            <p className="mt-xs text-body-sm text-ink-muted">{artist.email}</p>
+            <p className="mt-xs text-body-sm text-ink-muted">{artist.email ?? artist.phone ?? "—"}</p>
             <p className="mt-xs text-body-sm text-ink-muted">
               {[artist.style, artist.crew, artist.city, artist.country, formatExperience(artist.experience)].filter(Boolean).join(" · ") || "—"}
             </p>
