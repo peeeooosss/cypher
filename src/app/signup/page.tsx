@@ -26,7 +26,6 @@ export default function SignupPage() {
     }
 
     const body: Record<string, unknown> = {
-      name: formData.get("name"),
       phone: formData.get("phone"),
       password,
       role,
@@ -52,8 +51,6 @@ export default function SignupPage() {
     setIsSubmitting(false);
   }
 
-  const nameLabel = role === "ORGANIZER" ? "Organization name" : "Artist name";
-
   return (
     <main className="flex min-h-screen items-center justify-center bg-paper px-sm py-section">
       <section className="w-full max-w-2xl border border-line bg-paper-soft p-lg sm:p-xl">
@@ -67,7 +64,7 @@ export default function SignupPage() {
           Create an account to host battles, enter the floor, or take the stage.
         </p>
         <p className="mt-xs text-body-sm text-ink-muted">
-          Just your name and mobile number — no email needed. You can add an email later in your dashboard.
+          Just a username and mobile number — no email needed. You can add an email later in your dashboard.
         </p>
 
         <div className="mt-xl grid grid-cols-2 gap-sm" role="tablist" aria-label="Account type">
@@ -94,14 +91,16 @@ export default function SignupPage() {
 
         <form className="mt-xl flex w-full flex-col gap-6" onSubmit={handleSubmit}>
           <label className="block w-full text-body-sm font-bold uppercase">
-            {nameLabel}
+            Username
             <input
               required
-              autoComplete="name"
+              autoComplete="username"
               className="mt-sm block w-full border border-line bg-paper px-md py-md text-body-md outline-none focus:border-accent"
-              name="name"
-              placeholder={role === "ORGANIZER" ? "Your crew or company name" : "Your stage name"}
+              name="username"
+              pattern="[a-zA-Z0-9_]{3,30}"
+              placeholder="e.g. alexmoves"
             />
+            <span className="mt-xs block text-[0.65rem] font-normal normal-case text-ink-muted">You can set your display name later in your dashboard.</span>
           </label>
           <label className="block w-full text-body-sm font-bold uppercase">
             Phone number
@@ -117,18 +116,6 @@ export default function SignupPage() {
               type="tel"
             />
             <span className="mt-xs block text-[0.65rem] font-normal normal-case text-ink-muted">We&rsquo;ll use this to sign you in and reach you on WhatsApp.</span>
-          </label>
-          <label className="block w-full text-body-sm font-bold uppercase">
-            Username
-            <input
-              required={role === "ARTIST"}
-              autoComplete="username"
-              className="mt-sm block w-full border border-line bg-paper px-md py-md text-body-md outline-none focus:border-accent"
-              name="username"
-              pattern="[a-zA-Z0-9_]{3,30}"
-              placeholder="e.g. alexmoves"
-            />
-            <span className="mt-xs block text-[0.65rem] font-normal normal-case text-ink-muted">Artists use this to invite you to team entries.</span>
           </label>
           <label className="block w-full text-body-sm font-bold uppercase">
             Password

@@ -12,8 +12,7 @@ const signupSchema = z.object({
       .trim()
       .regex(/^\+?[0-9]{10,13}$/, "Enter a valid mobile number (10 digits)"),
     password: z.string().min(8, "Password must be at least 8 characters"),
-    name: z.string().trim().min(2, "Name must be at least 2 characters").max(120),
-    username: z.string().trim().toLowerCase().regex(/^[a-z0-9_]{3,30}$/, "Username must use 3–30 letters, numbers, or underscores").optional(),
+    username: z.string().trim().toLowerCase().regex(/^[a-z0-9_]{3,30}$/, "Username must use 3–30 letters, numbers, or underscores"),
     role: z.enum([UserRole.ORGANIZER, UserRole.ARTIST]),
   });
 
@@ -24,7 +23,7 @@ export async function POST(request: Request) {
     return badRequest(parsed.error.issues[0]?.message ?? "Invalid signup data");
   }
 
-  const { phone, password, name, role, username } = parsed.data;
+  const { phone, password, role, username } = parsed.data;
   const normalizedPhone = normalizePhone(phone);
 
   if (!normalizedPhone) {
@@ -36,8 +35,8 @@ export async function POST(request: Request) {
       data: {
         phone: normalizedPhone,
         whatsappNumber: normalizedPhone,
-        name,
-        username: username ?? null,
+        name: username,
+        username,
         passwordHash: await hash(password, 12),
         role,
       },
