@@ -89,6 +89,9 @@ export const ScoreSubmittedPayload = z.object({
   aggregateRed: z.number(),
   aggregateBlue: z.number(),
   judgeCount: z.number(),
+  // Battles are decided by vote, so the submitting judge's corner is the
+  // meaningful field. `aggregateRed`/`aggregateBlue` carry the panel tally.
+  winnerCorner: z.enum(["RED", "BLUE"]).nullable().optional(),
   redSections: z.object({
     musicality: z.number(),
     foundation: z.number(),

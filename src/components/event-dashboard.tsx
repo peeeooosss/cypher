@@ -3161,6 +3161,7 @@ type BracketMatch = {
   winnerId: string | null;
   scoreA: number;
   scoreB: number;
+  scores: { winnerCorner: string | null; scoreA: number; scoreB: number; scoreAMusicality: number | null }[];
 };
 
 function BracketView({
@@ -3242,6 +3243,26 @@ function BracketView({
         const locked = match.status === "LOCKED";
         const live = match.status === "LIVE";
         const complete = match.status === "COMPLETE";
+        const nameA = match.competitorA?.teamName ?? match.competitorA?.user.name ?? "TBD";
+        const nameB = match.competitorB?.teamName ?? match.competitorB?.user.name ?? "TBD";
+
+        // Battles are decided by judge vote; fall back to the legacy 4-section
+        // totals for matches scored before the switch to voting.
+        const panelScores = match.scores ?? [];
+        const redVotes = panelScores.filter(s => s.winnerCorner === "RED").length;
+        const blueVotes = panelScores.filter(s => s.winnerCorner === "BLUE").length;
+        const hasVotes = redVotes + blueVotes > 0;
+        const legacy = hasVotes ? [] : panelScores.filter(s => s.scoreAMusicality != null);
+        const legacyA = legacy.reduce((sum, s) => sum + s.scoreA, 0);
+        const legacyB = legacy.reduce((sum, s) => sum + s.scoreB, 0);
+        const tallyLabel = hasVotes
+          ? `RED ${redVotes} · BLUE ${blueVotes}`
+          : legacy.length > 0
+            ? `SCORED ${legacyA.toFixed(1)} – ${legacyB.toFixed(1)}`
+            : "NO VOTES YET";
+        const leading = hasVotes && redVotes !== blueVotes
+          ? redVotes > blueVotes ? nameA : nameB
+          : null;
         return (
           <div key={match.id} className="mt-sm border border-line p-md">
             <div className="flex flex-wrap items-center justify-between gap-sm">
@@ -3275,21 +3296,27 @@ function BracketView({
               </div>
             </div>
             <div className="mt-sm grid grid-cols-[1fr_auto_auto_auto_1fr] items-center gap-sm text-body-sm">
-               <span className="text-right">{match.competitorA?.teamName ?? match.competitorA?.user.name ?? "TBD"}</span>
-              <span className="font-mono text-[0.7rem] text-ink-muted">{match.scoreA}</span>
+               <span className="break-words text-right">{nameA}</span>
+              <span className="font-mono text-[0.7rem] uppercase text-ink-muted">{hasVotes ? redVotes : ""}</span>
               <span className="border border-line px-sm py-xs font-mono text-[0.6rem] uppercase text-ink-muted">vs</span>
-              <span className="font-mono text-[0.7rem] text-ink-muted">{match.scoreB}</span>
-               <span>{match.competitorB?.teamName ?? match.competitorB?.user.name ?? "TBD"}</span>
+              <span className="font-mono text-[0.7rem] uppercase text-ink-muted">{hasVotes ? blueVotes : ""}</span>
+               <span className="break-words">{nameB}</span>
             </div>
+            <p className="mt-xs font-mono text-[0.65rem] uppercase text-ink-muted">{tallyLabel}</p>
             {!complete && ready && (
               <div className="mt-sm flex flex-wrap items-center justify-center gap-sm">
+                {leading ? (
+                  <span className="w-full text-center font-mono text-[0.65rem] uppercase text-ink-muted">
+                    Panel leans {leading} — confirm below
+                  </span>
+                ) : null}
                 <button
                   type="button"
                   className="border border-accent px-md py-xs text-body-sm font-bold uppercase text-accent disabled:opacity-60"
                   disabled={busy === match.id}
                   onClick={() => void run(match.id, `/api/matches/${match.id}/complete`, { winnerId: match.competitorAId })}
                 >
-                   Winner: {match.competitorA?.teamName ?? match.competitorA?.user.name ?? "A"}
+                   Winner: {nameA}
                 </button>
                 <button
                   type="button"
@@ -3297,7 +3324,7 @@ function BracketView({
                   disabled={busy === match.id}
                   onClick={() => void run(match.id, `/api/matches/${match.id}/complete`, { winnerId: match.competitorBId })}
                 >
-                   Winner: {match.competitorB?.teamName ?? match.competitorB?.user.name ?? "B"}
+                   Winner: {nameB}
                 </button>
               </div>
             )}

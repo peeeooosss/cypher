@@ -114,23 +114,19 @@ export function ArtistScoreboard({
                     const oppSections = match.iAmRed ? s.sectionsB : s.sectionsA;
                     const myScore = match.iAmRed ? s.scoreA : s.scoreB;
                     const oppScore = match.iAmRed ? s.scoreB : s.scoreA;
+                    // Battles are decided by vote now. The section/score columns
+                    // only carry data for matches judged before that switch.
                     const resultLabel = s.winnerCorner
                       ? (match.iAmRed ? (s.winnerCorner === "RED" ? "You win" : "Opponent") : s.winnerCorner === "BLUE" ? "You win" : "Opponent")
-                      : `${(myScore ?? 0).toFixed(1)} — ${(oppScore ?? 0).toFixed(1)}`;
+                      : mySections && oppSections
+                        ? `${(myScore ?? 0).toFixed(1)} — ${(oppScore ?? 0).toFixed(1)} (legacy)`
+                        : "No vote recorded";
                     return (
                       <div key={i} className="border-b border-line pb-xs last:border-b-0">
                         <p className="flex flex-wrap items-center justify-between gap-sm text-body-sm">
                           <span className="font-mono uppercase text-ink-muted">{s.judgeName}</span>
                           <span className="font-mono uppercase">{resultLabel}</span>
                         </p>
-                        {mySections && oppSections ? (
-                          <div className="mt-xs flex flex-wrap gap-x-md gap-y-xs font-mono text-[0.65rem] uppercase text-ink-muted">
-                            <span>Musicality {mySections.musicality.toFixed(1)}/{oppSections.musicality.toFixed(1)}</span>
-                            <span>Foundation {mySections.foundation.toFixed(1)}/{oppSections.foundation.toFixed(1)}</span>
-                            <span>Presentation {mySections.presentation.toFixed(1)}/{oppSections.presentation.toFixed(1)}</span>
-                            <span>Execution {mySections.execution.toFixed(1)}/{oppSections.execution.toFixed(1)}</span>
-                          </div>
-                        ) : null}
                         {myFeedback ? <p className="mt-xs italic text-ink-muted">For you: &ldquo;{myFeedback}&rdquo;</p> : null}
                         {opponentFeedback ? <p className="mt-xs italic text-ink-muted">For {match.opponentName}: &ldquo;{opponentFeedback}&rdquo;</p> : null}
                       </div>

@@ -391,6 +391,7 @@ io.on("connection", (socket) => {
         aggregateRed: aggregate.scoreRed,
         aggregateBlue: aggregate.scoreBlue,
         judgeCount: aggregate.judgeCount,
+        winnerCorner: isDecision ? winnerCorner : null,
         ...(hasSections && aggregate.redSections ? { redSections: aggregate.redSections } : {}),
         ...(hasSections && aggregate.blueSections ? { blueSections: aggregate.blueSections } : {}),
       };

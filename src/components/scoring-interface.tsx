@@ -8,6 +8,8 @@ import { EMPTY_SECTIONS, sectionTotal, type SectionScores } from "@/lib/scoring-
 
 type Competitor = { teamName?: string | null; user: { name: string | null }; members?: { user: { name: string | null; username: string | null } }[] } | null;
 
+type VoteCorner = "RED" | "BLUE";
+
 type MatchDisplay = {
   id: string;
   round: number;
@@ -17,7 +19,7 @@ type MatchDisplay = {
   scoreB: number;
   competitorA: Competitor;
   competitorB: Competitor;
-  scores: { judgeSlot: { name: string | null } }[];
+  scores: { winnerCorner: string | null; judgeSlot: { name: string | null } }[];
 };
 
 type RegistrationDisplay = {
@@ -108,8 +110,9 @@ export function ScoringInterface({
   >(() => initialMyScores(data.category.registrations, slotId));
   const [connectionStatus, setConnectionStatus] = useState("offline");
   const [submittedIds, setSubmittedIds] = useState<Set<string>>(new Set());
-  const [scores, setScores] = useState<
-    Record<string, { sectionsA: SectionScores | null; sectionsB: SectionScores | null }>
+  const [votes, setVotes] = useState<Record<string, VoteCorner>>({});
+  const [matchFeedback, setMatchFeedback] = useState<
+    Record<string, { red: string; blue: string }>
   >({});
   const [submitting, setSubmitting] = useState<Record<string, boolean>>({});
   const [draftScores, setDraftScores] = useState<Record<string, SectionScores | null>>(
@@ -223,22 +226,15 @@ export function ScoringInterface({
     return () => clearInterval(timer);
   }, [code, connectionStatus, fetchFullData]);
 
-  function selectSections(matchId: string, key: "sectionsA" | "sectionsB", value: SectionScores) {
-    setScores((prev) => ({
-      ...prev,
-      [matchId]: {
-        ...(prev[matchId] ?? { sectionsA: null, sectionsB: null }),
-        [key]: value,
-      },
-    }));
+  function selectVote(matchId: string, corner: VoteCorner) {
+    setVotes((prev) => ({ ...prev, [matchId]: corner }));
   }
 
-  async function submitMatchScore(matchId: string) {
-    const matchScore = scores[matchId];
-    if (!matchScore || !matchScore.sectionsA || !matchScore.sectionsB) return;
-    const scoreA = sectionTotal(matchScore.sectionsA);
-    const scoreB = sectionTotal(matchScore.sectionsB);
-    if (scoreA <= 0 || scoreB <= 0) return;
+  async function submitMatchVote(matchId: string) {
+    const winnerCorner = votes[matchId];
+    if (!winnerCorner) return;
+
+    const notes = matchFeedback[matchId] ?? { red: "", blue: "" };
 
     setSubmitting((prev) => ({ ...prev, [matchId]: true }));
     setError("");
@@ -247,26 +243,15 @@ export function ScoringInterface({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          scoreA,
-          scoreB,
-          sectionsA: {
-            musicality: matchScore.sectionsA.MUSICALITY,
-            foundation: matchScore.sectionsA.FOUNDATION,
-            presentation: matchScore.sectionsA.PRESENTATION,
-            execution: matchScore.sectionsA.EXECUTION,
-          },
-          sectionsB: {
-            musicality: matchScore.sectionsB.MUSICALITY,
-            foundation: matchScore.sectionsB.FOUNDATION,
-            presentation: matchScore.sectionsB.PRESENTATION,
-            execution: matchScore.sectionsB.EXECUTION,
-          },
+          winnerCorner,
           judgeCode: code,
+          feedbackRed: notes.red || undefined,
+          feedbackBlue: notes.blue || undefined,
         }),
       });
 
       if (!res.ok) {
-        setError(await responseError(res, "Failed to submit score."));
+        setError(await responseError(res, "Failed to submit vote."));
         return;
       }
       setSubmittedIds((prev) => new Set(prev).add(matchId));
@@ -434,64 +419,110 @@ export function ScoringInterface({
         <div className="grid gap-md lg:grid-cols-2">
           {matches.map((match) => {
             const isSubmitted = submittedIds.has(match.id);
-            const matchScore = scores[match.id] ?? { sectionsA: null, sectionsB: null };
-            const bothSelected =
-              matchScore.sectionsA != null && matchScore.sectionsB != null;
+            const myVote = votes[match.id] ?? null;
             const isSubmitting = submitting[match.id] ?? false;
 
              const nameA = match.competitorA?.teamName ?? match.competitorA?.user.name ?? "TBD";
              const nameB = match.competitorB?.teamName ?? match.competitorB?.user.name ?? "TBD";
+            const notes = matchFeedback[match.id] ?? { red: "", blue: "" };
+
+            const redVotes = match.scores.filter((s) => s.winnerCorner === "RED").length;
+            const blueVotes = match.scores.filter((s) => s.winnerCorner === "BLUE").length;
 
             return (
               <article
-                className={`border border-line bg-paper-soft p-lg ${isSubmitted ? "opacity-60" : ""}`}
+                className={`border border-line bg-paper-soft p-lg ${isSubmitted ? "opacity-70" : ""}`}
                 key={match.id}
               >
                 <p className="font-mono text-[0.7rem] uppercase text-ink-muted">
                   Round {match.round} / Match {match.position} / {match.status}
                 </p>
 
-                <div className="mt-lg grid grid-cols-[1fr_auto] gap-sm text-title-md font-bold uppercase">
-                  <span>{nameA}</span>
-                  <span>{match.scoreA}</span>
-                  <span>{nameB}</span>
-                  <span>{match.scoreB}</span>
+                <div className="mt-lg space-y-sm">
+                  <p className="font-mono text-[0.65rem] uppercase tracking-[0.15em] text-accent">Red</p>
+                  <p className="break-words font-display text-body-md uppercase leading-tight text-accent">
+                    {nameA}
+                  </p>
+                  <p className="break-words font-mono text-[0.65rem] uppercase text-ink-muted">{match.scoreA}</p>
                 </div>
 
-                {isSubmitted ? (
-                  <p className="mt-lg text-body-sm font-bold uppercase text-accent">
-                    Score submitted
+                <div className="mt-md space-y-sm">
+                  <p className="font-mono text-[0.65rem] uppercase tracking-[0.15em] text-[#2980FF]">Blue</p>
+                  <p className="break-words font-display text-body-md uppercase leading-tight text-[#2980FF]">
+                    {nameB}
                   </p>
-                ) : (
-                  <>
-                    <div className="mt-lg">
-                      <p className="text-body-sm font-bold uppercase text-ink-muted">{nameA}</p>
-                      <ScoringSectionGrid
-                        className="mt-sm"
-                        value={matchScore.sectionsA ?? { ...EMPTY_SECTIONS }}
-                        onChange={(next) => selectSections(match.id, "sectionsA", next)}
-                      />
-                    </div>
+                  <p className="break-words font-mono text-[0.65rem] uppercase text-ink-muted">{match.scoreB}</p>
+                </div>
 
-                    <div className="mt-lg">
-                      <p className="text-body-sm font-bold uppercase text-ink-muted">{nameB}</p>
-                      <ScoringSectionGrid
-                        className="mt-sm"
-                        value={matchScore.sectionsB ?? { ...EMPTY_SECTIONS }}
-                        onChange={(next) => selectSections(match.id, "sectionsB", next)}
-                      />
-                    </div>
+                <p className="mt-md border-t border-line pt-sm font-mono text-[0.65rem] uppercase text-ink-muted">
+                  {redVotes + blueVotes > 0
+                    ? `Votes: red ${redVotes} / blue ${blueVotes}`
+                    : "No votes yet"}
+                </p>
 
-                    <button
-                      className="mt-xl w-full border border-accent bg-accent px-lg py-md text-button-md font-bold uppercase text-paper disabled:cursor-not-allowed disabled:opacity-60"
-                      disabled={!bothSelected || isSubmitting}
-                      onClick={() => submitMatchScore(match.id)}
-                      type="button"
-                    >
-                      {isSubmitting ? "Submitting..." : "Submit score"}
-                    </button>
-                  </>
-                )}
+                {isSubmitted ? (
+                  <p className="mt-lg border border-accent px-md py-sm text-center font-display text-body-sm uppercase text-accent">
+                    Vote recorded{myVote ? `: ${myVote === "RED" ? "Red" : "Blue"}` : ""} — you can
+                    change it
+                  </p>
+                ) : null}
+
+                <div className="mt-lg grid grid-cols-2 gap-sm">
+                  <button
+                    type="button"
+                    className={`border-2 border-accent px-md py-md text-center font-display uppercase ${
+                      myVote === "RED" ? "bg-accent text-paper" : "text-accent"
+                    }`}
+                    onClick={() => selectVote(match.id, "RED")}
+                  >
+                    Vote red
+                  </button>
+                  <button
+                    type="button"
+                    className={`border-2 border-[#2980FF] px-md py-md text-center font-display uppercase ${
+                      myVote === "BLUE" ? "bg-[#2980FF] text-paper" : "text-[#2980FF]"
+                    }`}
+                    onClick={() => selectVote(match.id, "BLUE")}
+                  >
+                    Vote blue
+                  </button>
+                </div>
+
+                <div className="mt-md space-y-xs">
+                  <input
+                    className="w-full border border-line bg-paper px-md py-sm text-body-sm"
+                    placeholder={`Feedback for ${nameA} (optional)`}
+                    value={notes.red}
+                    maxLength={500}
+                    onChange={(e) =>
+                      setMatchFeedback((prev) => ({
+                        ...prev,
+                        [match.id]: { ...notes, red: e.target.value },
+                      }))
+                    }
+                  />
+                  <input
+                    className="w-full border border-line bg-paper px-md py-sm text-body-sm"
+                    placeholder={`Feedback for ${nameB} (optional)`}
+                    value={notes.blue}
+                    maxLength={500}
+                    onChange={(e) =>
+                      setMatchFeedback((prev) => ({
+                        ...prev,
+                        [match.id]: { ...notes, blue: e.target.value },
+                      }))
+                    }
+                  />
+                </div>
+
+                <button
+                  className="mt-lg w-full border border-accent bg-accent px-lg py-md text-button-md font-bold uppercase text-paper disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={!myVote || isSubmitting}
+                  onClick={() => void submitMatchVote(match.id)}
+                  type="button"
+                >
+                  {isSubmitting ? "Submitting..." : isSubmitted ? "Update vote" : "Submit vote"}
+                </button>
               </article>
             );
           })}

@@ -101,7 +101,7 @@ export const organizerGuideTabs: GuideTab[] = [
       },
       {
         title: "Add a round",
-        text: "Choose the round type (Cypher, Qualifier, Battle 1v1 / 2v2 / 3v3 / 4v4, Crew vs Crew, Seven-to-Smoke, or Final), and give it a label like Top 16.",
+        text: "Choose the round type (Cypher, Qualifier, Battle 1v1 / 2v2 / 3v3 / 4v4, Crew vs Crew, Seven-to-Smoke, or Final), and give it a label like Top 16. Cypher and Qualifier use 4-section marking; battle rounds are decided by a simple judge vote.",
       },
       {
         title: "Configure the round",
@@ -153,7 +153,7 @@ export const organizerGuideTabs: GuideTab[] = [
       },
       {
         title: "Read the standings",
-        text: "Cypher / Qualifier rounds rank each entry by judge scores with Advanced / Eliminated badges. Battle rounds show the bracket, vote tallies, winners, and judge feedback.",
+        text: "Cypher / Qualifier rounds rank each entry by judge section scores with Advanced / Eliminated badges. Battle rounds have no marking — they show the bracket, the red / blue judge vote tally, winners, and judge feedback.",
       },
     ],
   },
@@ -171,7 +171,7 @@ export const organizerGuideTabs: GuideTab[] = [
       },
       {
         title: "Run the battles",
-        text: "Click Push live on a match to broadcast it, judges vote, then Lock voting and pick the Winner to complete the match.",
+        text: "Click Push live on a match to broadcast it. Judges pick Vote red or Vote blue and can leave feedback for both artists — there is no marking in battles. When the panel has voted, click Lock voting and pick the Winner to complete the match.",
       },
       {
         title: "Advance the bracket",
@@ -359,7 +359,7 @@ export const artistGuideTabs: GuideTab[] = [
       },
       {
         title: "Follow the standings",
-        text: "The live leaderboard shows your rank — in score-based rounds by judge totals, in battle rounds by the bracket and match results.",
+        text: "The live leaderboard shows your rank — in Cypher / Qualifier rounds by summed judge section scores, in battle rounds by the bracket, the judge vote tally and the final winner.",
       },
     ],
   },

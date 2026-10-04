@@ -42,6 +42,7 @@ type LeaderboardMatch = {
     winnerCorner: string | null;
     scoreA: number | null;
     scoreB: number | null;
+    hasSections: boolean;
   }[];
 };
 type LeaderboardCategory = {
@@ -63,6 +64,225 @@ type LeaderboardData = {
 };
 
 const NUMERIC_PHASES = ["CYPHER", "QUALIFIER"];
+
+type RankedRowData = {
+  reg: LeaderboardRegistration;
+  total: number;
+  judges: number;
+  rank: number;
+};
+
+function RankBadge({ rank }: { rank: number }) {
+  return (
+    <span
+      className={`w-9 shrink-0 text-center font-mono text-title-md font-bold ${
+        rank === 1 ? "text-accent" : rank === 2 ? "text-ink" : "text-ink-muted"
+      }`}
+    >
+      {rank}
+    </span>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  return (
+    <span
+      className={`shrink-0 border px-sm py-xs font-mono text-[0.6rem] uppercase ${
+        status === "CONFIRMED" ? "border-accent text-accent" : "border-line text-ink-muted"
+      }`}
+    >
+      {status === "CONFIRMED" ? "Advanced" : "Eliminated"}
+    </span>
+  );
+}
+
+function MemberLine({ names, fallback }: { names: string[]; fallback: string }) {
+  if (names.length > 1) {
+    return <>{names.join(" · ")}</>;
+  }
+  return <>{fallback}</>;
+}
+
+function RankedRow({ row, fallbackLabel }: { row: RankedRowData; fallbackLabel: string }) {
+  return (
+    <>
+      {/* Phones: stacked card so long names wrap in full instead of truncating to "...". */}
+      <div className="border-b border-line px-md py-md md:hidden">
+        <div className="flex items-start gap-sm">
+          <RankBadge rank={row.rank} />
+          <div className="min-w-0 flex-1">
+            <p className="break-words text-body-md font-bold uppercase leading-tight">
+              {row.reg.name}
+            </p>
+            <p className="mt-xs break-words text-[0.7rem] uppercase leading-snug text-ink-muted">
+              <MemberLine names={row.reg.members.map((m) => m.name)} fallback={row.reg.crew ?? fallbackLabel} />
+            </p>
+            <div className="mt-sm flex flex-wrap items-center gap-sm">
+              <StatusBadge status={row.reg.status} />
+              {row.reg.seed != null ? (
+                <span className="font-mono text-[0.65rem] uppercase text-ink-muted">
+                  Seed #{row.reg.seed}
+                </span>
+              ) : null}
+              <span className="font-mono text-[0.65rem] uppercase text-ink-muted">
+                {row.judges} judge{row.judges === 1 ? "" : "s"}
+              </span>
+            </div>
+          </div>
+          <span className="shrink-0 pt-xs font-mono text-title-md font-bold text-accent">
+            {row.total}
+          </span>
+        </div>
+      </div>
+
+      {/* Tablet and desktop: single dense row. */}
+      <div className="hidden items-center gap-md border-b border-line px-md py-sm md:flex">
+        <RankBadge rank={row.rank} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-body-md font-bold uppercase">{row.reg.name}</p>
+          <p className="truncate text-[0.7rem] uppercase text-ink-muted">
+            <MemberLine names={row.reg.members.map((m) => m.name)} fallback={row.reg.crew ?? fallbackLabel} />
+            {row.reg.seed != null ? ` / Seed #${row.reg.seed}` : ""}
+          </p>
+        </div>
+        <StatusBadge status={row.reg.status} />
+        <span className="shrink-0 font-mono text-title-md font-bold text-accent">{row.total}</span>
+        <span className="hidden w-20 text-right text-xs uppercase text-ink-muted lg:block">
+          {row.judges} judge{row.judges === 1 ? "" : "s"}
+        </span>
+      </div>
+    </>
+  );
+}
+
+type MatchTally = {
+  red: number;
+  blue: number;
+  label: string;
+};
+
+function matchTally(match: LeaderboardMatch): MatchTally {
+  const redVotes = match.scores.filter((s) => s.winnerCorner === "RED").length;
+  const blueVotes = match.scores.filter((s) => s.winnerCorner === "BLUE").length;
+
+  if (redVotes + blueVotes > 0) {
+    return { red: redVotes, blue: blueVotes, label: `Votes ${redVotes} : ${blueVotes}` };
+  }
+
+  const legacy = match.scores.filter((s) => s.hasSections);
+  if (legacy.length > 0) {
+    const red = legacy.reduce((sum, s) => sum + (s.scoreA ?? 0), 0);
+    const blue = legacy.reduce((sum, s) => sum + (s.scoreB ?? 0), 0);
+    return { red, blue, label: `Scored ${red.toFixed(1)} – ${blue.toFixed(1)} (legacy)` };
+  }
+
+  return { red: 0, blue: 0, label: "No votes yet" };
+}
+
+function MatchStatusChip({ match }: { match: LeaderboardMatch }) {
+  const decided = match.status === "COMPLETE" && match.winnerName;
+  return (
+    <span
+      className={`shrink-0 border px-md py-xs font-mono text-[0.7rem] uppercase ${
+        decided
+          ? "border-accent text-accent"
+          : match.status === "LIVE" || match.status === "LOCKED"
+            ? "border-line text-ink"
+            : "border-line text-ink-muted"
+      }`}
+    >
+      {decided ? `Winner: ${match.winnerName}` : match.status.toLowerCase()}
+    </span>
+  );
+}
+
+function VoteBar({ tally }: { tally: MatchTally }) {
+  const total = tally.red + tally.blue;
+  if (total === 0) return null;
+  const redPct = Math.round((tally.red / total) * 100);
+  return (
+    <div className="flex h-2 w-full overflow-hidden border border-line" aria-hidden="true">
+      <div className="bg-accent" style={{ width: `${redPct}%` }} />
+      <div className="flex-1 bg-[#2980FF]" />
+    </div>
+  );
+}
+
+function MatchRow({ match }: { match: LeaderboardMatch }) {
+  const tally = matchTally(match);
+  const showMembers = match.redMembers.length > 0 || match.blueMembers.length > 0;
+
+  return (
+    <>
+      {/* Phones: RED and BLUE each get their own wrapping line. */}
+      <div className="border-b border-line px-md py-md md:hidden">
+        <div className="flex items-center justify-between gap-sm">
+          <span className="font-mono text-[0.65rem] uppercase text-ink-muted">
+            Round {match.round} / M{match.position}
+          </span>
+          <MatchStatusChip match={match} />
+        </div>
+
+        <div className="mt-sm space-y-xs">
+          <div>
+            <p className="font-mono text-[0.6rem] uppercase tracking-[0.15em] text-accent">Red</p>
+            <p className="break-words font-display text-body-md uppercase leading-tight text-accent">
+              {match.redName}
+            </p>
+            {match.redMembers.length > 0 ? (
+              <p className="break-words text-[0.65rem] uppercase leading-snug text-ink-muted">
+                {match.redMembers.join(" · ")}
+              </p>
+            ) : null}
+          </div>
+          <div>
+            <p className="font-mono text-[0.6rem] uppercase tracking-[0.15em] text-[#2980FF]">Blue</p>
+            <p className="break-words font-display text-body-md uppercase leading-tight text-[#2980FF]">
+              {match.blueName}
+            </p>
+            {match.blueMembers.length > 0 ? (
+              <p className="break-words text-[0.65rem] uppercase leading-snug text-ink-muted">
+                {match.blueMembers.join(" · ")}
+              </p>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="mt-sm space-y-xs">
+          <VoteBar tally={tally} />
+          <p className="font-mono text-[0.65rem] uppercase text-ink-muted">{tally.label}</p>
+        </div>
+      </div>
+
+      {/* Tablet and desktop. */}
+      <div className="hidden border-b border-line px-md py-md md:block">
+        <div className="flex flex-wrap items-center gap-md">
+          <span className="w-10 font-mono text-xs uppercase text-ink-muted">
+            M{match.position}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="font-display text-title-sm uppercase text-accent">
+              {match.redName}
+            </span>
+            <span className="mx-sm text-ink-muted">vs</span>
+            <span className="font-display text-title-sm uppercase text-[#2980FF]">
+              {match.blueName}
+            </span>
+          </span>
+          <span className="shrink-0 font-mono text-[0.7rem] uppercase text-ink-muted">
+            {tally.label}
+          </span>
+          <MatchStatusChip match={match} />
+        </div>
+        {showMembers ? (
+          <p className="mt-xs pl-10 text-[0.7rem] uppercase text-ink-muted">
+            {match.redMembers.join(" · ") || "TBD"} vs {match.blueMembers.join(" · ") || "TBD"}
+          </p>
+        ) : null}
+      </div>
+    </>
+  );
+}
 
 export function LiveLeaderboard({
   eventId,
@@ -203,31 +423,36 @@ export function LiveLeaderboard({
   const availableFormats = [...new Set(data.categories.map((category) => category.format ?? "SOLO"))];
 
   return (
-    <section className="mt-section">
+    <section className={compact ? "mt-md" : "mt-section"}>
       <div className="flex flex-wrap items-center justify-between gap-sm">
         <div>
-          <p className="font-mono text-[0.7rem] uppercase text-ink-muted">Live leaderboard</p>
+          <p className="font-mono text-[0.7rem] uppercase text-ink-muted">
+            {compact ? "Standings" : "Live leaderboard"}
+          </p>
           <h2 className="mt-xs font-display text-title-md uppercase">{title}</h2>
         </div>
-        <span className="flex items-center gap-md">
-          <button
-            className="border border-line px-md py-xs font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted transition-colors hover:border-accent hover:text-accent disabled:cursor-wait disabled:opacity-60"
-            disabled={refreshing}
-            onClick={() => void handleRefresh()}
-            type="button"
-          >
-            {refreshing ? "Refreshing..." : "Refresh"}
-          </button>
-          <span className="flex items-center gap-sm font-mono text-[0.7rem] uppercase">
-            {connectionStatus === "live" ? "LIVE" : "SYNCING..."}
-            <span
-              className={`h-2 w-2 rounded-full ${connectionStatus === "live" ? "bg-accent" : "bg-line"}`}
-            />
+        {compact ? null : (
+          <span className="flex items-center gap-md">
+            <button
+              className="border border-line px-md py-xs font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted transition-colors hover:border-accent hover:text-accent disabled:cursor-wait disabled:opacity-60"
+              disabled={refreshing}
+              onClick={() => void handleRefresh()}
+              type="button"
+            >
+              {refreshing ? "Refreshing..." : "Refresh"}
+            </button>
+            <span className="flex items-center gap-sm font-mono text-[0.7rem] uppercase">
+              {connectionStatus === "live" ? "LIVE" : "SYNCING..."}
+              <span
+                className={`h-2 w-2 rounded-full ${connectionStatus === "live" ? "bg-accent" : "bg-line"}`}
+              />
+            </span>
           </span>
-        </span>
+        )}
       </div>
 
-      <div className="mt-md flex flex-wrap gap-md">
+      {compact ? null : (
+        <div className="mt-md flex flex-wrap gap-md">
         <label className="flex flex-col gap-xs">
           <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Format</span>
           <select
@@ -281,7 +506,8 @@ export function LiveLeaderboard({
             ))}
           </select>
         </label>
-      </div>
+        </div>
+      )}
 
       {!selectedCategory ? (
         <p className="mt-lg border border-line p-lg text-body-sm text-ink-muted">
@@ -300,34 +526,13 @@ export function LiveLeaderboard({
               No scores yet for this phase. Judges are scoring live.
             </p>
           ) : (
-            <div className={compact ? "" : ""}>
+            <div>
               {ranked.map((row) => (
-                <div
+                <RankedRow
                   key={row.reg.id}
-                  className="flex items-center gap-md border-b border-line px-md py-sm"
-                >
-                  <span
-                    className={`w-10 shrink-0 text-center font-mono text-display-lg font-bold ${
-                      row.rank === 1 ? "text-accent" : row.rank === 2 ? "text-ink" : "text-ink-muted"
-                    }`}
-                  >
-                    {row.rank}
-                  </span>
-                   <div className="min-w-0 flex-1">
-                     <p className="truncate text-body-md font-bold uppercase">{row.reg.name}</p>
-                      <p className="text-[0.7rem] uppercase text-ink-muted">
-                        {row.reg.members.length > 1 ? row.reg.members.map((member) => member.name).join(" · ") : (row.reg.crew ?? formatLabel(selectedCategory?.format))}
-                       {row.reg.seed != null ? ` / Seed #${row.reg.seed}` : ""}
-                     </p>
-                   </div>
-                   <span className={`border px-sm py-xs font-mono text-[0.6rem] uppercase ${row.reg.status === "CONFIRMED" ? "border-accent text-accent" : "border-line text-ink-muted"}`}>
-                     {row.reg.status === "CONFIRMED" ? "Advanced" : "Eliminated"}
-                   </span>
-                  <span className="font-mono text-title-md font-bold text-accent">{row.total}</span>
-                  <span className="w-20 text-right text-xs uppercase text-ink-muted">
-                    {row.judges} judge{row.judges === 1 ? "" : "s"}
-                  </span>
-                </div>
+                  row={row}
+                  fallbackLabel={formatLabel(selectedCategory?.format)}
+                />
               ))}
             </div>
           )}
@@ -356,49 +561,9 @@ export function LiveLeaderboard({
                       Bracket round {round}
                     </p>
                   </div>
-                  {matches.map((m) => {
-                    const redVotes = m.scores.filter((s) => s.winnerCorner === "RED").length;
-                    const blueVotes = m.scores.filter((s) => s.winnerCorner === "BLUE").length;
-                    const scoreLine = m.scores.some((score) => score.winnerCorner)
-                        ? `Red ${redVotes} · Blue ${blueVotes}`
-                        : "Direct decision";
-                    const decided = m.status === "COMPLETE" && m.winnerName;
-                    return (
-                      <div key={m.id} className="border-b border-line px-md py-md">
-                        <div className="flex flex-wrap items-center gap-md">
-                          <span className="w-10 font-mono text-xs uppercase text-ink-muted">
-                            M{m.position}
-                          </span>
-                           <span className="flex-1">
-                            <span className="font-display text-title-sm uppercase text-accent">
-                              {m.redName}
-                           </span>
-                            <span className="mx-sm text-ink-muted">vs</span>
-                            <span className="font-display text-title-sm uppercase text-[#2980FF]">
-                              {m.blueName}
-                            </span>
-                          </span>
-                           <span className="font-mono text-[0.7rem] uppercase text-ink-muted">
-                             {scoreLine}
-                           </span>
-                          <span
-                            className={`border px-md py-xs font-mono text-[0.7rem] uppercase ${
-                              decided
-                                ? "border-accent text-accent"
-                                : m.status === "LIVE" || m.status === "LOCKED"
-                                  ? "border-line text-ink"
-                                  : "border-line text-ink-muted"
-                            }`}
-                          >
-                            {decided ? `Winner: ${m.winnerName}` : m.status.toLowerCase()}
-                          </span>
-                         </div>
-                         {(m.redMembers.length > 0 || m.blueMembers.length > 0) && (
-                           <p className="mt-xs pl-10 text-[0.7rem] uppercase text-ink-muted">{m.redMembers.join(" · ") || "TBD"} vs {m.blueMembers.join(" · ") || "TBD"}</p>
-                        )}
-                      </div>
-                    );
-                  })}
+                  {matches.map((m) => (
+                    <MatchRow key={m.id} match={m} />
+                  ))}
                 </div>
               );
             })

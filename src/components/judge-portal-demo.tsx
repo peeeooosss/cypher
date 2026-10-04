@@ -23,14 +23,39 @@ function DemoBadge() {
   );
 }
 
-function JudgePanel({ color }: { color: string }) {
-  const [sections, setSections] = useState<SectionScores>({ ...EMPTY_SECTIONS });
+function DemoVoteButton({
+  label,
+  name,
+  tone,
+  selected,
+  onSelect,
+}: {
+  label: string;
+  name: string;
+  tone: "red" | "blue";
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const isRed = tone === "red";
   return (
-    <ScoringSectionGrid
-      value={sections}
-      onChange={setSections}
-      className={`flex-1 ${color}`}
-    />
+    <button
+      type="button"
+      onClick={onSelect}
+      className={[
+        "w-full border-2 px-md py-lg text-center font-display uppercase transition-colors",
+        isRed ? "border-accent" : "border-[#2980FF]",
+        selected
+          ? isRed
+            ? "bg-accent text-paper"
+            : "bg-[#2980FF] text-paper"
+          : isRed
+            ? "text-accent hover:bg-accent/10"
+            : "text-[#2980FF] hover:bg-[#2980FF]/10",
+      ].join(" ")}
+    >
+      <span className="block text-button-md leading-tight">{label}</span>
+      <span className="mt-xs block break-words text-body-sm font-bold normal-case">{name}</span>
+    </button>
   );
 }
 
@@ -38,6 +63,7 @@ export function JudgePortalDemo() {
   const [view, setView] = useState<DemoView>("battle");
   const [format, setFormat] = useState("SOLO");
   const [rosterDrafts, setRosterDrafts] = useState<Record<string, SectionScores>>({});
+  const [demoVote, setDemoVote] = useState<"RED" | "BLUE" | null>(null);
 
   return (
     <div className="mx-auto max-w-7xl px-md py-section md:px-xl">
@@ -111,38 +137,54 @@ export function JudgePortalDemo() {
           <div className="grid lg:grid-cols-2">
             <div className="border-b border-line p-md lg:border-b-0 lg:border-r">
               <div className="mb-md flex items-center gap-md">
-                <div className="flex h-14 w-14 items-center justify-center border-2 border-accent bg-paper-soft font-display text-display-md uppercase text-accent">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center border-2 border-accent bg-paper-soft font-display text-display-md uppercase text-accent">
                   K
                 </div>
-                <div>
-                  <p className="font-display text-display-md uppercase leading-none text-accent">Krish Bhakuni</p>
-                  <p className="mt-xs font-mono text-body-sm uppercase text-ink-muted">Seed #7 / Bombay Cypher</p>
+                <div className="min-w-0">
+                  <p className="break-words font-display text-display-md uppercase leading-none text-accent">Krish Bhakuni</p>
+                  <p className="mt-xs break-words font-mono text-body-sm uppercase text-ink-muted">Seed #7 / Bombay Cypher</p>
                 </div>
               </div>
-              <JudgePanel color="text-accent" />
+              <DemoVoteButton
+                label="Vote red"
+                name="Krish Bhakuni"
+                tone="red"
+                selected={demoVote === "RED"}
+                onSelect={() => setDemoVote("RED")}
+              />
             </div>
             <div className="p-md">
               <div className="mb-md flex items-center gap-md">
-                <div className="flex h-14 w-14 items-center justify-center border-2 border-[#2980FF] bg-paper-soft font-display text-display-md uppercase text-[#2980FF]">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center border-2 border-[#2980FF] bg-paper-soft font-display text-display-md uppercase text-[#2980FF]">
                   S
                 </div>
-                <div>
-                  <p className="font-display text-display-md uppercase leading-none text-[#2980FF]">Sahil Kushwaha</p>
-                  <p className="mt-xs font-mono text-body-sm uppercase text-ink-muted">Seed #12 / Delhi Unit</p>
+                <div className="min-w-0">
+                  <p className="break-words font-display text-display-md uppercase leading-none text-[#2980FF]">Sahil Kushwaha</p>
+                  <p className="mt-xs break-words font-mono text-body-sm uppercase text-ink-muted">Seed #12 / Delhi Unit</p>
                 </div>
               </div>
-              <JudgePanel color="text-[#2980FF]" />
+              <DemoVoteButton
+                label="Vote blue"
+                name="Sahil Kushwaha"
+                tone="blue"
+                selected={demoVote === "BLUE"}
+                onSelect={() => setDemoVote("BLUE")}
+              />
             </div>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-md border-t border-line bg-paper-soft px-md py-lg">
             <p className="font-mono text-[0.7rem] uppercase text-ink-muted">
-              2 judges · scores sum live
+              {demoVote ? "Red 2 · Blue 1 · 3 judges voted" : "3 judges voted · pick a side"}
             </p>
             <button
               type="button"
-              className="cursor-not-allowed border border-accent bg-accent px-lg py-md text-button-md font-bold uppercase text-paper opacity-60"
+              disabled={!demoVote}
+              onClick={() => setDemoVote(null)}
+              className={`border border-accent px-lg py-md text-button-md font-bold uppercase ${
+                demoVote ? "bg-accent text-paper" : "cursor-not-allowed border-line text-ink-muted opacity-60"
+              }`}
             >
-              Submit score
+              {demoVote ? "Vote submitted" : "Submit vote"}
             </button>
           </div>
         </div>
@@ -205,17 +247,21 @@ export function JudgePortalDemo() {
                 .map((row) => (
                   <div
                     key={row.id}
-                    className="flex items-center gap-md border-b border-line px-md py-sm"
+                    className="flex items-center gap-sm border-b border-line px-md py-sm"
                   >
-                    <span className={`w-10 text-center font-mono text-display-lg font-bold ${row.rank === 1 ? "text-accent" : row.rank === 2 ? "text-ink" : "text-ink-muted"}`}>
+                    <span className={`w-8 shrink-0 text-center font-mono text-title-md font-bold ${row.rank === 1 ? "text-accent" : row.rank === 2 ? "text-ink" : "text-ink-muted"}`}>
                       {row.rank}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-body-md font-bold uppercase">{row.name}</p>
-                      <p className="text-[0.7rem] uppercase text-ink-muted">{row.crew} / Seed #{row.seed}</p>
+                      <p className="break-words text-body-md font-bold uppercase leading-tight md:truncate">{row.name}</p>
+                      <p className="break-words text-[0.7rem] uppercase leading-snug text-ink-muted md:truncate">
+                        {row.crew} / Seed #{row.seed}
+                      </p>
                     </div>
-                    <span className="font-mono text-title-md font-bold text-accent">{row.total}</span>
-                    <span className="w-20 text-right text-xs uppercase text-ink-muted">{row.judges} judges</span>
+                    <span className="shrink-0 font-mono text-title-md font-bold text-accent">{row.total}</span>
+                    <span className="hidden w-20 shrink-0 text-right text-xs uppercase text-ink-muted sm:block">
+                      {row.judges} judges
+                    </span>
                   </div>
                 ))}
             </div>

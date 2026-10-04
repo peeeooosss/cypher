@@ -65,6 +65,7 @@ export async function GET(_: Request, { params }: Context) {
                   winnerCorner: true,
                   scoreA: true,
                   scoreB: true,
+                  scoreAMusicality: true,
                 },
               },
             },
@@ -124,6 +125,9 @@ export async function GET(_: Request, { params }: Context) {
           winnerCorner: s.winnerCorner,
           scoreA: s.scoreA,
           scoreB: s.scoreB,
+          // Battles are decided by vote now; this flag only marks pre-vote rows
+          // that still carry the old 4-section marking scores.
+          hasSections: s.scoreAMusicality != null,
         })),
       })),
     })),

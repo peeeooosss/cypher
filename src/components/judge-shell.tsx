@@ -50,7 +50,7 @@ type MatchDisplay = {
     user: { name: string | null; avatarUrl?: string | null };
     members?: { user: { name: string | null; username: string | null } }[];
   } | null;
-  scores: { judgeSlot: { name: string | null } }[];
+  scores: { winnerCorner: string | null; judgeSlot: { name: string | null } }[];
 };
 
 type EnrichedSlot = {
@@ -128,13 +128,14 @@ export function JudgeShell({ code, slotData: initialSlotData }: { code: string; 
 
   // Socket listener for phase changes
   useEffect(() => {
-    const socket = io({ path: "/api/socketio", transports: ["websocket"] });
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL ?? "http://localhost:3001";
+    const socket = io(socketUrl, { query: { code }, transports: ["websocket"] });
 
     socket.on("phase:activated", () => fetchSlot());
     socket.on("phase:completed", () => fetchSlot());
 
     return () => { socket.disconnect(); };
-  }, [fetchSlot]);
+  }, [fetchSlot, code]);
 
   const activeRound = rounds.find((r) => r.phaseStatus === "ACTIVE") ?? null;
   const isRosterRound = activeRound != null && ["CYPHER", "QUALIFIER"].includes(activeRound.type);

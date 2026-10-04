@@ -75,7 +75,13 @@ export async function getMatchDecisionAggregate(matchId: string) {
   });
   const redVotes = scores.filter((s) => s.winnerCorner === "RED").length;
   const blueVotes = scores.filter((s) => s.winnerCorner === "BLUE").length;
-  return { scoreRed: redVotes, scoreBlue: blueVotes, judgeCount: scores.length };
+  // Only count judges who actually cast a vote — a match can still hold rows
+  // written by the legacy section-scoring path.
+  return {
+    scoreRed: redVotes,
+    scoreBlue: blueVotes,
+    judgeCount: redVotes + blueVotes,
+  };
 }
 
 export async function getMatchScoreAggregate(matchId: string) {
