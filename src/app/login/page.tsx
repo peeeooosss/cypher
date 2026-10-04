@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 import { getSession, signIn } from "next-auth/react";
 import { responseError } from "@/lib/client-error";
 
@@ -26,19 +26,22 @@ export default function LoginPage() {
   const [profiles, setProfiles] = useState<Profile[] | null>(null);
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  // Credentials are passed explicitly (never read back from state) so a submit
+  // always authenticates with what was typed, not with a stale render closure.
+  const credentials = useRef({ phone: "", password: "" });
 
   const [query] = useState(() =>
     typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams(),
   );
   const [signedUp] = useState(() => query.get("signup") === "success");
 
-  async function finishSignIn(profileId?: string) {
+  async function finishSignIn(identifier: string, secret: string, profileId?: string) {
     setIsSubmitting(true);
     setError("");
 
     const result = await signIn("credentials", {
-      identifier: phone,
-      password,
+      identifier,
+      password: secret,
       ...(profileId ? { profileId } : {}),
       redirect: false,
       callbackUrl: "/",
@@ -67,6 +70,7 @@ export default function LoginPage() {
 
     setPhone(formPhone);
     setPassword(formPassword);
+    credentials.current = { phone: formPhone, password: formPassword };
 
     const res = await fetch("/api/auth/signin-check", {
       method: "POST",
@@ -89,7 +93,7 @@ export default function LoginPage() {
     }
 
     if (matches.length === 1) {
-      await finishSignIn();
+      await finishSignIn(formPhone, formPassword);
       return;
     }
 
@@ -124,6 +128,8 @@ export default function LoginPage() {
                 maxLength={10}
                 placeholder="10-digit mobile number"
                 type="tel"
+                value={phone}
+                onChange={(event) => setPhone(event.target.value)}
               />
             </label>
             <label className="block w-full text-body-sm font-bold uppercase">
@@ -135,6 +141,8 @@ export default function LoginPage() {
                 minLength={8}
                 name="password"
                 type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
               />
             </label>
 
@@ -167,7 +175,9 @@ export default function LoginPage() {
                   key={profile.id}
                   className="flex w-full items-center justify-between border border-line bg-paper px-lg py-md text-left hover:border-accent disabled:opacity-60"
                   disabled={isSubmitting}
-                  onClick={() => void finishSignIn(profile.id)}
+                  onClick={() =>
+                    void finishSignIn(credentials.current.phone, credentials.current.password, profile.id)
+                  }
                   type="button"
                 >
                   <div>

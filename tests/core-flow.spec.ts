@@ -22,6 +22,17 @@ test.describe("CallOut core flow", () => {
     expect(response.status()).toBe(401);
   });
 
+  test("signs in on the first submit without a second click", async ({ page }) => {
+    test.skip(!password, "Set E2E_PASSWORD to run authenticated tests");
+    await signIn(page, "9810000010");
+
+    // A single submit must authenticate and redirect straight to the role home.
+    await expect(page).not.toHaveURL(/\/login/);
+    await expect(page.getByText("Invalid phone number or password.")).toHaveCount(0);
+    await page.goto("/artist");
+    await expect(page.getByRole("heading", { name: "Find your next battle." })).toBeVisible();
+  });
+
   test("organizer can create an event and category", async ({ page }) => {
     test.skip(!password, "Set E2E_PASSWORD to run authenticated tests");
     await signIn(page, "9810000001");
