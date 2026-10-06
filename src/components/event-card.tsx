@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { EventStatus, EventType } from "@/generated/prisma/enums";
 import { StatusBadge } from "@/components/status-badge";
+import { EventLeaderboardToggle } from "@/components/event-leaderboard-toggle";
 import { formatDateShort } from "@/lib/format";
 import { EVENT_TYPE_LABELS, formatLabel, isWorkshopType } from "@/lib/event-types";
 
@@ -41,6 +42,7 @@ export function EventCard({ event }: { event: EventCardData }) {
   const scheduleCount = event._count?.scheduleItems ?? event.scheduleItems?.length ?? 0;
   const noticeCount = event._count?.notices ?? event.notices?.length ?? 0;
   const nextItem = event.scheduleItems?.[0];
+  const isCompleted = event.status === EventStatus.COMPLETED;
 
   return (
     <div className="group flex flex-col border border-line bg-paper-soft transition-colors hover:border-accent">
@@ -175,6 +177,7 @@ export function EventCard({ event }: { event: EventCardData }) {
           View live scores
         </Link>
       )}
+      {isCompleted && <EventLeaderboardToggle eventId={event.id} />}
     </div>
   );
 }

@@ -65,6 +65,14 @@ type LeaderboardData = {
 
 const NUMERIC_PHASES = ["CYPHER", "QUALIFIER"];
 
+function preferredRound(rounds: LeaderboardRound[]): LeaderboardRound | undefined {
+  return (
+    rounds.find((round) => round.phaseStatus === "ACTIVE") ??
+    [...rounds].reverse().find((round) => round.phaseStatus === "COMPLETE") ??
+    rounds[0]
+  );
+}
+
 type RankedRowData = {
   reg: LeaderboardRegistration;
   total: number;
@@ -288,11 +296,16 @@ export function LiveLeaderboard({
   eventId,
   title,
   compact = false,
+  live = true,
+  filters,
 }: {
   eventId: string;
   title: string;
   compact?: boolean;
+  live?: boolean;
+  filters?: boolean;
 }) {
+  const showFilters = filters ?? !compact;
   const [data, setData] = useState<LeaderboardData | null>(null);
   const [categoryId, setCategoryId] = useState("");
   const [phaseId, setPhaseId] = useState("");
@@ -328,8 +341,7 @@ export function LiveLeaderboard({
             const first = json.categories[0];
             setCategoryId(first.categoryId);
             setFormatFilter(first.format ?? "SOLO");
-            const active = first.rounds.find((r) => r.phaseStatus === "ACTIVE") ?? first.rounds[0];
-            setPhaseId(active?.id ?? "");
+            setPhaseId(preferredRound(first.rounds)?.id ?? "");
           }
         } else {
           setError(await responseError(res, "Unable to load leaderboard"));
@@ -342,6 +354,7 @@ export function LiveLeaderboard({
   }, [eventId]);
 
   useEffect(() => {
+    if (!live) return;
     const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL ?? "http://localhost:3001";
     const socket = io(socketUrl);
 
@@ -370,7 +383,7 @@ export function LiveLeaderboard({
     return () => {
       socket.disconnect();
     };
-  }, [eventId, load]);
+  }, [eventId, load, live]);
 
   async function handleRefresh() {
     setRefreshing(true);
@@ -451,7 +464,7 @@ export function LiveLeaderboard({
         )}
       </div>
 
-      {compact ? null : (
+      {showFilters ? (
         <div className="mt-md flex flex-wrap gap-md">
         <label className="flex flex-col gap-xs">
           <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Format</span>
@@ -463,8 +476,7 @@ export function LiveLeaderboard({
               const category = data.categories.find((item) => (item.format ?? "SOLO") === format);
               setFormatFilter(format);
               setCategoryId(category?.categoryId ?? "");
-              const active = category?.rounds.find((r) => r.phaseStatus === "ACTIVE") ?? category?.rounds[0];
-              setPhaseId(active?.id ?? "");
+              setPhaseId(preferredRound(category?.rounds ?? [])?.id ?? "");
             }}
           >
             {availableFormats.map((format) => <option key={format} value={format}>{formatLabel(format)}</option>)}
@@ -480,8 +492,7 @@ export function LiveLeaderboard({
                const cat = data.categories.find((c) => c.categoryId === id);
                setCategoryId(id);
                setFormatFilter(cat?.format ?? "SOLO");
-              const active = cat?.rounds.find((r) => r.phaseStatus === "ACTIVE") ?? cat?.rounds[0];
-              setPhaseId(active?.id ?? "");
+              setPhaseId(preferredRound(cat?.rounds ?? [])?.id ?? "");
             }}
           >
             {data.categories.map((c) => (
@@ -507,7 +518,7 @@ export function LiveLeaderboard({
           </select>
         </label>
         </div>
-      )}
+      ) : null}
 
       {!selectedCategory ? (
         <p className="mt-lg border border-line p-lg text-body-sm text-ink-muted">

@@ -2269,6 +2269,21 @@ function CypherDancerPicker({ eventId, categoryId, onResult }: { eventId: string
     setSelected(next);
   };
 
+  const scoreOf = (reg: (typeof regs)[number]) => reg.dancerScores.reduce((s, d) => s + d.score, 0);
+  const hasSeeds = regs.some((reg) => reg.seed != null);
+  const orderedRegs = regs
+    .map((reg, index) => ({ reg, index }))
+    .sort((a, b) => {
+      if (hasSeeds) {
+        const sa = a.reg.seed ?? Number.MAX_SAFE_INTEGER;
+        const sb = b.reg.seed ?? Number.MAX_SAFE_INTEGER;
+        if (sa !== sb) return sa - sb;
+        return a.index - b.index;
+      }
+      return scoreOf(b.reg) - scoreOf(a.reg) || a.index - b.index;
+    })
+    .map(({ reg }) => reg);
+
   const advance = async () => {
     setBusy(true);
     setError("");
@@ -2296,22 +2311,16 @@ function CypherDancerPicker({ eventId, categoryId, onResult }: { eventId: string
     <div className="mt-lg border-t border-line pt-md">
        <p className="font-mono text-[0.7rem] uppercase text-ink-muted mb-xs">Select entries to advance</p>
        <p className="mb-md text-body-sm text-ink-muted">
-          Tick complete entries that move to the next round, then confirm.
-       </p>
+          Tick complete entries that move to the next round, then confirm. {hasSeeds ? "Listed in seed order." : ""}
+        </p>
        {error ? <p className="mb-md text-body-sm text-accent">{error}</p> : null}
-      {[...regs]
-        .sort((a, b) => {
-          const ta = a.dancerScores.reduce((s, d) => s + d.score, 0);
-          const tb = b.dancerScores.reduce((s, d) => s + d.score, 0);
-          return tb - ta;
-        })
-        .map(reg => {
-        const total = reg.dancerScores.reduce((s, d) => s + d.score, 0);
+      {orderedRegs.map(reg => {
+        const total = scoreOf(reg);
         const judgeCount = reg.dancerScores.length;
         return (
           <label key={reg.id} className="flex items-center gap-sm py-xs text-body-sm">
             <input type="checkbox" checked={selected.has(reg.id)} onChange={() => toggle(reg.id)} className="border border-line bg-paper" />
-            <span className="w-10 font-mono text-xs text-ink-muted">#{reg.seed ?? "-"}</span>
+            <span className="w-10 shrink-0 font-mono text-xs text-ink-muted">{reg.seed != null ? `#${reg.seed}` : "—"}</span>
              <span className="flex-1">{reg.teamName ?? reg.user.name} {reg.members && reg.members.length > 1 ? <span className="ml-sm text-xs text-ink-muted">({reg.members.filter((member) => member.status === "ACCEPTED").map((member) => member.user.name ?? member.user.username).join(" · ")})</span> : reg.crew ? `(${reg.crew})` : ''}</span>
             <span className="font-mono text-sm text-accent">{judgeCount > 0 ? total : "—"}</span>
             <span className="w-20 text-right text-xs text-ink-muted">{judgeCount > 0 ? `${judgeCount} judge${judgeCount > 1 ? "s" : ""}` : "no score"}</span>
@@ -3154,8 +3163,8 @@ type BracketMatch = {
   round: number;
   position: number;
   status: string;
-  competitorA: { teamName: string | null; user: { name: string | null }; members: { user: { name: string | null; username: string | null } }[] } | null;
-  competitorB: { teamName: string | null; user: { name: string | null }; members: { user: { name: string | null; username: string | null } }[] } | null;
+  competitorA: { seed: number | null; teamName: string | null; user: { name: string | null }; members: { user: { name: string | null; username: string | null } }[] } | null;
+  competitorB: { seed: number | null; teamName: string | null; user: { name: string | null }; members: { user: { name: string | null; username: string | null } }[] } | null;
   competitorAId: string | null;
   competitorBId: string | null;
   winnerId: string | null;
@@ -3245,6 +3254,8 @@ function BracketView({
         const complete = match.status === "COMPLETE";
         const nameA = match.competitorA?.teamName ?? match.competitorA?.user.name ?? "TBD";
         const nameB = match.competitorB?.teamName ?? match.competitorB?.user.name ?? "TBD";
+        const labelA = match.competitorA?.seed != null ? `#${match.competitorA.seed} · ${nameA}` : nameA;
+        const labelB = match.competitorB?.seed != null ? `#${match.competitorB.seed} · ${nameB}` : nameB;
 
         // Battles are decided by judge vote; fall back to the legacy 4-section
         // totals for matches scored before the switch to voting.
@@ -3261,7 +3272,7 @@ function BracketView({
             ? `SCORED ${legacyA.toFixed(1)} – ${legacyB.toFixed(1)}`
             : "NO VOTES YET";
         const leading = hasVotes && redVotes !== blueVotes
-          ? redVotes > blueVotes ? nameA : nameB
+          ? redVotes > blueVotes ? labelA : labelB
           : null;
         return (
           <div key={match.id} className="mt-sm border border-line p-md">
@@ -3296,11 +3307,11 @@ function BracketView({
               </div>
             </div>
             <div className="mt-sm grid grid-cols-[1fr_auto_auto_auto_1fr] items-center gap-sm text-body-sm">
-               <span className="break-words text-right">{nameA}</span>
+               <span className="break-words text-right">{labelA}</span>
               <span className="font-mono text-[0.7rem] uppercase text-ink-muted">{hasVotes ? redVotes : ""}</span>
               <span className="border border-line px-sm py-xs font-mono text-[0.6rem] uppercase text-ink-muted">vs</span>
               <span className="font-mono text-[0.7rem] uppercase text-ink-muted">{hasVotes ? blueVotes : ""}</span>
-               <span className="break-words">{nameB}</span>
+               <span className="break-words">{labelB}</span>
             </div>
             <p className="mt-xs font-mono text-[0.65rem] uppercase text-ink-muted">{tallyLabel}</p>
             {!complete && ready && (
@@ -3316,7 +3327,7 @@ function BracketView({
                   disabled={busy === match.id}
                   onClick={() => void run(match.id, `/api/matches/${match.id}/complete`, { winnerId: match.competitorAId })}
                 >
-                   Winner: {nameA}
+                   Winner: {labelA}
                 </button>
                 <button
                   type="button"
@@ -3324,7 +3335,7 @@ function BracketView({
                   disabled={busy === match.id}
                   onClick={() => void run(match.id, `/api/matches/${match.id}/complete`, { winnerId: match.competitorBId })}
                 >
-                   Winner: {nameB}
+                   Winner: {labelB}
                 </button>
               </div>
             )}
