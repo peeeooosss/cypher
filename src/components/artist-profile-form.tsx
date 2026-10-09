@@ -9,6 +9,7 @@ import { useUploadThing } from "@/lib/uploadthing";
 
 export type ArtistProfile = {
   name: string | null;
+  username: string | null;
   avatarUrl: string | null;
   coverUrl: string | null;
   isProfilePublic: boolean;
@@ -227,6 +228,16 @@ export function ArtistProfileForm({ profile }: { profile: ArtistProfile }) {
     const name = String(form.get("name") ?? "").trim();
     if (name) body.name = name;
 
+    const rawUsername = String(form.get("username") ?? "").trim().toLowerCase().replace(/^@+/, "");
+    if (rawUsername) {
+      if (!/^[a-z0-9_]{3,30}$/.test(rawUsername)) {
+        setProfileError("Username must be 3–30 letters, numbers, or underscores.");
+        setStatus("error");
+        return;
+      }
+      body.username = rawUsername;
+    }
+
     for (const field of PROFILE_FIELDS) {
       body[field.name] = String(form.get(field.name) ?? "").trim();
     }
@@ -439,6 +450,18 @@ export function ArtistProfileForm({ profile }: { profile: ArtistProfile }) {
             defaultValue={profile.name ?? ""}
             placeholder="Stage name"
           />
+        </label>
+        <label className="block">
+          <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Username</span>
+          <input
+            className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm"
+            name="username"
+            defaultValue={profile.username ? `@${profile.username}` : ""}
+            placeholder="@yourhandle"
+          />
+          <span className="mt-xs block font-mono text-[0.6rem] uppercase text-ink-muted">
+            3–30 letters, numbers, or underscores
+          </span>
         </label>
         <div className="sm:col-span-2">
           <span className="font-mono text-[0.7rem] uppercase text-ink-muted">

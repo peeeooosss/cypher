@@ -60,7 +60,7 @@ export function RegistrationForm({
   const rosterCount = members.length + 1;
   const rosterFull = members.length + 1 >= requiredMax;
   const total = selectedCategories.reduce((sum, category) => sum + (category.entryFee ?? 0), 0);
-  const selfLabel = currentUser.username ? `@${currentUser.username}` : currentUser.name ?? "you";
+  const selfLabel = currentUser.name ?? (currentUser.username ? `@${currentUser.username}` : "you");
 
   function toggleCategory(id: string) {
     const next = new Set(selected);

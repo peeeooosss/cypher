@@ -89,6 +89,7 @@ export default async function ArtistPage({ searchParams }: PageProps) {
       where: { id: user.id },
       select: {
         name: true,
+        username: true,
         phone: true,
         email: true,
         emailVerifiedAt: true,

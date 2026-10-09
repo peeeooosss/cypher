@@ -22,8 +22,15 @@ const socialLinksSchema = z.object({
   twitter: z.string().url().nullable().optional(),
 }).optional();
 
+const usernameSchema = z
+  .string()
+  .trim()
+  .transform((value) => value.toLowerCase().replace(/^@+/, ""))
+  .pipe(z.string().regex(/^[a-z0-9_]{3,30}$/, "Username must use 3–30 letters, numbers, or underscores"));
+
 const updateMeSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
+  username: usernameSchema.optional(),
   phone: z.string().optional(),
   upiId: nullableString(120),
   whatsappNumber: nullableString(20),
@@ -60,6 +67,14 @@ export async function PATCH(request: Request) {
     }
 
     const data = { ...parsed.data };
+    if (data.username !== undefined) {
+      const taken = await prisma.user.count({
+        where: { username: data.username, NOT: { id: user.id } },
+      });
+      if (taken > 0) {
+        return conflict("That username is already in use");
+      }
+    }
     if (data.phone !== undefined) {
       const normalized = normalizePhone(data.phone);
       if (!normalized) {
@@ -80,6 +95,7 @@ export async function PATCH(request: Request) {
       select: {
         id: true,
         name: true,
+        username: true,
         phone: true,
         email: true,
         upiId: true,

@@ -241,9 +241,7 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
                     <div className="flex items-center justify-between text-body-sm">
                       <span>
                         You — captain{" "}
-                        {captain?.username ? (
-                          <span className="font-mono text-[0.65rem] text-ink-muted">@{captain.username}</span>
-                        ) : null}
+                        {captain?.name ?? (captain?.username ? `@${captain.username}` : null)}
                       </span>
                       <span className="font-mono text-[0.65rem] uppercase text-accent">Accepted</span>
                     </div>
