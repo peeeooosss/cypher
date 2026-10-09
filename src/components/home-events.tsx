@@ -95,7 +95,7 @@ export function HomeEvents({ liveEvents, upcomingEvents, closedEvents }: HomeEve
             No completed events yet.
           </p>
         ) : (
-          <div className="mt-lg grid gap-md sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-lg grid gap-md sm:grid-cols-2 lg:grid-cols-2">
             {closedEvents.map((event) => (
               <EventCard key={event.id} event={event} />
             ))}

@@ -115,10 +115,12 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
               <img src={event.posterUrl} alt={`${event.title} poster`} className="w-full" />
             </div>
           ) : null}
-          {event.organizer.studioLogoUrl ? (
+          {event.organizer.studioLogoUrl || event.organizer.studioName || event.organizer.name ? (
             <div className="mt-lg flex items-end gap-md">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={event.organizer.studioLogoUrl} alt="Studio logo" className="h-12 w-12 rounded-full border border-line object-cover" />
+              {event.organizer.studioLogoUrl ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={event.organizer.studioLogoUrl} alt="Studio logo" className="h-12 w-12 rounded-full border border-line object-cover" />
+              ) : null}
               <div>
                 <p className="font-display text-title-md uppercase">{event.organizer.studioName ?? event.organizer.name ?? "Anonymous"}</p>
                 {event.organizer.studioFoundedAt ? (
@@ -129,15 +131,15 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
               </div>
             </div>
           ) : null}
-          <div className="mt-lg flex flex-wrap gap-lg text-body-sm text-ink-muted">
+          <div className="mt-lg grid gap-lg sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <p className="font-mono text-[0.6rem] uppercase tracking-[0.2em] text-ink-muted">Date</p>
-              <p className="mt-xs">{formatDate(event.startsAt)}</p>
+              <p className="mt-xs text-body-sm font-bold text-ink">{formatDate(event.startsAt)}</p>
             </div>
             {event.venue && (
               <div>
                 <p className="font-mono text-[0.6rem] uppercase tracking-[0.2em] text-ink-muted">Venue</p>
-                <p className="mt-xs">{event.venue}</p>
+                <p className="mt-xs text-body-sm font-bold text-ink">{event.venue}</p>
               </div>
             )}
             {event.googleMapsUrl && (
@@ -159,7 +161,7 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
             )}
             <div>
               <p className="font-mono text-[0.6rem] uppercase tracking-[0.2em] text-ink-muted">Organizer</p>
-              <p className="mt-xs">{event.organizer.name ?? "Anonymous"}</p>
+              <p className="mt-xs text-body-sm font-bold text-ink">{event.organizer.name ?? "Anonymous"}</p>
             </div>
           </div>
         </div>
@@ -257,19 +259,18 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
             {event.scheduleItems && event.scheduleItems.length > 0 && (
               <section id="schedule" className="mb-section">
                 <h2 className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Schedule</h2>
-                <div className="mt-md space-y-md">
+                <div className="mt-md border-l border-line pl-lg">
                   {event.scheduleItems.map((item) => (
-                    <div key={item.id} className="border border-line bg-paper-soft p-lg">
-                      <div className="flex flex-wrap items-start justify-between gap-md">
-                        <div>
-                          <h3 className="font-display text-title-md uppercase">{item.title}</h3>
-                          <p className="mt-xs text-body-sm text-ink-muted">
-                            {new Date(item.startTime).toLocaleDateString()} at {new Date(item.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                            {item.endTime ? ` – ${new Date(item.endTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
-                          </p>
-                          {item.description && <p className="mt-xs text-body-sm text-ink-muted">{item.description}</p>}
-                        </div>
-                      </div>
+                    <div key={item.id} className="relative mb-lg last:mb-0">
+                      <span className="absolute -left-lg top-sm h-2 w-2 shrink-0 rounded-full bg-accent" />
+                      <p className="font-mono text-[0.65rem] font-bold uppercase tracking-[0.15em] text-accent">
+                        {new Date(item.startTime).toLocaleDateString(undefined, { day: "numeric", month: "short" })}
+                        {" · "}
+                        {new Date(item.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        {item.endTime ? ` – ${new Date(item.endTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
+                      </p>
+                      <h3 className="mt-xs font-display text-title-md uppercase">{item.title}</h3>
+                      {item.description && <p className="mt-xs text-body-sm text-ink-muted">{item.description}</p>}
                     </div>
                   ))}
                 </div>
@@ -321,7 +322,7 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
                   {event.categories.map((category) => (
                     <div
                       key={category.id}
-                      className="border border-line bg-paper-soft p-lg"
+                      className="border border-line bg-paper-soft p-lg transition-colors hover:border-accent/40"
                     >
                        <h3 className="font-display text-title-md uppercase">{category.name}</h3>
                        <p className="mt-xs font-mono text-[0.65rem] uppercase tracking-[0.1em] text-accent">{formatLabel(category.format)} · {category.minMembers === category.maxMembers ? category.minMembers : `${category.minMembers}–${category.maxMembers}`} members</p>
@@ -329,7 +330,7 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
                         {formatFee(category)}
                       </p>
                       {formatPrize(category.prizePool) && (
-                        <p className="mt-xs font-mono text-[0.65rem] uppercase tracking-[0.1em] text-green-600">
+                        <p className="mt-xs inline-block border border-accent/30 bg-accent/10 px-sm py-xs font-mono text-[0.65rem] uppercase tracking-[0.1em] text-accent">
                           {formatPrize(category.prizePool)}
                         </p>
                       )}
@@ -349,7 +350,7 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
             </div>
           </section>
 
-          <aside className="space-y-lg border-t border-line pt-lg lg:border-l lg:border-t-0 lg:pl-xl lg:pt-0">
+          <aside className="h-fit space-y-lg border-t border-line pt-lg lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto lg:border-l lg:border-t-0 lg:pl-xl lg:pt-0">
             <div>
               <p className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Status</p>
               <StatusBadge status={event.status} />
@@ -395,9 +396,13 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
           </aside>
         </div>
 
-        {event.status === EventStatus.LIVE && !isWorkshopType(event.eventType) && (
+        {(event.status === EventStatus.LIVE || event.status === EventStatus.COMPLETED) && !isWorkshopType(event.eventType) && (
           <div className="mt-section border-t border-line pt-section">
-            <LiveLeaderboard eventId={event.id} title={`${event.title} — Live standings`} />
+            <LiveLeaderboard
+              eventId={event.id}
+              title={`${event.title} — ${event.status === EventStatus.LIVE ? "Live standings" : "Final standings"}`}
+              live={event.status === EventStatus.LIVE}
+            />
           </div>
         )}
       </div>

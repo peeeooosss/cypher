@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { EventStatus, EventType } from "@/generated/prisma/enums";
 import { StatusBadge } from "@/components/status-badge";
-import { EventLeaderboardToggle } from "@/components/event-leaderboard-toggle";
+import { EventCardLeaderboard } from "@/components/event-card-leaderboard";
 import { formatDateShort } from "@/lib/format";
 import { EVENT_TYPE_LABELS, formatLabel, isWorkshopType } from "@/lib/event-types";
 
@@ -45,12 +45,12 @@ export function EventCard({ event }: { event: EventCardData }) {
   const isCompleted = event.status === EventStatus.COMPLETED;
 
   return (
-    <div className="group flex flex-col border border-line bg-paper-soft transition-colors hover:border-accent">
+    <div className="group flex flex-col overflow-hidden border border-line bg-paper-soft transition-all duration-200 hover:border-accent hover:shadow-card-hover">
       <Link href={`/events/${event.slug}`} className="block flex-1">
         {event.posterUrl ? (
-          <div className="relative aspect-[4/3] overflow-hidden bg-line/20 border-b border-line">
+          <div className="relative aspect-[4/3] overflow-hidden border-b border-line bg-line/20">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={event.posterUrl} alt={`${event.title} poster`} className="h-full w-full object-contain" />
+            <img src={event.posterUrl} alt={`${event.title} poster`} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
           </div>
         ) : null}
         <div className="flex items-center gap-sm border-b border-line px-md py-xs">
@@ -73,20 +73,6 @@ export function EventCard({ event }: { event: EventCardData }) {
               {[event.city, event.state, event.venue].filter(Boolean).join(" / ")}
             </p>
           )}
-          {event.googleMapsUrl && (
-            <a
-              href={event.googleMapsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-xs inline-flex items-center gap-xs font-mono text-[0.65rem] font-bold uppercase tracking-[0.1em] text-accent hover:underline"
-            >
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
-              </svg>
-              Get Directions
-            </a>
-          )}
 
           {detailText && (
             <p className="mt-md border-l-2 border-accent pl-sm text-body-sm leading-relaxed text-ink-muted whitespace-pre-wrap line-clamp-3">
@@ -97,12 +83,12 @@ export function EventCard({ event }: { event: EventCardData }) {
           {(event.accommodationAvailable || event.foodAvailable) && (
             <div className="mt-md flex flex-wrap gap-xs">
               {event.accommodationAvailable && (
-                <span className="border border-line px-sm py-xs font-mono text-[0.6rem] uppercase tracking-[0.1em] text-ink-muted">
+                <span className="border border-line px-sm py-xs font-mono text-[0.6rem] uppercase tracking-[0.1em] text-ink-muted transition-colors group-hover:border-accent/40">
                   Accommodation
                 </span>
               )}
               {event.foodAvailable && (
-                <span className="border border-line px-sm py-xs font-mono text-[0.6rem] uppercase tracking-[0.1em] text-ink-muted">
+                <span className="border border-line px-sm py-xs font-mono text-[0.6rem] uppercase tracking-[0.1em] text-ink-muted transition-colors group-hover:border-accent/40">
                   Food
                 </span>
               )}
@@ -112,8 +98,8 @@ export function EventCard({ event }: { event: EventCardData }) {
           {event.categories && event.categories.length > 0 && (
             <div className="mt-md flex flex-wrap gap-xs">
               {event.categories.slice(0, 3).map((cat) => (
-                <span key={cat.id} className="border border-line px-sm py-xs font-mono text-[0.6rem] uppercase tracking-[0.1em] text-ink-muted">
-                   {cat.name}{cat.format ? ` · ${formatLabel(cat.format)}` : ""}
+                <span key={cat.id} className="border border-line px-sm py-xs font-mono text-[0.6rem] uppercase tracking-[0.1em] text-ink-muted transition-colors group-hover:border-accent/40">
+                  {cat.name}{cat.format ? ` · ${formatLabel(cat.format)}` : ""}
                 </span>
               ))}
               {event.categories.length > 3 && (
@@ -154,13 +140,27 @@ export function EventCard({ event }: { event: EventCardData }) {
             const total = event.categories.reduce((s, c) => s + (c.prizePool?.totalAmount ?? 0), 0);
             if (total <= 0) return null;
             return (
-              <p className="mt-xs font-mono text-[0.65rem] font-bold uppercase tracking-[0.1em] text-green-600">
+              <p className="mt-md inline-block border border-accent/30 bg-accent/10 px-sm py-xs font-mono text-[0.65rem] font-bold uppercase tracking-[0.1em] text-accent">
                 ₹{total.toLocaleString("en-IN")} prize pool
               </p>
             );
           })()}
         </div>
       </Link>
+      {event.googleMapsUrl && (
+        <a
+          href={event.googleMapsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-xs border-t border-line px-md py-sm font-mono text-[0.65rem] font-bold uppercase tracking-[0.1em] text-accent transition-colors hover:bg-accent/10"
+        >
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+          </svg>
+          Get Directions
+        </a>
+      )}
       {(event.status === EventStatus.PUBLISHED || event.status === EventStatus.LIVE) && (
         <Link
           href={`/events/${event.slug}/register`}
@@ -177,7 +177,7 @@ export function EventCard({ event }: { event: EventCardData }) {
           View live scores
         </Link>
       )}
-      {isCompleted && <EventLeaderboardToggle eventId={event.id} />}
+      {isCompleted && <EventCardLeaderboard eventId={event.id} slug={event.slug} />}
     </div>
   );
 }

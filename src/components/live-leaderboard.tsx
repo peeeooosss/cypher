@@ -455,9 +455,9 @@ export function LiveLeaderboard({
               {refreshing ? "Refreshing..." : "Refresh"}
             </button>
             <span className="flex items-center gap-sm font-mono text-[0.7rem] uppercase">
-              {connectionStatus === "live" ? "LIVE" : "SYNCING..."}
+              {live ? (connectionStatus === "live" ? "LIVE" : "SYNCING...") : "FINAL"}
               <span
-                className={`h-2 w-2 rounded-full ${connectionStatus === "live" ? "bg-accent" : "bg-line"}`}
+                className={`h-2 w-2 rounded-full ${live ? (connectionStatus === "live" ? "bg-accent" : "bg-line") : "bg-ink-muted"}`}
               />
             </span>
           </span>
