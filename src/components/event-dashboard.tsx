@@ -162,6 +162,11 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<string>("Overview");
   const [event, setEvent] = useState(initialEvent);
+  const [prevInitialEvent, setPrevInitialEvent] = useState(initialEvent);
+  if (prevInitialEvent !== initialEvent) {
+    setPrevInitialEvent(initialEvent);
+    setEvent(initialEvent);
+  }
   const [controlRoomKey, setControlRoomKey] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [notice, setNotice] = useState("");
@@ -2963,6 +2968,17 @@ function PrizesTab({
 
 type DistributionEntry = { rank: number; label: string; percentage: number };
 
+function normalizeDistribution(raw: unknown): DistributionEntry[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((entry: Record<string, unknown>) => ({
+      rank: Number(entry.rank) || 0,
+      label: String(entry.label ?? ""),
+      percentage: Number(entry.percentage ?? entry.pct ?? 0) || 0,
+    }))
+    .filter((entry) => entry.rank > 0);
+}
+
 function PrizePoolSection({
   category,
   refresh,
@@ -2970,9 +2986,9 @@ function PrizePoolSection({
   category: Category;
   refresh: () => void;
 }) {
-  const initialDistribution: DistributionEntry[] = category.prizePool
-    ? (category.prizePool.distribution as DistributionEntry[])
-    : [];
+  const initialDistribution: DistributionEntry[] = normalizeDistribution(
+    category.prizePool?.distribution,
+  );
   const [totalAmount, setTotalAmount] = useState(
     category.prizePool?.totalAmount?.toString() ?? "",
   );
@@ -3019,7 +3035,7 @@ function PrizePoolSection({
         method: category.prizePool ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          totalAmount: Number(totalAmount),
+          totalAmount: Math.round(Number(totalAmount)),
           currency,
           distribution,
           isPaid,
@@ -3029,6 +3045,16 @@ function PrizePoolSection({
         setError(await responseError(res, "Failed to save prize pool"));
         return;
       }
+      const saved = (await res.json()) as {
+        totalAmount?: number;
+        currency?: string;
+        distribution?: DistributionEntry[];
+        isPaid?: boolean;
+      };
+      setTotalAmount(saved.totalAmount != null ? String(saved.totalAmount) : "");
+      setCurrency(saved.currency ?? "USD");
+      setDistribution(Array.isArray(saved.distribution) ? saved.distribution : []);
+      setIsPaid(Boolean(saved.isPaid));
       refresh();
     } catch {
       setError("Network error. Please try again.");
@@ -3137,9 +3163,9 @@ function PrizePoolSection({
           </button>
           {distribution.length > 0 && (
             <span
-              className={`font-mono text-body-sm ${sum === 100 ? "text-accent" : "text-accent"}`}
+              className={`font-mono text-body-sm ${sum === 100 ? "text-accent" : "text-ink-muted"}`}
             >
-              {sum}%
+              {sum}%{distribution.length > 0 && sum !== 100 ? " (needs 100%)" : ""}
             </span>
           )}
         </div>

@@ -226,9 +226,9 @@ for (const [cat, code] of [[battleBreaking, "BRK"], [battlePopping, "POP"], [bat
 
 // Prize pools — battle event
 const prizeDistribution = [
-  { rank: 1, label: "Winner", pct: 50 },
-  { rank: 2, label: "Runner-up", pct: 30 },
-  { rank: 3, label: "Semi-finalist", pct: 20 },
+  { rank: 1, label: "Winner", percentage: 50 },
+  { rank: 2, label: "Runner-up", percentage: 30 },
+  { rank: 3, label: "Semi-finalist", percentage: 20 },
 ];
 await prisma.prizePool.create({ data: { categoryId: battleBreaking.id, totalAmount: 100000, currency: "INR", distribution: prizeDistribution } });
 await prisma.prizePool.create({ data: { categoryId: battlePopping.id, totalAmount: 50000, currency: "INR", distribution: prizeDistribution } });

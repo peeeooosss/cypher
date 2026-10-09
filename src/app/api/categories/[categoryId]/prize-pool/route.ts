@@ -19,7 +19,7 @@ const createPrizePoolSchema = z.object({
   distribution: z.array(distributionEntrySchema).refine(
     (entries) => {
       const sum = entries.reduce((acc, e) => acc + e.percentage, 0);
-      return sum === 100;
+      return entries.length === 0 || sum === 100;
     },
     { message: "Distribution percentages must sum to 100" },
   ),
@@ -31,7 +31,7 @@ const updatePrizePoolSchema = z.object({
   distribution: z.array(distributionEntrySchema).refine(
     (entries) => {
       const sum = entries.reduce((acc, e) => acc + e.percentage, 0);
-      return sum === 100;
+      return entries.length === 0 || sum === 100;
     },
     { message: "Distribution percentages must sum to 100" },
   ).optional(),
