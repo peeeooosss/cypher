@@ -468,6 +468,7 @@ model BattleMatch {
   battleTimer      BattleTimer?
   startedAt        DateTime?
   completedAt      DateTime?
+  winnerLocked     Boolean           @default(false)
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 

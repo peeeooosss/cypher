@@ -99,17 +99,17 @@ export async function completeMatch(matchId: string, winnerId: string, organizer
       throw new BracketError("This phase is not active");
     }
 
-    if (match.status === "COMPLETE") {
-      throw new BracketError("This match is already complete");
-    }
-
     if (match.competitorAId !== winnerId && match.competitorBId !== winnerId) {
       throw new BracketError("Winner must be one of the match competitors");
     }
 
+    if (match.status === "COMPLETE" && match.winnerLocked) {
+      throw new BracketError("Winner is locked. Unlock it to change the winner.");
+    }
+
     return transaction.battleMatch.update({
       where: { id: matchId },
-      data: { status: "COMPLETE", winnerId, completedAt: new Date() },
+      data: { status: "COMPLETE", winnerId, completedAt: new Date(), winnerLocked: true },
     });
   });
 }

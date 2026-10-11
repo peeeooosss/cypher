@@ -21,6 +21,44 @@ const updateRegistrationSchema = z.object({
 
 type RegistrationRouteContext = { params: Promise<{ registrationId: string }> };
 
+export async function DELETE(_request: Request, { params }: RegistrationRouteContext) {
+  const { registrationId } = await params;
+
+  if (!z.string().cuid().safeParse(registrationId).success) {
+    return notFound("Registration");
+  }
+
+  try {
+    const user = await getCurrentUser();
+
+    if (!user) {
+      return unauthorized();
+    }
+
+    const registration = await prisma.registration.findUnique({
+      where: { id: registrationId },
+      include: {
+        category: { include: { event: { select: { organizerId: true } } } },
+      },
+    });
+
+    if (!registration) {
+      return notFound("Registration");
+    }
+
+    if (registration.category.event.organizerId !== user.id && user.role !== "ADMIN") {
+      return forbidden();
+    }
+
+    await prisma.registration.delete({ where: { id: registrationId } });
+
+    return NextResponse.json({ id: registrationId });
+  } catch (error) {
+    console.error(error);
+    return serverError();
+  }
+}
+
 export async function PATCH(request: Request, { params }: RegistrationRouteContext) {
   const { registrationId } = await params;
 

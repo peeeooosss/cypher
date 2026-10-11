@@ -171,6 +171,7 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
   const [refreshing, setRefreshing] = useState(false);
   const [notice, setNotice] = useState("");
   const [phaseAction, setPhaseAction] = useState<string | null>(null);
+  const [categoryQueries, setCategoryQueries] = useState<Record<string, string>>({});
 
   const refresh = () => router.refresh();
 
@@ -333,6 +334,16 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
                         : category.rounds.every(r => r.phaseStatus === "COMPLETE") ? 'All phases complete' : 'Not started'}
                     </p>
                   </div>
+                  <label className="flex items-center gap-sm">
+                    <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Search</span>
+                    <input
+                      type="search"
+                      value={categoryQueries[category.id] ?? ""}
+                      onChange={(e) => setCategoryQueries((q) => ({ ...q, [category.id]: e.target.value }))}
+                      placeholder="Find an artist…"
+                      className="w-48 border border-line bg-paper px-sm py-xs text-body-sm"
+                    />
+                  </label>
                 </div>
                 
                 <div className="mt-lg">
@@ -461,6 +472,7 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
                     key={`${category.id}-${controlRoomKey}`}
                     eventId={event.id}
                     categoryId={category.id}
+                    query={categoryQueries[category.id] ?? ""}
                     onResult={(ok, message) => {
                       setNotice(ok ? "Advancement confirmed" : message ?? "Failed to advance");
                       if (ok) void refreshControlRoom();
@@ -472,13 +484,14 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
                   const currentPhase = category.rounds.find(r => r.order === category.currentPhaseOrder && r.phaseStatus === "ACTIVE");
                    if (!currentPhase || !["BATTLE_1V1","BATTLE_2V2","BATTLE_3V3","BATTLE_4V4","CREW_VS_CREW","FINAL"].includes(currentPhase.type)) return null;
                    return (
-                     <BracketView
-                       key={`${category.id}-${controlRoomKey}`}
-                       categoryId={category.id}
-                       eventId={event.id}
-                       phaseLabel={currentPhase.label ?? currentPhase.type}
-                       advanceCount={currentPhase.advanceCount}
-                     />
+                      <BracketView
+                        key={`${category.id}-${controlRoomKey}`}
+                        categoryId={category.id}
+                        eventId={event.id}
+                        phaseLabel={currentPhase.label ?? currentPhase.type}
+                        advanceCount={currentPhase.advanceCount}
+                        query={categoryQueries[category.id] ?? ""}
+                      />
                    );
                 })()}
               </div>
@@ -2238,7 +2251,7 @@ function JudgeSlotRow({
   );
 }
 
-function CypherDancerPicker({ eventId, categoryId, onResult }: { eventId: string; categoryId: string; onResult: (ok: boolean, message?: string) => void }) {
+function CypherDancerPicker({ eventId, categoryId, onResult, query = "" }: { eventId: string; categoryId: string; onResult: (ok: boolean, message?: string) => void; query?: string }) {
   const router = useRouter();
   const [regs, setRegs] = useState<Array<{ id: string; user: { name: string | null }; teamName?: string | null; crew: string | null; seed: number | null; dancerScores: Array<{ score: number }>; members?: Array<{ status: string; user: { name: string | null; username: string | null } }> }>>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -2275,19 +2288,28 @@ function CypherDancerPicker({ eventId, categoryId, onResult }: { eventId: string
   };
 
   const scoreOf = (reg: (typeof regs)[number]) => reg.dancerScores.reduce((s, d) => s + d.score, 0);
-  const hasSeeds = regs.some((reg) => reg.seed != null);
-  const orderedRegs = regs
-    .map((reg, index) => ({ reg, index }))
-    .sort((a, b) => {
-      if (hasSeeds) {
-        const sa = a.reg.seed ?? Number.MAX_SAFE_INTEGER;
-        const sb = b.reg.seed ?? Number.MAX_SAFE_INTEGER;
-        if (sa !== sb) return sa - sb;
-        return a.index - b.index;
-      }
-      return scoreOf(b.reg) - scoreOf(a.reg) || a.index - b.index;
-    })
-    .map(({ reg }) => reg);
+  const hasScores = regs.some((reg) => reg.dancerScores.length > 0);
+  const needle = query.trim().toLowerCase();
+  const visibleRegs = needle
+    ? regs.filter((reg) => {
+        const haystack = [
+          reg.user.name,
+          reg.teamName,
+          reg.crew,
+          reg.seed != null ? `#${reg.seed}` : "",
+          ...(reg.members?.map((member) => member.user.name ?? member.user.username ?? "") ?? []),
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        return haystack.includes(needle);
+      })
+    : regs;
+  const orderedRegs = [...visibleRegs].sort((a, b) => {
+    const byScore = scoreOf(b) - scoreOf(a);
+    if (byScore !== 0) return byScore;
+    return (a.seed ?? Number.MAX_SAFE_INTEGER) - (b.seed ?? Number.MAX_SAFE_INTEGER);
+  });
 
   const advance = async () => {
     setBusy(true);
@@ -2316,15 +2338,19 @@ function CypherDancerPicker({ eventId, categoryId, onResult }: { eventId: string
     <div className="mt-lg border-t border-line pt-md">
        <p className="font-mono text-[0.7rem] uppercase text-ink-muted mb-xs">Select entries to advance</p>
        <p className="mb-md text-body-sm text-ink-muted">
-          Tick complete entries that move to the next round, then confirm. {hasSeeds ? "Listed in seed order." : ""}
+          Tick complete entries that move to the next round, then confirm. {hasScores ? "Ranked by total score, highest first." : ""}
         </p>
        {error ? <p className="mb-md text-body-sm text-accent">{error}</p> : null}
-      {orderedRegs.map(reg => {
+      {needle && orderedRegs.length === 0 ? (
+        <p className="py-xs text-body-sm text-ink-muted">No entries match “{query.trim()}”.</p>
+      ) : null}
+      {orderedRegs.map((reg, index) => {
         const total = scoreOf(reg);
         const judgeCount = reg.dancerScores.length;
         return (
           <label key={reg.id} className="flex items-center gap-sm py-xs text-body-sm">
             <input type="checkbox" checked={selected.has(reg.id)} onChange={() => toggle(reg.id)} className="border border-line bg-paper" />
+            <span className="w-6 shrink-0 text-right font-mono text-xs text-ink-muted">{index + 1}</span>
             <span className="w-10 shrink-0 font-mono text-xs text-ink-muted">{reg.seed != null ? `#${reg.seed}` : "—"}</span>
              <span className="flex-1">{reg.teamName ?? reg.user.name} {reg.members && reg.members.length > 1 ? <span className="ml-sm text-xs text-ink-muted">({reg.members.filter((member) => member.status === "ACCEPTED").map((member) => member.user.name ?? member.user.username).join(" · ")})</span> : reg.crew ? `(${reg.crew})` : ''}</span>
             <span className="font-mono text-sm text-accent">{judgeCount > 0 ? total : "—"}</span>
@@ -2714,6 +2740,7 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
                   key={reg.id}
                   registration={reg}
                   event={event}
+                  categoryName={event.categories.find((c) => c.id === categoryId)?.name ?? ""}
                   selected={selectedIds.has(reg.id)}
                   onSelectToggle={() => toggleSelect(reg.id)}
                   onUpdate={() => {
@@ -2750,12 +2777,14 @@ function RegistrationRow({
   registration,
   event,
   selected = false,
+  categoryName,
   onSelectToggle,
   onUpdate,
 }: {
   registration: RegistrationRow;
   event: EventWithRelations;
   selected?: boolean;
+  categoryName?: string;
   onSelectToggle?: () => void;
   onUpdate: () => void;
 }) {
@@ -2811,6 +2840,32 @@ function RegistrationRow({
 
   async function handleSeed() {
     await patchRegistration({ seed: seed ? Number(seed) : null });
+  }
+
+  async function handleDelete() {
+    const label = registration.teamName ?? registration.user.name ?? "this artist";
+    const ok = window.confirm(
+      `Delete ${label}'s registration for ${categoryName ?? "this category"}?\n\nThis permanently removes the entry from the event and from the artist's profile — payment and roster included. This cannot be undone.`,
+    );
+    if (!ok) return;
+    setUpdating(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/registrations/${registration.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => null);
+        setError(errBody?.error ?? "Delete failed. Please try again.");
+        return;
+      }
+    } catch {
+      setError("Network error. Please try again.");
+      return;
+    } finally {
+      setUpdating(false);
+    }
+    onUpdate();
   }
 
   return (
@@ -2893,14 +2948,22 @@ function RegistrationRow({
              >
                {registration.paid ? "Paid" : "Mark paid"}
              </button>
-             <button
-               className="border border-line px-sm py-xs text-[0.7rem] font-bold uppercase text-ink-muted hover:border-accent disabled:opacity-60"
-               disabled={updating || registration.status === "WITHDRAWN"}
-               onClick={() => void handleWithdraw()}
-               type="button"
-             >
-               Reject
-             </button>
+<button
+                className="border border-line px-sm py-xs text-[0.7rem] font-bold uppercase text-ink-muted hover:border-accent disabled:opacity-60"
+                disabled={updating || registration.status === "WITHDRAWN"}
+                onClick={() => void handleWithdraw()}
+                type="button"
+              >
+                Reject
+              </button>
+              <button
+                className="border border-accent bg-accent px-sm py-xs text-[0.7rem] font-bold uppercase text-paper hover:border-accent/80 hover:bg-accent/80 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={updating}
+                onClick={() => void handleDelete()}
+                type="button"
+              >
+                Delete
+              </button>
            </div>
            {error ? <span className="text-[0.65rem] uppercase text-accent">{error}</span> : null}
            <div className="flex flex-col gap-xs mt-xs">
@@ -3189,6 +3252,8 @@ type BracketMatch = {
   round: number;
   position: number;
   status: string;
+  winnerLocked: boolean;
+  nextMatchId: string | null;
   competitorA: { seed: number | null; teamName: string | null; user: { name: string | null }; members: { user: { name: string | null; username: string | null } }[] } | null;
   competitorB: { seed: number | null; teamName: string | null; user: { name: string | null }; members: { user: { name: string | null; username: string | null } }[] } | null;
   competitorAId: string | null;
@@ -3204,15 +3269,35 @@ function BracketView({
   eventId,
   phaseLabel,
   advanceCount,
+  query = "",
 }: {
   categoryId: string;
   eventId: string;
   phaseLabel: string;
   advanceCount: number | null;
+  query?: string;
 }) {
   const [matches, setMatches] = useState<BracketMatch[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
+
+  const needle = query.trim().toLowerCase();
+  const visibleMatches = needle
+    ? matches.filter((match) => {
+        const haystack = [
+          match.competitorA?.teamName,
+          match.competitorA?.user.name,
+          match.competitorB?.teamName,
+          match.competitorB?.user.name,
+          `r${match.round}`,
+          `m${match.position}`,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        return haystack.includes(needle);
+      })
+    : matches;
 
   const load = useCallback(async () => {
     try {
@@ -3273,7 +3358,10 @@ function BracketView({
         </p>
         {error && <p className="mb-md text-body-sm text-accent">{error}</p>}
       </div>
-      {matches.map(match => {
+      {needle && visibleMatches.length === 0 ? (
+        <p className="mt-sm text-body-sm text-ink-muted">No matches for “{query.trim()}”.</p>
+      ) : null}
+      {visibleMatches.map(match => {
         const ready = match.competitorAId && match.competitorBId;
         const locked = match.status === "LOCKED";
         const live = match.status === "LIVE";
@@ -3326,9 +3414,35 @@ function BracketView({
                   </button>
                 )}
                 {complete && match.winnerId && (
-                  <span className="border border-accent px-md py-xs text-body-sm font-bold uppercase text-accent">
-                    Winner locked
-                  </span>
+                  match.winnerLocked ? (
+                    <>
+                      <span className="border border-accent px-md py-xs text-body-sm font-bold uppercase text-accent">
+                        Winner locked
+                      </span>
+                      <button
+                        type="button"
+                        className="border border-line px-md py-xs text-body-sm font-bold uppercase text-ink disabled:opacity-60"
+                        disabled={busy === match.id}
+                        onClick={() => void run(match.id, `/api/matches/${match.id}/winner-lock`, { locked: false })}
+                      >
+                        {busy === match.id ? "Working..." : "Unlock to edit"}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="border border-line px-md py-xs text-body-sm font-bold uppercase text-ink-muted">
+                        Winner unlocked
+                      </span>
+                      <button
+                        type="button"
+                        className="border border-line px-md py-xs text-body-sm font-bold uppercase text-ink disabled:opacity-60"
+                        disabled={busy === match.id}
+                        onClick={() => void run(match.id, `/api/matches/${match.id}/winner-lock`, { locked: true })}
+                      >
+                        {busy === match.id ? "Working..." : "Lock winner"}
+                      </button>
+                    </>
+                  )
                 )}
               </div>
             </div>
@@ -3340,11 +3454,11 @@ function BracketView({
                <span className="break-words">{labelB}</span>
             </div>
             <p className="mt-xs font-mono text-[0.65rem] uppercase text-ink-muted">{tallyLabel}</p>
-            {!complete && ready && (
+            {ready && (!complete || !match.winnerLocked) && (
               <div className="mt-sm flex flex-wrap items-center justify-center gap-sm">
                 {leading ? (
                   <span className="w-full text-center font-mono text-[0.65rem] uppercase text-ink-muted">
-                    Panel leans {leading} — confirm below
+                    Panel leans {leading} — {complete ? "pick the corrected winner" : "confirm below"}
                   </span>
                 ) : null}
                 <button
