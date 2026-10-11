@@ -34,6 +34,8 @@ type CardMatch = {
   blueMembers: string[];
   winnerId: string | null;
   winnerName: string | null;
+  labelA: string | null;
+  labelB: string | null;
 };
 type CardCategory = {
   categoryId: string;
@@ -287,15 +289,21 @@ export function EventCardLeaderboard({ eventId, slug }: { eventId: string; slug:
                     )}
                   </div>
                   <p className="mt-xs text-body-sm uppercase leading-tight">
-                    <span className={`break-words ${match.winnerId && match.winnerName === match.redName ? "font-bold text-accent" : "text-ink"}`}>
-                      {match.redName}
-                    </span>
-                    <span className="mx-xs text-ink-muted">vs</span>
-                    <span className={`break-words ${match.winnerId && match.winnerName === match.blueName ? "font-bold text-[#2980FF]" : "text-ink"}`}>
-                      {match.blueName}
-                    </span>
+                    {match.labelA ? (
+                      <span className="break-words font-bold text-ink">{match.labelA}</span>
+                    ) : (
+                      <>
+                        <span className={`break-words ${match.winnerId && match.winnerName === match.redName ? "font-bold text-accent" : "text-ink"}`}>
+                          {match.redName}
+                        </span>
+                        <span className="mx-xs text-ink-muted">vs</span>
+                        <span className={`break-words ${match.winnerId && match.winnerName === match.blueName ? "font-bold text-[#2980FF]" : "text-ink"}`}>
+                          {match.blueName}
+                        </span>
+                      </>
+                    )}
                   </p>
-                  {(match.redMembers.length > 0 || match.blueMembers.length > 0) && (
+                  {!match.labelA && (match.redMembers.length > 0 || match.blueMembers.length > 0) && (
                     <p className="mt-xs break-words font-mono text-[0.55rem] uppercase leading-snug text-ink-muted">
                       {match.redMembers.join(" · ") || "TBD"} vs {match.blueMembers.join(" · ") || "TBD"}
                     </p>

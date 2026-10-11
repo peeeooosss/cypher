@@ -25,6 +25,7 @@ type LeaderboardRound = {
   type: string;
   label: string | null;
   phaseStatus: string | null;
+  advanceCount: number | null;
 };
 type LeaderboardMatch = {
   id: string;
@@ -36,6 +37,8 @@ type LeaderboardMatch = {
   blueName: string;
   winnerId: string | null;
   winnerName: string | null;
+  labelA: string | null;
+  labelB: string | null;
   redMembers: string[];
   blueMembers: string[];
   scores: {
@@ -78,6 +81,7 @@ type RankedRowData = {
   total: number;
   judges: number;
   rank: number;
+  advanced: boolean;
 };
 
 function RankBadge({ rank }: { rank: number }) {
@@ -92,14 +96,14 @@ function RankBadge({ rank }: { rank: number }) {
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ advanced }: { advanced: boolean }) {
   return (
     <span
       className={`shrink-0 border px-sm py-xs font-mono text-[0.6rem] uppercase ${
-        status === "CONFIRMED" ? "border-accent text-accent" : "border-line text-ink-muted"
+        advanced ? "border-accent text-accent" : "border-line text-ink-muted"
       }`}
     >
-      {status === "CONFIRMED" ? "Advanced" : "Eliminated"}
+      {advanced ? "Advanced" : "Eliminated"}
     </span>
   );
 }
@@ -126,7 +130,7 @@ function RankedRow({ row, fallbackLabel }: { row: RankedRowData; fallbackLabel: 
               <MemberLine names={row.reg.members.map((m) => m.name)} fallback={row.reg.crew ?? fallbackLabel} />
             </p>
             <div className="mt-sm flex flex-wrap items-center gap-sm">
-              <StatusBadge status={row.reg.status} />
+              <StatusBadge advanced={row.advanced} />
               {row.reg.seed != null ? (
                 <span className="font-mono text-[0.65rem] uppercase text-ink-muted">
                   Seed #{row.reg.seed}
@@ -153,7 +157,7 @@ function RankedRow({ row, fallbackLabel }: { row: RankedRowData; fallbackLabel: 
             {row.reg.seed != null ? ` / Seed #${row.reg.seed}` : ""}
           </p>
         </div>
-        <StatusBadge status={row.reg.status} />
+        <StatusBadge advanced={row.advanced} />
         <span className="shrink-0 font-mono text-title-md font-bold text-accent">{row.total}</span>
         <span className="hidden w-20 text-right text-xs uppercase text-ink-muted lg:block">
           {row.judges} judge{row.judges === 1 ? "" : "s"}
@@ -219,6 +223,7 @@ function VoteBar({ tally }: { tally: MatchTally }) {
 function MatchRow({ match }: { match: LeaderboardMatch }) {
   const tally = matchTally(match);
   const showMembers = match.redMembers.length > 0 || match.blueMembers.length > 0;
+  const customLabel = match.labelA ?? null;
 
   return (
     <>
@@ -231,30 +236,39 @@ function MatchRow({ match }: { match: LeaderboardMatch }) {
           <MatchStatusChip match={match} />
         </div>
 
-        <div className="mt-sm space-y-xs">
-          <div>
-            <p className="font-mono text-[0.6rem] uppercase tracking-[0.15em] text-accent">Red</p>
-            <p className="break-words font-display text-body-md uppercase leading-tight text-accent">
-              {match.redName}
+        {customLabel ? (
+          <div className="mt-sm">
+            <p className="font-mono text-[0.6rem] uppercase tracking-[0.15em] text-accent">Matchup</p>
+            <p className="break-words font-display text-body-md uppercase leading-tight">
+              {customLabel}
             </p>
-            {match.redMembers.length > 0 ? (
-              <p className="break-words text-[0.65rem] uppercase leading-snug text-ink-muted">
-                {match.redMembers.join(" · ")}
-              </p>
-            ) : null}
           </div>
-          <div>
-            <p className="font-mono text-[0.6rem] uppercase tracking-[0.15em] text-[#2980FF]">Blue</p>
-            <p className="break-words font-display text-body-md uppercase leading-tight text-[#2980FF]">
-              {match.blueName}
-            </p>
-            {match.blueMembers.length > 0 ? (
-              <p className="break-words text-[0.65rem] uppercase leading-snug text-ink-muted">
-                {match.blueMembers.join(" · ")}
+        ) : (
+          <div className="mt-sm space-y-xs">
+            <div>
+              <p className="font-mono text-[0.6rem] uppercase tracking-[0.15em] text-accent">Red</p>
+              <p className="break-words font-display text-body-md uppercase leading-tight text-accent">
+                {match.redName}
               </p>
-            ) : null}
+              {match.redMembers.length > 0 ? (
+                <p className="break-words text-[0.65rem] uppercase leading-snug text-ink-muted">
+                  {match.redMembers.join(" · ")}
+                </p>
+              ) : null}
+            </div>
+            <div>
+              <p className="font-mono text-[0.6rem] uppercase tracking-[0.15em] text-[#2980FF]">Blue</p>
+              <p className="break-words font-display text-body-md uppercase leading-tight text-[#2980FF]">
+                {match.blueName}
+              </p>
+              {match.blueMembers.length > 0 ? (
+                <p className="break-words text-[0.65rem] uppercase leading-snug text-ink-muted">
+                  {match.blueMembers.join(" · ")}
+                </p>
+              ) : null}
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="mt-sm space-y-xs">
           <VoteBar tally={tally} />
@@ -268,21 +282,27 @@ function MatchRow({ match }: { match: LeaderboardMatch }) {
           <span className="w-10 font-mono text-xs uppercase text-ink-muted">
             M{match.position}
           </span>
-          <span className="min-w-0 flex-1">
-            <span className="font-display text-title-sm uppercase text-accent">
-              {match.redName}
+          {customLabel ? (
+            <span className="min-w-0 flex-1 font-display text-title-sm uppercase">
+              {customLabel}
             </span>
-            <span className="mx-sm text-ink-muted">vs</span>
-            <span className="font-display text-title-sm uppercase text-[#2980FF]">
-              {match.blueName}
+          ) : (
+            <span className="min-w-0 flex-1">
+              <span className="font-display text-title-sm uppercase text-accent">
+                {match.redName}
+              </span>
+              <span className="mx-sm text-ink-muted">vs</span>
+              <span className="font-display text-title-sm uppercase text-[#2980FF]">
+                {match.blueName}
+              </span>
             </span>
-          </span>
+          )}
           <span className="shrink-0 font-mono text-[0.7rem] uppercase text-ink-muted">
             {tally.label}
           </span>
           <MatchStatusChip match={match} />
         </div>
-        {showMembers ? (
+        {showMembers && !customLabel ? (
           <p className="mt-xs pl-10 text-[0.7rem] uppercase text-ink-muted">
             {match.redMembers.join(" · ") || "TBD"} vs {match.blueMembers.join(" · ") || "TBD"}
           </p>
@@ -414,6 +434,9 @@ export function LiveLeaderboard({
   const selectedPhase = selectedCategory?.rounds.find((r) => r.id === phaseId);
   const isNumeric = selectedPhase != null && NUMERIC_PHASES.includes(selectedPhase.type);
 
+  const advanceCutoff =
+    isNumeric && selectedPhase?.advanceCount != null ? selectedPhase.advanceCount : null;
+
   const ranked = (selectedCategory?.registrations ?? [])
     .map((reg) => {
       const phaseScores = reg.dancerScores.filter((s) => s.roundFormatId === phaseId);
@@ -425,7 +448,11 @@ export function LiveLeaderboard({
     })
     .filter((r) => r.judges > 0)
     .sort((a, b) => b.total - a.total || (a.reg.seed ?? 999) - (b.reg.seed ?? 999))
-    .map((r, i) => ({ ...r, rank: i + 1 }));
+    .map((r, i) => ({
+      ...r,
+      rank: i + 1,
+      advanced: advanceCutoff != null ? i < advanceCutoff : r.reg.status === "CONFIRMED",
+    }));
 
   const selectedMatches = selectedCategory
     ? selectedCategory.matches.filter((match) => match.roundFormatId === phaseId)
