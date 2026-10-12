@@ -11,6 +11,11 @@ const ROLE_HOME: Record<string, string> = {
   JUDGE: "/judge",
 };
 
+const WHATSAPP_NUMBER = (process.env.NEXT_PUBLIC_BILL_WHATSAPP_NUMBER ?? "919864854481").replace(/\D/g, "");
+const WHATSAPP_HREF = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
+  "Hi CYPHR team, I need help with my account.",
+)}`;
+
 type Profile = {
   id: string;
   name: string | null;
@@ -144,6 +149,14 @@ export default function LoginPage() {
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
               />
+              <span className="mt-xs block text-right">
+                <a
+                  className="font-normal normal-case text-ink-muted underline decoration-accent underline-offset-4 hover:text-accent"
+                  href="/forgot-password"
+                >
+                  Forgot password?
+                </a>
+              </span>
             </label>
 
             {signedUp ? (
@@ -209,6 +222,15 @@ export default function LoginPage() {
             Sign up
           </a>
         </p>
+
+        <a
+          className="mt-lg inline-block border border-line px-md py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-ink-muted hover:border-accent hover:text-accent"
+          href={WHATSAPP_HREF}
+          rel="noreferrer"
+          target="_blank"
+        >
+          Contact admin on WhatsApp
+        </a>
       </section>
     </main>
   );
