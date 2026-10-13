@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { StatusBadge } from "@/components/status-badge";
+import { EventPoster } from "@/components/event-poster";
 import { LiveLeaderboard } from "@/components/live-leaderboard";
 import { formatDate } from "@/lib/format";
 import { getCurrentUser } from "@/lib/rbac";
@@ -108,13 +109,53 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
               </span>
             )}
           </div>
-          <h1 className="mt-lg max-w-4xl font-display text-display-xl uppercase">{event.title}</h1>
-          {event.posterUrl ? (
-            <div className="mt-lg max-w-3xl border border-line bg-line/20">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={event.posterUrl} alt={`${event.title} poster`} className="w-full" />
+          <div className="mt-lg grid items-start gap-xl lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+            <EventPoster
+              posterUrl={event.posterUrl}
+              title={event.title}
+              fit="contain"
+              eager
+              className="w-full rounded-lg border border-line shadow-raised"
+            />
+            <div className="min-w-0">
+              <h1 className="font-display text-display-xl uppercase leading-[1.05]">{event.title}</h1>
+              {event.description ? (
+                <p className="mt-md max-w-2xl text-body-md leading-relaxed text-ink-muted">
+                  {event.description}
+                </p>
+              ) : null}
+              <div className="mt-lg flex flex-col gap-sm sm:flex-row sm:flex-wrap">
+                {event.status === EventStatus.LIVE ? (
+                  <Link
+                    href={`/events/${event.slug}/live`}
+                    className="inline-flex h-12 items-center justify-center rounded-md bg-accent px-6 text-button-md text-accent-contrast transition-all hover:brightness-110 active:scale-[0.98]"
+                  >
+                    View live scores
+                  </Link>
+                ) : null}
+                {isArtist && isOpen ? (
+                  <Link
+                    href={`/events/${event.slug}/register`}
+                    className={`inline-flex h-12 items-center justify-center rounded-md px-6 text-button-md transition-all active:scale-[0.98] ${
+                      event.status === EventStatus.LIVE
+                        ? "border border-line-strong text-ink hover:border-accent hover:text-accent"
+                        : "bg-accent text-accent-contrast hover:brightness-110"
+                    }`}
+                  >
+                    {isWorkshopType(event.eventType) ? "Join this workshop" : "Register for this event"}
+                  </Link>
+                ) : null}
+                {!isArtist && isOpen ? (
+                  <Link
+                    href="/login"
+                    className="inline-flex h-12 items-center justify-center rounded-md border border-line-strong px-6 text-button-md text-ink transition-colors hover:border-accent hover:text-accent"
+                  >
+                    Sign in as artist to register
+                  </Link>
+                ) : null}
+              </div>
             </div>
-          ) : null}
+          </div>
           {event.organizer.studioLogoUrl || event.organizer.studioName || event.organizer.name ? (
             <div className="mt-lg flex items-end gap-md">
               {event.organizer.studioLogoUrl ? (

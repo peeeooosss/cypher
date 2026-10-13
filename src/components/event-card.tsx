@@ -2,6 +2,7 @@ import Link from "next/link";
 import { EventStatus, EventType } from "@/generated/prisma/enums";
 import { StatusBadge } from "@/components/status-badge";
 import { EventCardLeaderboard } from "@/components/event-card-leaderboard";
+import { EventPoster } from "@/components/event-poster";
 import { formatDateShort } from "@/lib/format";
 import { EVENT_TYPE_LABELS, formatLabel, isWorkshopType } from "@/lib/event-types";
 
@@ -44,25 +45,38 @@ export function EventCard({ event }: { event: EventCardData }) {
   const nextItem = event.scheduleItems?.[0];
   const isCompleted = event.status === EventStatus.COMPLETED;
 
+  const isLive = event.status === EventStatus.LIVE;
+
   return (
-    <div className="group flex flex-col overflow-hidden border border-line bg-paper-soft transition-all duration-200 hover:border-accent hover:shadow-card-hover">
+    <div className="group flex flex-col overflow-hidden rounded-lg border border-line bg-paper-soft shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-accent hover:shadow-raised">
       <Link href={`/events/${event.slug}`} className="block flex-1">
-        {event.posterUrl ? (
-          <div className="relative aspect-[4/3] overflow-hidden border-b border-line bg-line/20">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={event.posterUrl} alt={`${event.title} poster`} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
+        <div className="relative border-b border-line">
+          <EventPoster
+            posterUrl={event.posterUrl}
+            title={event.title}
+            fit="cover"
+            className="aspect-[4/5] w-full"
+            imgClassName="transition-transform duration-300 group-hover:scale-[1.04]"
+          />
+          <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-sm bg-gradient-to-b from-black/55 to-transparent p-sm">
+            <StatusBadge status={event.status} />
+            {isLive ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 font-mono text-[0.6rem] font-bold uppercase tracking-[0.15em] text-white">
+                <span className="h-1.5 w-1.5 animate-pulse-soft rounded-full bg-white" />
+                Live
+              </span>
+            ) : null}
           </div>
-        ) : null}
-        <div className="flex items-center gap-sm border-b border-line px-md py-xs">
-          <StatusBadge status={event.status} />
-          {event.eventType && (
-            <span className="font-mono text-[0.6rem] uppercase tracking-[0.15em] text-accent">
-              {EVENT_TYPE_LABELS[event.eventType as EventType] ?? event.eventType}
+          <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-sm bg-gradient-to-t from-black/60 to-transparent p-sm">
+            <span className="font-mono text-[0.65rem] font-bold uppercase tracking-[0.15em] text-white drop-shadow">
+              {formatDateShort(event.startsAt)}
             </span>
-          )}
-          <span className="font-mono text-[0.65rem] uppercase tracking-[0.15em] text-ink-muted">
-            {formatDateShort(event.startsAt)}
-          </span>
+            {event.eventType ? (
+              <span className="font-mono text-[0.6rem] font-bold uppercase tracking-[0.15em] text-white/90 drop-shadow">
+                {EVENT_TYPE_LABELS[event.eventType as EventType] ?? event.eventType}
+              </span>
+            ) : null}
+          </div>
         </div>
         <div className="px-md py-lg">
           <h2 className="font-display text-title-md uppercase leading-tight transition-colors group-hover:text-accent">

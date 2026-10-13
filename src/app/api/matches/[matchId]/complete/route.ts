@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { badRequest, forbidden, serverError, unauthorized } from "@/lib/api";
-import { BracketError, completeMatch } from "@/lib/bracket";
+import { BracketError, completeMatch, winnerCornerFor } from "@/lib/bracket";
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { emitToSocket } from "@/lib/socket-emit";
 import { getMatchState } from "@/lib/live-match";
 
-const completeSchema = z.object({ winnerId: z.string().min(1) });
+const completeSchema = z.object({
+  winnerId: z.string().min(1),
+  runnerUpId: z.string().min(1).nullish(),
+});
 type MatchRouteContext = { params: Promise<{ matchId: string }> };
 
 export async function POST(request: Request, { params }: MatchRouteContext) {
@@ -29,19 +32,28 @@ export async function POST(request: Request, { params }: MatchRouteContext) {
   }
 
   try {
-    const completed = await completeMatch(matchId, parsed.data.winnerId, user.id);
+    const completed = await completeMatch(matchId, parsed.data.winnerId, user.id, {
+      runnerUpId: parsed.data.runnerUpId ?? null,
+    });
 
     const match = await prisma.battleMatch.findUnique({
       where: { id: matchId },
-      select: { eventId: true, competitorAId: true },
+      select: { eventId: true, competitorAId: true, competitorBId: true, competitorCId: true },
     });
 
     if (match) {
-      const winnerCorner = match.competitorAId === parsed.data.winnerId ? "red" : "blue";
+      const winnerCorner =
+        winnerCornerFor({
+          competitorAId: match.competitorAId,
+          competitorBId: match.competitorBId,
+          competitorCId: match.competitorCId,
+          winnerId: parsed.data.winnerId,
+        }) ?? "red";
       const bracket = await getMatchState(match.eventId);
       await emitToSocket(match.eventId, "match_complete", {
         matchId,
         winnerCorner,
+        runnerUpId: completed.runnerUpId,
         nextMatchId: completed.nextMatchId,
         bracketUpdated: bracket,
       });

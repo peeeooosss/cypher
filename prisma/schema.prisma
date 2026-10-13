@@ -302,6 +302,7 @@ model Event {
   matches                     BattleMatch[]
   scheduleItems               EventScheduleItem[]
   notices                     EventNotice[]
+  staffCodes                  EventStaffCode[]
   createdAt                   DateTime      @default(now())
   updatedAt                   DateTime      @updatedAt
 
@@ -374,6 +375,7 @@ model RoundFormat {
   roundCount    Int           @default(1)
   roundDuration Int?
   advanceCount  Int?
+  matchSize     Int           @default(2)
   phaseStatus   String?       @default("PENDING")
   timeLimitMs   Int           @default(60000)
   dancerScores  DancerScore[]
@@ -411,7 +413,9 @@ model Registration {
   members        RegistrationMember[]
   matchesAsA     BattleMatch[]        @relation("CompetitorA")
   matchesAsB     BattleMatch[]        @relation("CompetitorB")
+  matchesAsC     BattleMatch[]        @relation("CompetitorC")
   matchesWon     BattleMatch[]        @relation("MatchWinner")
+  matchesRunnerUp BattleMatch[]       @relation("MatchRunnerUp")
   dancerScores   DancerScore[]
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt
@@ -448,9 +452,14 @@ model BattleMatch {
   status           MatchStatus       @default(PENDING)
   competitorAId    String?
   competitorBId    String?
+  competitorCId    String?
+  matchSize        Int               @default(2)
   scoreA           Int               @default(0)
   scoreB           Int               @default(0)
+  scoreC           Int               @default(0)
   winnerId         String?
+  winnerCount      Int               @default(1)
+  runnerUpId       String?
   nextMatchId      String?
   teamLabelA       String?
   teamLabelB       String?
@@ -459,7 +468,9 @@ model BattleMatch {
   roundFormat      RoundFormat?      @relation(fields: [roundFormatId], references: [id], onDelete: Cascade)
   competitorA      Registration?     @relation("CompetitorA", fields: [competitorAId], references: [id])
   competitorB      Registration?     @relation("CompetitorB", fields: [competitorBId], references: [id])
+  competitorC      Registration?     @relation("CompetitorC", fields: [competitorCId], references: [id])
   winner           Registration?     @relation("MatchWinner", fields: [winnerId], references: [id])
+  runnerUp         Registration?     @relation("MatchRunnerUp", fields: [runnerUpId], references: [id])
   nextMatch        BattleMatch?      @relation("BracketProgression", fields: [nextMatchId], references: [id])
   previousMatches  BattleMatch[]     @relation("BracketProgression")
   scores           MatchScore[]
@@ -538,6 +549,7 @@ model MatchScore {
   feedback          String?
   feedbackRed       String?
   feedbackBlue      String?
+  feedbackGreen     String?
   match             BattleMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
   judgeSlot         JudgeSlot   @relation(fields: [judgeSlotId], references: [id], onDelete: Cascade)
   createdAt         DateTime    @default(now())
@@ -738,6 +750,39 @@ model Feedback {
 
   @@index([status])
   @@index([type])
+}
+
+model EventStaffCode {
+  id         String    @id @default(cuid())
+  eventId    String
+  label      String
+  role       String    @default("MC")
+  codeHash   String    @unique
+  codeHint   String
+  isActive   Boolean   @default(true)
+  lastUsedAt DateTime?
+  createdBy  String?
+  event      Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([eventId])
+}
+
+model AdvancementAudit {
+  id            String   @id @default(cuid())
+  eventId       String
+  categoryId    String
+  roundFormatId String?
+  action        String
+  advanceCount  Int?
+  winnerIds     String[] @default([])
+  changedBy     String?
+  reason        String?
+  createdAt     DateTime @default(now())
+
+  @@index([categoryId])
+  @@index([eventId])
 }
 
 model Conversation {

@@ -11,6 +11,7 @@ import { formatInr, isEventFlatFeePaid } from "@/lib/money";
 import { BATTLE_FORMATS, CATEGORY_FORMAT_LABELS, COMPETITION_FORMATS, EVENT_TYPE_LABELS, EVENT_TYPE_LIST, defaultRosterSize, formatLabel, isCompetitionType, isWorkshopType, SINGLE_POINT_ROUND_TYPES } from "@/lib/event-types";
 import { INDIAN_STATES } from "@/lib/states";
 import { responseError } from "@/lib/client-error";
+import { useToast } from "@/components/ui/toast";
 import type { CategoryFormat, EventStatus, RoundType, RegistrationStatus, PaymentStatus } from "@/generated/prisma/enums";
 
 type Round = {
@@ -268,7 +269,7 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
       </div>
 
       {resolvedTab === "Overview" && (
-        <OverviewTab event={event} setEvent={setEvent} />
+        <OverviewTab event={event} setEvent={setEvent} onEditInfo={() => setActiveTab("Event Info")} />
       )}
       {resolvedTab === "Event Info" && (
         <EventInfoTab event={event} setEvent={setEvent} />
@@ -506,9 +507,11 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
 function OverviewTab({
   event,
   setEvent,
+  onEditInfo,
 }: {
   event: EventWithRelations;
   setEvent: (e: EventWithRelations) => void;
+  onEditInfo: () => void;
 }) {
   const router = useRouter();
   const pricing = usePricing();
@@ -517,51 +520,6 @@ function OverviewTab({
   const [error, setError] = useState("");
 
   const flatFeePaid = isEventFlatFeePaid(event);
-
-  async function handleSave(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setError("");
-    setSaving(true);
-    const form = new FormData(e.currentTarget);
-    const body: Record<string, unknown> = {};
-    const title = form.get("title") as string;
-    const slug = form.get("slug") as string;
-    const venue = form.get("venue") as string;
-    const googleMapsUrl = form.get("googleMapsUrl") as string;
-    const city = form.get("city") as string;
-    const state = form.get("state") as string;
-    const startsAt = form.get("startsAt") as string;
-    const description = form.get("description") as string;
-    const eventType = form.get("eventType") as string;
-
-    if (title && title !== event.title) body.title = title;
-    if (slug && slug !== event.slug) body.slug = slug;
-    body.venue = venue || null;
-    body.googleMapsUrl = googleMapsUrl || null;
-    body.city = city || null;
-    body.state = state || null;
-    body.description = description || null;
-    body.eventType = eventType || null;
-    if (startsAt) body.startsAt = new Date(startsAt).toISOString();
-
-    try {
-      const res = await fetch(`/api/events/${event.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        setError(await responseError(res, "Failed to save"));
-        return;
-      }
-      const updated = await res.json();
-      setEvent({ ...event, ...updated, startsAt: new Date(updated.startsAt) });
-    } catch {
-      setError("Network error. Please try again.");
-    } finally {
-      setSaving(false);
-    }
-  }
 
   async function handleStatusChange(status: EventStatus) {
     setError("");
@@ -638,142 +596,67 @@ function OverviewTab({
       ) : null}
 
       <div className="grid gap-xl lg:grid-cols-3">
-      <form className="border border-line p-lg lg:col-span-2" onSubmit={handleSave}>
-        <p className="font-display text-title-md uppercase">Event details</p>
-        <div className="mt-lg grid gap-md md:grid-cols-2">
-          <input
-            className="border border-line bg-paper px-md py-sm text-body-sm"
-            name="title"
-            defaultValue={event.title}
-            placeholder="Event title"
-          />
-          <input
-            className="border border-line bg-paper px-md py-sm text-body-sm"
-            name="slug"
-            defaultValue={event.slug}
-            placeholder="event-slug"
-          />
-          <input
-            className="border border-line bg-paper px-md py-sm text-body-sm"
-            name="venue"
-            defaultValue={event.venue ?? ""}
-            placeholder="Venue"
-          />
-          <input
-            className="border border-line bg-paper px-md py-sm text-body-sm md:col-span-2"
-            name="googleMapsUrl"
-            type="url"
-            defaultValue={event.googleMapsUrl ?? ""}
-            placeholder="https://maps.app.goo.gl/... (Google Maps link for directions)"
-          />
-          <input
-            className="border border-line bg-paper px-md py-sm text-body-sm"
-            name="city"
-            defaultValue={event.city ?? ""}
-            placeholder="City"
-          />
-          <label className="block">
-            <span className="font-mono text-[0.7rem] uppercase text-ink-muted">State</span>
-            <select
-              className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm"
-              name="state"
-              defaultValue={event.state ?? ""}
-            >
-              <option value="">Select a state</option>
-              {INDIAN_STATES.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          </label>
-          <input
-            className="border border-line bg-paper px-md py-sm text-body-sm md:col-span-2"
-            name="startsAt"
-            type="datetime-local"
-            defaultValue={event.startsAt.toISOString().slice(0, 16)}
-          />
-          <label className="block md:col-span-2">
-            <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Event type</span>
-            <select
-              className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm"
-              name="eventType"
-              defaultValue={event.eventType ?? ""}
-            >
-              <option value="">Select a type</option>
-              {EVENT_TYPE_LIST.map((t) => (
-                <option key={t} value={t}>{EVENT_TYPE_LABELS[t]}</option>
-              ))}
-            </select>
-          </label>
-          <textarea
-            className="border border-line bg-paper px-md py-sm text-body-sm md:col-span-2"
-            name="description"
-            rows={4}
-            defaultValue={event.description ?? ""}
-            placeholder="Event description — shown on the public event page"
-          />
-        </div>
-
-        <div className="mt-lg">
-          <p className="font-mono text-[0.7rem] uppercase text-ink-muted">Poster</p>
-          <div className="mt-xs max-w-64">
-            <PosterUpload
-              initial={event.posterUrl}
-              onChange={async (value, fileKey) => {
-                try {
-                  const res = await fetch(`/api/events/${event.id}`, {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ posterUrl: value, posterFileKey: fileKey }),
-                  });
-                  if (!res.ok) {
-                    setError(await responseError(res, "Failed to update poster"));
-                    return;
-                  }
-                  const updated = await res.json();
-                  setEvent({ ...event, ...updated, startsAt: new Date(updated.startsAt) });
-                } catch {
-                  setError("Network error. Please try again.");
-                }
-              }}
+      <div className="space-y-md lg:col-span-2">
+      <div className="border border-line p-lg">
+        <div className="flex flex-wrap items-start justify-between gap-md">
+          <div className="min-w-0">
+            <p className="font-mono text-[0.7rem] uppercase text-ink-muted">Event</p>
+            <p className="mt-xs font-display text-title-md uppercase">{event.title}</p>
+            <p className="mt-xs text-body-sm text-ink-muted">
+              {[event.city, event.state, event.venue].filter(Boolean).join(" · ") || "Location not set"}
+            </p>
+            <p className="mt-xs font-mono text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">
+              {new Date(event.startsAt).toLocaleString()} · /events/{event.slug}
+            </p>
+            {event.description ? (
+              <p className="mt-sm line-clamp-3 max-w-2xl text-body-sm text-ink-muted">{event.description}</p>
+            ) : null}
+          </div>
+          {event.posterUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={event.posterUrl}
+              alt={`${event.title} poster`}
+              className="h-28 w-20 shrink-0 border border-line object-cover"
             />
-          </div>
+          ) : null}
         </div>
-
-        <div className="mt-lg">
-          <p className="font-mono text-[0.7rem] uppercase text-ink-muted">Status</p>
-          <div className="mt-sm flex flex-wrap gap-sm">
-            {STATUS_OPTIONS.map((s) => {
-              const blocked =
-                !flatFeePaid && (s === "PUBLISHED" || s === "LIVE");
-              return (
-                <button
-                  key={s}
-                  type="button"
-                  title={blocked ? "Pay the flat fee first" : undefined}
-                  disabled={blocked || saving}
-                  className={`border px-md py-sm text-button-md font-bold uppercase disabled:cursor-not-allowed disabled:opacity-40 ${
-                    event.status === s
-                      ? "border-accent bg-accent text-paper"
-                      : "border-line bg-paper text-ink hover:border-accent"
-                  }`}
-                  onClick={() => handleStatusChange(s)}
-                >
-                  {s}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {error && <p className="mt-md text-body-sm text-accent">{error}</p>}
         <button
-          className="mt-lg border border-accent bg-accent px-lg py-sm font-bold uppercase text-paper disabled:opacity-60"
-          disabled={saving}
-          type="submit"
+          type="button"
+          onClick={onEditInfo}
+          className="mt-md border border-line px-md py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-ink transition-colors hover:border-accent hover:text-accent"
         >
-          {saving ? "Saving..." : "Save changes"}
+          Edit event info
         </button>
-      </form>
+      </div>
+
+      <div className="border border-line p-lg">
+        <p className="font-mono text-[0.7rem] uppercase text-ink-muted">Status</p>
+        <div className="mt-sm flex flex-wrap gap-sm">
+          {STATUS_OPTIONS.map((s) => {
+            const blocked =
+              !flatFeePaid && (s === "PUBLISHED" || s === "LIVE");
+            return (
+              <button
+                key={s}
+                type="button"
+                title={blocked ? "Pay the flat fee first" : undefined}
+                disabled={blocked || saving}
+                className={`border px-md py-sm text-button-md font-bold uppercase disabled:cursor-not-allowed disabled:opacity-40 ${
+                  event.status === s
+                    ? "border-accent bg-accent text-paper"
+                    : "border-line bg-paper text-ink hover:border-accent"
+                }`}
+                onClick={() => handleStatusChange(s)}
+              >
+                {s}
+              </button>
+            );
+          })}
+        </div>
+        {error && <p className="mt-md text-body-sm text-accent">{error}</p>}
+      </div>
+      </div>
 
       <div className="space-y-md">
         <div className="border border-line p-lg">
@@ -883,12 +766,51 @@ function EventInfoTab({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  async function handlePosterChange(value: string | null, fileKey: string | null) {
+    setError("");
+    try {
+      const res = await fetch(`/api/events/${event.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ posterUrl: value, posterFileKey: fileKey }),
+      });
+      if (!res.ok) {
+        setError(await responseError(res, "Failed to update poster"));
+        return;
+      }
+      const updated = await res.json();
+      setEvent({ ...event, ...updated, startsAt: new Date(updated.startsAt) });
+    } catch {
+      setError("Network error. Please try again.");
+    }
+  }
+
   async function handleSave(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
     setSaving(true);
     const form = new FormData(e.currentTarget);
     const body: Record<string, unknown> = {};
+
+    const title = form.get("title") as string;
+    const slug = form.get("slug") as string;
+    const venue = form.get("venue") as string;
+    const googleMapsUrl = form.get("googleMapsUrl") as string;
+    const city = form.get("city") as string;
+    const state = form.get("state") as string;
+    const startsAt = form.get("startsAt") as string;
+    const description = form.get("description") as string;
+    const eventType = form.get("eventType") as string;
+
+    if (title && title !== event.title) body.title = title;
+    if (slug && slug !== event.slug) body.slug = slug;
+    body.venue = venue || null;
+    body.googleMapsUrl = googleMapsUrl || null;
+    body.city = city || null;
+    body.state = state || null;
+    body.description = description || null;
+    body.eventType = eventType || null;
+    if (startsAt) body.startsAt = new Date(startsAt).toISOString();
 
     body.eventDetails = form.get("eventDetails") as string || null;
     body.accommodationAvailable = form.get("accommodationAvailable") === "on";
@@ -927,6 +849,109 @@ function EventInfoTab({
 
       <div className="mt-lg space-y-xl">
         <section>
+          <h3 className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent">Identity</h3>
+          <div className="mt-sm grid gap-md md:grid-cols-2">
+            <label className="block">
+              <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Title</span>
+              <input
+                className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm"
+                name="title"
+                defaultValue={event.title}
+                placeholder="Event title"
+              />
+            </label>
+            <label className="block">
+              <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Slug</span>
+              <input
+                className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm"
+                name="slug"
+                defaultValue={event.slug}
+                placeholder="event-slug"
+              />
+            </label>
+            <label className="block">
+              <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Venue</span>
+              <input
+                className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm"
+                name="venue"
+                defaultValue={event.venue ?? ""}
+                placeholder="Venue"
+              />
+            </label>
+            <label className="block">
+              <span className="font-mono text-[0.7rem] uppercase text-ink-muted">City</span>
+              <input
+                className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm"
+                name="city"
+                defaultValue={event.city ?? ""}
+                placeholder="City"
+              />
+            </label>
+            <label className="block md:col-span-2">
+              <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Google Maps link</span>
+              <input
+                className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm"
+                name="googleMapsUrl"
+                type="url"
+                defaultValue={event.googleMapsUrl ?? ""}
+                placeholder="https://maps.app.goo.gl/... (directions link)"
+              />
+            </label>
+            <label className="block">
+              <span className="font-mono text-[0.7rem] uppercase text-ink-muted">State</span>
+              <select
+                className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm"
+                name="state"
+                defaultValue={event.state ?? ""}
+              >
+                <option value="">Select a state</option>
+                {INDIAN_STATES.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Starts at</span>
+              <input
+                className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm"
+                name="startsAt"
+                type="datetime-local"
+                defaultValue={event.startsAt.toISOString().slice(0, 16)}
+              />
+            </label>
+            <label className="block md:col-span-2">
+              <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Event type</span>
+              <select
+                className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm"
+                name="eventType"
+                defaultValue={event.eventType ?? ""}
+              >
+                <option value="">Select a type</option>
+                {EVENT_TYPE_LIST.map((t) => (
+                  <option key={t} value={t}>{EVENT_TYPE_LABELS[t]}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block md:col-span-2">
+              <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Short description</span>
+              <textarea
+                className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm"
+                name="description"
+                rows={4}
+                defaultValue={event.description ?? ""}
+                placeholder="Short description — shown on the public event page"
+              />
+            </label>
+          </div>
+          <div className="mt-md">
+            <p className="font-mono text-[0.7rem] uppercase text-ink-muted">Poster</p>
+            <div className="mt-xs max-w-64">
+              <PosterUpload initial={event.posterUrl} onChange={handlePosterChange} />
+            </div>
+          </div>
+        </section>
+
+        <section className="border-t border-line pt-xl">
           <h3 className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent">Event Details</h3>
           <textarea
             className="mt-sm w-full border border-line bg-paper px-md py-sm text-body-sm"
@@ -1040,6 +1065,7 @@ function ScheduleTab({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<EventScheduleItem>>({});
   const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
 
   function startEdit(item: EventScheduleItem) {
     setEditingId(item.id);
@@ -1054,12 +1080,21 @@ function ScheduleTab({
   }
 
   async function handleSave(itemId: string, isNew = false) {
+    const startValue = typeof formData.startTime === "string" ? formData.startTime : "";
+    if (!startValue || Number.isNaN(new Date(startValue).getTime())) {
+      toast("Set a start time for the schedule item", "error");
+      return;
+    }
+    if (!formData.title?.trim()) {
+      toast("Give the schedule item a title", "error");
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch(`/api/events/${event.id}/schedule`, {
         method: isNew ? "POST" : "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: isNew ? undefined : itemId, ...formData, startTime: new Date(formData.startTime!).toISOString(), endTime: formData.endTime ? new Date(formData.endTime).toISOString() : null, eventId: event.id }),
+        body: JSON.stringify({ id: isNew ? undefined : itemId, ...formData, startTime: new Date(startValue).toISOString(), endTime: formData.endTime ? new Date(formData.endTime).toISOString() : null, eventId: event.id }),
       });
       if (!res.ok) throw new Error(await responseError(res, "Failed to save"));
       const saved = (await res.json()) as EventScheduleItem;
@@ -1069,8 +1104,9 @@ function ScheduleTab({
       });
       cancelEdit();
       refresh();
+      toast(isNew ? "Schedule item added" : "Schedule item saved", "success");
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to save");
+      toast(err instanceof Error ? err.message : "Failed to save", "error");
     } finally {
       setSaving(false);
     }
@@ -1084,8 +1120,9 @@ function ScheduleTab({
       setItems((prev) => prev.filter((item) => item.id !== itemId));
       if (editingId === itemId) cancelEdit();
       refresh();
+      toast("Schedule item deleted", "success");
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to delete");
+      toast(err instanceof Error ? err.message : "Failed to delete", "error");
     }
   }
 
@@ -1104,6 +1141,32 @@ function ScheduleTab({
           + Add Schedule Item
         </button>
       </div>
+
+      {editingId === "new" ? (
+        <div className="border border-accent bg-paper-soft p-lg">
+          <p className="font-display text-title-md uppercase">New schedule item</p>
+          <div className="mt-md space-y-sm">
+            <input className="w-full border border-line bg-paper px-md py-sm text-body-sm" value={formData.title ?? ""} onChange={(e) => setFormData({ ...formData, title: e.target.value })} placeholder="Title (e.g., Registration, Check-in, Finals)" />
+            <div className="grid gap-sm md:grid-cols-2">
+              <input type="datetime-local" className="border border-line bg-paper px-md py-sm text-body-sm" value={typeof formData.startTime === "string" ? formData.startTime : ""} onChange={(e) => setFormData({ ...formData, startTime: e.target.value })} placeholder="Start time" required />
+              <input type="datetime-local" className="border border-line bg-paper px-md py-sm text-body-sm" value={typeof formData.endTime === "string" ? formData.endTime : ""} onChange={(e) => setFormData({ ...formData, endTime: e.target.value })} placeholder="End time (optional)" />
+            </div>
+            <textarea className="w-full border border-line bg-paper px-md py-sm text-body-sm" value={formData.description ?? ""} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Description" rows={2} />
+            <label className="flex items-center gap-sm">
+              <input type="checkbox" checked={formData.isPublished ?? true} onChange={(e) => setFormData({ ...formData, isPublished: e.target.checked })} className="border border-line bg-paper" />
+              <span className="font-mono text-sm">Published</span>
+            </label>
+            <div className="flex gap-sm">
+              <button onClick={() => handleSave("", true)} disabled={saving} className="border border-accent bg-accent px-md py-sm font-bold uppercase text-paper disabled:opacity-60">
+                {saving ? "Saving..." : "Add item"}
+              </button>
+              <button onClick={cancelEdit} className="border border-line px-md py-sm font-bold uppercase hover:border-accent">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {items.length === 0 ? (
         <p className="border border-line p-lg text-ink-muted">No schedule items yet. Add the first one.</p>
@@ -1171,6 +1234,7 @@ function NoticesTab({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<EventNotice>>({});
   const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
 
   function startEdit(notice: EventNotice) {
     setEditingId(notice.id);
@@ -1183,6 +1247,10 @@ function NoticesTab({
   }
 
   async function handleSave(noticeId: string, isNew = false) {
+    if (!formData.title?.trim() || !formData.message?.trim()) {
+      toast("A notice needs a title and a message", "error");
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch(`/api/events/${event.id}/notices`, {
@@ -1198,8 +1266,9 @@ function NoticesTab({
       });
       cancelEdit();
       refresh();
+      toast(isNew ? "Notice published" : "Notice saved", "success");
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to save");
+      toast(err instanceof Error ? err.message : "Failed to save", "error");
     } finally {
       setSaving(false);
     }
@@ -1213,8 +1282,9 @@ function NoticesTab({
       setNotices((prev) => prev.filter((n) => n.id !== noticeId));
       if (editingId === noticeId) cancelEdit();
       refresh();
+      toast("Notice deleted", "success");
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to delete");
+      toast(err instanceof Error ? err.message : "Failed to delete", "error");
     }
   }
 
@@ -1231,8 +1301,9 @@ function NoticesTab({
         prev.map((n) => (n.id === updated.id ? updated : n)).sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()),
       );
       refresh();
+      toast(archive ? "Notice archived" : "Notice restored", "success");
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to update");
+      toast(err instanceof Error ? err.message : "Failed to update", "error");
     }
   }
 
@@ -1254,6 +1325,23 @@ function NoticesTab({
           + Add Notice
         </button>
       </div>
+
+      {editingId === "new" ? (
+        <div className="border border-accent bg-paper-soft p-lg">
+          <p className="font-display text-title-md uppercase">New notice</p>
+          <div className="mt-md space-y-sm">
+            <input className="w-full border border-line bg-paper px-md py-sm text-body-sm" value={formData.title ?? ""} onChange={(e) => setFormData({ ...formData, title: e.target.value })} placeholder="Notice title" required />
+            <textarea className="w-full border border-line bg-paper px-md py-sm text-body-sm" value={formData.message ?? ""} onChange={(e) => setFormData({ ...formData, message: e.target.value })} placeholder="Message" rows={3} required />
+            <input className="w-full border border-line bg-paper px-md py-sm text-body-sm" value={formData.link ?? ""} onChange={(e) => setFormData({ ...formData, link: e.target.value })} placeholder="Optional link (e.g., schedule, registration, external site)" />
+            <div className="flex gap-sm">
+              <button onClick={() => handleSave("", true)} disabled={saving} className="border border-accent bg-accent px-md py-sm font-bold uppercase text-paper disabled:opacity-60">
+                {saving ? "Publishing..." : "Publish notice"}
+              </button>
+              <button onClick={cancelEdit} className="border border-line px-md py-sm font-bold uppercase hover:border-accent">Cancel</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {activeNotices.length === 0 && archivedNotices.length === 0 ? (
         <p className="border border-line p-lg text-ink-muted">No notices yet. Add the first one.</p>

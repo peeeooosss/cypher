@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSocket } from "@/components/socket-provider";
-import type { MatchLiveData, ScoreSubmittedData } from "@/lib/socket/types";
+import type { MatchCompleteData, MatchLiveData, ScoreSubmittedData } from "@/lib/socket/types";
 
 export function LiveSpectator({
   eventId,
@@ -16,7 +16,7 @@ export function LiveSpectator({
   const [liveMatch, setLiveMatch] = useState<MatchLiveData | null>(null);
   const [scores, setScores] = useState({ red: 0, blue: 0 });
   const [judgeCount, setJudgeCount] = useState(0);
-  const [winnerCorner, setWinnerCorner] = useState<"red" | "blue" | null>(null);
+  const [winnerCorner, setWinnerCorner] = useState<"red" | "blue" | "green" | null>(null);
   const [locked, setLocked] = useState(false);
 
   useEffect(() => {
@@ -39,7 +39,7 @@ export function LiveSpectator({
       setScores({ red: data.aggregateRed, blue: data.aggregateBlue });
       setJudgeCount(data.judgeCount);
     };
-    const onComplete = (data: { matchId: string; winnerCorner: "red" | "blue" }) => {
+    const onComplete = (data: MatchCompleteData) => {
       if (data.matchId !== liveMatch?.matchId) return;
       setWinnerCorner(data.winnerCorner);
     };
@@ -130,7 +130,7 @@ export function LiveSpectator({
 
       <div className="border-t border-line px-md py-sm text-center font-mono text-[0.7rem] uppercase text-ink-muted">
         {winnerCorner
-          ? `${winnerCorner === "red" ? "Red" : "Blue"} wins`
+          ? `${winnerCorner === "red" ? "Red" : winnerCorner === "blue" ? "Blue" : "Green"} wins`
           : locked
             ? "Voting locked"
             : `${judgeCount} judge${judgeCount === 1 ? "" : "s"} decided`}

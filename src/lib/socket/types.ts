@@ -108,7 +108,8 @@ export const ScoreSubmittedPayload = z.object({
 
 export const MatchCompletePayload = z.object({
   matchId: z.string().cuid(),
-  winnerCorner: z.enum(["red", "blue"]),
+  winnerCorner: z.enum(["red", "blue", "green"]),
+  runnerUpId: z.string().cuid().nullable().optional(),
   nextMatchId: z.string().cuid().nullable(),
   bracketUpdated: z.array(z.unknown()).optional(),
 });

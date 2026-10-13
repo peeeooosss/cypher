@@ -11,7 +11,12 @@ export const BATTLE_PHASE_TYPES = [
   "FINAL",
 ] as const;
 
-export async function generateBracket(categoryId: string, organizerId: string, roundFormatId: string) {
+export async function generateBracket(
+  categoryId: string,
+  organizerId: string,
+  roundFormatId: string,
+  opts?: { matchSize?: number },
+) {
   const category = await prisma.category.findFirst({
     where: { id: categoryId, event: { organizerId } },
     include: {
@@ -55,11 +60,13 @@ export async function generateBracket(categoryId: string, organizerId: string, r
     throw new BracketError("This phase already has a bracket");
   }
 
+  const matchSize = opts?.matchSize === 3 ? 3 : 2;
+
   return prisma.$transaction(async (transaction) => {
-    for (let index = 0; index < category.registrations.length; index += 2) {
-      const competitorA = category.registrations[index];
-      const competitorB = category.registrations[index + 1];
-      const isBye = !competitorB;
+    for (let index = 0; index < category.registrations.length; index += matchSize) {
+      const lane = category.registrations.slice(index, index + matchSize);
+      const [competitorA, competitorB, competitorC] = lane;
+      const isBye = lane.length === 1;
 
       await transaction.battleMatch.create({
         data: {
@@ -67,9 +74,11 @@ export async function generateBracket(categoryId: string, organizerId: string, r
           categoryId,
           roundFormatId,
           round: 1,
-          position: index / 2 + 1,
+          position: index / matchSize + 1,
+          matchSize,
           competitorAId: competitorA.id,
           competitorBId: competitorB?.id,
+          competitorCId: competitorC?.id,
           status: isBye ? "COMPLETE" : "PENDING",
           winnerId: isBye ? competitorA.id : undefined,
           completedAt: isBye ? new Date() : undefined,
@@ -84,7 +93,12 @@ export async function generateBracket(categoryId: string, organizerId: string, r
   });
 }
 
-export async function completeMatch(matchId: string, winnerId: string, organizerId: string) {
+export async function completeMatch(
+  matchId: string,
+  winnerId: string,
+  organizerId: string,
+  opts?: { runnerUpId?: string | null },
+) {
   return prisma.$transaction(async (transaction) => {
     const match = await transaction.battleMatch.findFirst({
       where: { id: matchId, event: { organizerId } },
@@ -99,8 +113,25 @@ export async function completeMatch(matchId: string, winnerId: string, organizer
       throw new BracketError("This phase is not active");
     }
 
-    if (match.competitorAId !== winnerId && match.competitorBId !== winnerId) {
+    const laneIds = [match.competitorAId, match.competitorBId, match.competitorCId].filter(
+      (id): id is string => Boolean(id),
+    );
+
+    if (!laneIds.includes(winnerId)) {
       throw new BracketError("Winner must be one of the match competitors");
+    }
+
+    const runnerUpId = opts?.runnerUpId ?? null;
+    if (runnerUpId != null) {
+      if (match.matchSize < 3 || (match.winnerCount ?? 1) < 2) {
+        throw new BracketError("Runner-up needs a 3-way match that advances 2 winners");
+      }
+      if (!laneIds.includes(runnerUpId)) {
+        throw new BracketError("Runner-up must be one of the match competitors");
+      }
+      if (runnerUpId === winnerId) {
+        throw new BracketError("Winner and runner-up must be different competitors");
+      }
     }
 
     if (match.status === "COMPLETE" && match.winnerLocked) {
@@ -109,7 +140,37 @@ export async function completeMatch(matchId: string, winnerId: string, organizer
 
     return transaction.battleMatch.update({
       where: { id: matchId },
-      data: { status: "COMPLETE", winnerId, completedAt: new Date(), winnerLocked: true },
+      data: {
+        status: "COMPLETE",
+        winnerId,
+        runnerUpId,
+        completedAt: new Date(),
+        winnerLocked: true,
+      },
     });
   });
+}
+
+/** Lanes of a match in lane order: red, blue, then green for 3-way battles. */
+export function matchLaneIds(match: {
+  competitorAId: string | null;
+  competitorBId: string | null;
+  competitorCId?: string | null;
+}): string[] {
+  return [match.competitorAId, match.competitorBId, match.competitorCId ?? null].filter(
+    (id): id is string => Boolean(id),
+  );
+}
+
+export function winnerCornerFor(match: {
+  competitorAId: string | null;
+  competitorBId: string | null;
+  competitorCId?: string | null;
+  winnerId: string | null;
+}): "red" | "blue" | "green" | null {
+  if (!match.winnerId) return null;
+  if (match.winnerId === match.competitorAId) return "red";
+  if (match.winnerId === match.competitorBId) return "blue";
+  if (match.winnerId === (match.competitorCId ?? null)) return "green";
+  return null;
 }
