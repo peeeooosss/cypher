@@ -7,6 +7,8 @@ import { Nav } from "@/components/nav";
 import { Footer } from "@/components/footer";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ToastProvider } from "@/components/ui/toast";
+import { ServiceWorkerRegister } from "@/components/sw-register";
+import { MobileNav } from "@/components/mobile-nav";
 import { fontDisplay, fontSans } from "@/lib/fonts";
 
 export const metadata: Metadata = {
@@ -20,8 +22,9 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: "/Favicon.svg",
-    apple: "/apple-icon.svg",
+    apple: "/apple-touch-icon.png",
   },
+  manifest: "/manifest.webmanifest",
 };
 
 export const viewport: Viewport = {
@@ -52,8 +55,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <PricingProvider values={pricing}>
             <Providers>
               <ToastProvider>
+                <ServiceWorkerRegister />
                 <Nav />
                 {children}
+                <MobileNav />
                 <Footer />
               </ToastProvider>
             </Providers>
