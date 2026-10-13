@@ -29,7 +29,6 @@ export default async function OrganizerGigsPage() {
                 skills: true,
                 minJudgingPricePerDay: true,
                 minWorkshopPricePerDay: true,
-                gigAvailability: { orderBy: { dateFrom: "asc" } },
               },
             },
             agreement: {

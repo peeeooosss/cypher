@@ -203,7 +203,6 @@ model User {
   isSuspended              Boolean                  @default(false)
   minJudgingPricePerDay    Int?
   minWorkshopPricePerDay   Int?
-  gigAvailability          ArtistAvailability[]
   conversations            Conversation[]           @relation("ConversationOrganizer")
   artistConversations      Conversation[]           @relation("ConversationArtist")
   messages                 Message[]
@@ -739,19 +738,6 @@ model Feedback {
 
   @@index([status])
   @@index([type])
-}
-
-model ArtistAvailability {
-  id        String   @id @default(cuid())
-  userId    String
-  dateFrom  DateTime
-  dateTo    DateTime
-  note      String?
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([userId])
 }
 
 model Conversation {

@@ -24,7 +24,7 @@
    - Created `POST /api/payments/verify` — HMAC-SHA256 signature check, marks Payment PAID, applies side effects idempotently
    - Created `src/components/razorpay-checkout.tsx` — loads checkout.js, opens modal, calls verify
    - Replaced all manual UPI flows: event flat fee, event commission, gig posting, gig work access
-   - Test keys in `.env`: `RAZORPAY_KEY_ID=rzp_test_TQlzpeIASLHzRi`
+   - Test keys in `.env`: `RAZORPAY_KEY_ID` (value redacted — see local `.env`, never commit secrets)
 
 2. **Judge Feedback (Both Corners)**
    - `MatchScore` model extended with `feedbackRed`/`feedbackBlue` fields
@@ -207,7 +207,7 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
    - Connection fee (messages panel)
 
 6. **Vercel Env Vars Added**
-   - `PAYU_ENV=test`, `PAYU_MERCHANT_KEY=sBHgqC`, `PAYU_MERCHANT_SALT=obozUDIe7liefvQ5vtA9EFTecCfdQlmK`, `PAYU_BASE_URL=https://test.payu.in`
+   - `PAYU_ENV=test`, `PAYU_MERCHANT_KEY` + `PAYU_MERCHANT_SALT` configured in Vercel env (values redacted — never commit secrets), `PAYU_BASE_URL=https://test.payu.in`
 
 7. **Documentation**
    - `PAYU.md` — integration docs and deployment checklist

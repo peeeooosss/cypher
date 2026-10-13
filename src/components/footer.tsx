@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { Logo } from "@/components/logo";
 
 const footerLinks = [
   { href: "/", label: "Home" },
@@ -25,13 +25,7 @@ export function Footer() {
       <div className="mx-auto max-w-7xl px-md py-section md:px-xl">
         <div className="border-b border-line pb-section">
           <Link href="/" className="inline-block leading-none" aria-label="CYPHR home">
-            <Image
-              src="/logo.svg"
-              alt="CYPHR"
-              width={160}
-              height={40}
-              className="block h-10 w-auto"
-            />
+            <Logo width={160} height={40} className="block h-10 w-auto" />
           </Link>
           <p className="mt-md max-w-4xl font-display text-body-md uppercase leading-relaxed tracking-[0.02em] text-ink-muted">
             The platform for artists, events & organizers. Discover, organize, and grow —

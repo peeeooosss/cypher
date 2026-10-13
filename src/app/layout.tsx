@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { PricingProvider } from "@/components/pricing-provider";
 import { getPricingConfig } from "@/lib/pricing";
@@ -6,20 +6,40 @@ import { Providers } from "@/components/session-provider";
 import { Nav } from "@/components/nav";
 import { Footer } from "@/components/footer";
 import { ThemeProvider } from "@/components/theme-provider";
+import { ToastProvider } from "@/components/ui/toast";
+import { fontDisplay, fontSans } from "@/lib/fonts";
 
 export const metadata: Metadata = {
   title: "CYPHR | Underground Artist Platform",
   description: "The underground platform connecting dancers, DJs, guitarists, drummers, performers, organizers, and judges.",
+  applicationName: "CYPHR",
+  appleWebApp: {
+    capable: true,
+    title: "CYPHR",
+    statusBarStyle: "black-translucent",
+  },
   icons: {
     icon: "/Favicon.svg",
     apple: "/apple-icon.svg",
   },
 };
 
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#0A0A0A" },
+    { media: "(prefers-color-scheme: light)", color: "#FFFFFF" },
+  ],
+  viewportFit: "cover",
+};
+
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const pricing = await getPricingConfig();
   return (
-    <html lang="en" suppressHydrationWarning className="h-full bg-paper text-ink antialiased">
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${fontSans.variable} ${fontDisplay.variable} h-full bg-paper text-ink antialiased`}
+    >
       <head>
         <script
           dangerouslySetInnerHTML={{
@@ -31,9 +51,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <ThemeProvider>
           <PricingProvider values={pricing}>
             <Providers>
-              <Nav />
-              {children}
-              <Footer />
+              <ToastProvider>
+                <Nav />
+                {children}
+                <Footer />
+              </ToastProvider>
             </Providers>
           </PricingProvider>
         </ThemeProvider>

@@ -880,7 +880,6 @@ function EventInfoTab({
   event: EventWithRelations;
   setEvent: (e: EventWithRelations) => void;
 }) {
-  const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 

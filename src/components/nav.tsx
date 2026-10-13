@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { useState } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { Logo } from "@/components/logo";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -41,14 +41,7 @@ export function Nav() {
     <header className="sticky top-0 z-50 border-b border-line bg-paper">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-md py-md md:px-xl">
         <Link href="/" className="block leading-none" aria-label="CYPHR home">
-          <Image
-            src="/logo.svg"
-            alt="CYPHR"
-            width={112}
-            height={28}
-            priority
-            className="block h-7 w-auto"
-          />
+          <Logo />
         </Link>
 
         <div className="hidden items-center gap-lg md:flex">

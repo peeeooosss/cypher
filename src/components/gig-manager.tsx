@@ -27,7 +27,6 @@ type GigApplication = {
     skills: string[];
     minJudgingPricePerDay: number | null;
     minWorkshopPricePerDay: number | null;
-    gigAvailability: { id: string; dateFrom: Date; dateTo: Date }[];
   };
   agreement: {
     id: string;
@@ -326,14 +325,7 @@ export function GigManager({ gigs }: { gigs: Gig[] }) {
                                 : null}
                             </p>
                           )}
-                          {application.artist.gigAvailability.length > 0 ? (
-                            <p className="mt-xs text-body-sm text-ink-muted">
-                              Available:{" "}
-                              {application.artist.gigAvailability
-                                .map((a) => `${formatDate(a.dateFrom)}–${formatDate(a.dateTo)}`)
-                                .join(", ")}
-                            </p>
-                          ) : null}
+
                         </div>
                         <div className="flex flex-col items-end gap-sm">
                           <span className={`font-mono text-[0.65rem] uppercase ${application.status === "ACCEPTED" ? "text-accent" : application.status === "REJECTED" ? "text-red-500" : "text-ink-muted"}`}>
