@@ -18,6 +18,7 @@ type GigApplication = {
   artist: {
     id: string;
     name: string | null;
+    username: string | null;
     avatarUrl: string | null;
     style: string | null;
     crew: string | null;
@@ -288,7 +289,11 @@ export function GigManager({ gigs }: { gigs: Gig[] }) {
                               </div>
                             )}
                             <Link
-                              href={`/artist/directory/${application.artist.id}`}
+                              href={
+                                application.artist.username
+                                  ? `/artist/@${application.artist.username}`
+                                  : `/artist/directory/${application.artist.id}`
+                              }
                               className="font-display text-title-sm uppercase hover:text-accent"
                             >
                               {application.artist.name ?? "Unnamed artist"}

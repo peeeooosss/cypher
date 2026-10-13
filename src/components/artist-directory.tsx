@@ -120,7 +120,7 @@ export function ArtistDirectory({
           {filtered.map((artist) => (
             <Link
               key={artist.id}
-              href={`${baseHref}/${artist.id}`}
+              href={artist.username ? `/artist/@${artist.username}` : `${baseHref}/${artist.id}`}
               className="group relative border border-line bg-paper-soft p-lg transition-colors hover:border-accent"
             >
               {isPublic ? (

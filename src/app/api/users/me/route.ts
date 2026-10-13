@@ -5,6 +5,7 @@ import { badRequest, conflict, serverError, unauthorized } from "@/lib/api";
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { normalizePhone } from "@/lib/phone";
+import { isReservedUsername } from "@/lib/profile-url";
 
 const nullableString = (max: number) =>
   z
@@ -26,7 +27,12 @@ const usernameSchema = z
   .string()
   .trim()
   .transform((value) => value.toLowerCase().replace(/^@+/, ""))
-  .pipe(z.string().regex(/^[a-z0-9_]{3,30}$/, "Username must use 3–30 letters, numbers, or underscores"));
+  .pipe(
+    z
+      .string()
+      .regex(/^[a-z0-9_]{3,30}$/, "Username must use 3–30 letters, numbers, or underscores")
+      .refine((value) => !isReservedUsername(value), "That username is reserved"),
+  );
 
 const updateMeSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),

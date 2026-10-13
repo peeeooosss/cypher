@@ -20,6 +20,7 @@ export default async function OrganizerGigsPage() {
               select: {
                 id: true,
                 name: true,
+                username: true,
                 avatarUrl: true,
                 style: true,
                 crew: true,

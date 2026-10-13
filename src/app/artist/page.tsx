@@ -11,6 +11,9 @@ import { TeamInvitations } from "@/components/team-invitations";
 import { TeamEntries } from "@/components/team-entries";
 import { ArtistEventCard } from "@/components/artist-event-card";
 import { AccountDetails } from "@/components/account-details";
+import { ShareProfileCard } from "@/components/share-profile-card";
+import { resolveProfileUrl } from "@/lib/profile-url";
+import QRCode from "qrcode";
 import type { BattleMatchBreakdown, RosterRound } from "@/components/artist-scoreboard";
 
 export const dynamic = "force-dynamic";
@@ -145,6 +148,11 @@ export default async function ArtistPage({ searchParams }: PageProps) {
   const prizesPending = battleResults.filter((r) => r.matchesWon.length > 0 && r.category.prizePool && !r.category.prizePool.isPaid).length;
   const prizesPaid = battleResults.filter((r) => r.matchesWon.length > 0 && r.category.prizePool?.isPaid).length;
 
+  const profileUrl = profile?.username ? await resolveProfileUrl(profile.username) : null;
+  const profileQr = profileUrl
+    ? await QRCode.toDataURL(profileUrl, { width: 280, margin: 1 }).catch(() => null)
+    : null;
+
   const totalPages = Math.max(1, Math.ceil(battleResults.length / RESULTS_PER_PAGE));
   const requestedPage = Math.max(1, Number(params.page) || 1);
   const currentPage = Math.min(requestedPage, totalPages);
@@ -185,6 +193,13 @@ export default async function ArtistPage({ searchParams }: PageProps) {
       <section className="mt-section">
         <ArtistProfileForm profile={profile as ArtistProfile} />
       </section>
+
+      <ShareProfileCard
+        handle={profile?.username ?? null}
+        url={profileUrl}
+        qrDataUrl={profileQr}
+        isPublic={profile?.isProfilePublic ?? false}
+      />
 
       <TeamInvitations initialInvitations={invitations} />
       <TeamEntries entries={teamEntries} />

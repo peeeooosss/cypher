@@ -59,6 +59,14 @@ export async function getDirectoryArtists(viewerRole?: UserRole | null): Promise
   }));
 }
 
+export async function getArtistIdByUsername(username: string): Promise<string | null> {
+  const user = await prisma.user.findUnique({
+    where: { username },
+    select: { id: true },
+  });
+  return user?.id ?? null;
+}
+
 export async function getArtistProfile(userId: string, viewerRole?: UserRole | null) {
   const privileged = canViewPrivateProfiles(viewerRole);
 
