@@ -11,6 +11,55 @@ export const BATTLE_PHASE_TYPES = [
   "FINAL",
 ] as const;
 
+export type MatchGroup<T> = {
+  lanes: T[];
+  matchSize: number;
+  winnerCount: number;
+};
+
+/**
+ * Partition seeded entries into first-round matches without ever leaving a
+ * competitor alone with a bye.
+ *
+ * - 1v1 classic (matchSize 2): an odd trailing entry is folded into the
+ *   previous match, which becomes a 3-way that advances 2.
+ * - 1v1v1 (matchSize 3): a remainder of 2 stays a 2-way; a remainder of 1 is
+ *   rebalanced (the last 3 + the lone 1 become two 2-way matches).
+ */
+export function groupIntoLanes<T>(entries: T[], matchSize: number): MatchGroup<T>[] {
+  const base = matchSize === 3 ? 3 : 2;
+  const groups: T[][] = [];
+  for (let index = 0; index < entries.length; index += base) {
+    groups.push(entries.slice(index, index + base));
+  }
+
+  if (base === 2) {
+    if (groups.length > 1 && groups[groups.length - 1].length === 1) {
+      const lone = groups.pop()!;
+      groups[groups.length - 1].push(lone[0]);
+    }
+    return groups.map((lanes) => ({
+      lanes,
+      matchSize: lanes.length,
+      winnerCount: lanes.length === 3 ? 2 : 1,
+    }));
+  }
+
+  if (groups.length >= 2 && groups[groups.length - 1].length === 1) {
+    const lone = groups.pop()!;
+    const previous = groups.pop()!;
+    const combined = [...previous, ...lone];
+    groups.push(combined.slice(0, 2));
+    groups.push(combined.slice(2, 4));
+  }
+
+  return groups.map((lanes) => ({
+    lanes,
+    matchSize: lanes.length,
+    winnerCount: 1,
+  }));
+}
+
 export async function generateBracket(
   categoryId: string,
   organizerId: string,
@@ -60,13 +109,14 @@ export async function generateBracket(
     throw new BracketError("This phase already has a bracket");
   }
 
-  const matchSize = opts?.matchSize === 3 ? 3 : 2;
+  const baseSize = opts?.matchSize === 3 ? 3 : 2;
+  const groups = groupIntoLanes(category.registrations, baseSize);
 
   return prisma.$transaction(async (transaction) => {
-    for (let index = 0; index < category.registrations.length; index += matchSize) {
-      const lane = category.registrations.slice(index, index + matchSize);
-      const [competitorA, competitorB, competitorC] = lane;
-      const isBye = lane.length === 1;
+    for (let index = 0; index < groups.length; index += 1) {
+      const { lanes, matchSize, winnerCount } = groups[index];
+      const [competitorA, competitorB, competitorC] = lanes;
+      const isBye = lanes.length === 1;
 
       await transaction.battleMatch.create({
         data: {
@@ -74,8 +124,9 @@ export async function generateBracket(
           categoryId,
           roundFormatId,
           round: 1,
-          position: index / matchSize + 1,
+          position: index + 1,
           matchSize,
+          winnerCount,
           competitorAId: competitorA.id,
           competitorBId: competitorB?.id,
           competitorCId: competitorC?.id,

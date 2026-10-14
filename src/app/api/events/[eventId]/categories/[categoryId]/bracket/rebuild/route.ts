@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { badRequest, forbidden, notFound, serverError, unauthorized } from "@/lib/api";
-import { BATTLE_PHASE_TYPES } from "@/lib/bracket";
+import { BATTLE_PHASE_TYPES, groupIntoLanes } from "@/lib/bracket";
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { emitToSocket } from "@/lib/socket-emit";
@@ -114,10 +114,11 @@ export async function POST(request: Request, { params }: Context) {
 
       const placed: RebuildPreview["placed"] = [];
       let byes = 0;
-      for (let i = 0; i < free.length; i += matchSize) {
-        const lane = free.slice(i, i + matchSize);
+      const groups = groupIntoLanes(free, matchSize);
+      for (const group of groups) {
+        const { lanes, matchSize: laneSize, winnerCount } = group;
         position += 1;
-        const isBye = lane.length === 1;
+        const isBye = lanes.length === 1;
         if (isBye) byes += 1;
         await transaction.battleMatch.create({
           data: {
@@ -126,16 +127,17 @@ export async function POST(request: Request, { params }: Context) {
             roundFormatId: activePhase.id,
             round: 1,
             position,
-            matchSize,
-            competitorAId: lane[0]?.id,
-            competitorBId: lane[1]?.id,
-            competitorCId: lane[2]?.id,
+            matchSize: laneSize,
+            winnerCount,
+            competitorAId: lanes[0]?.id,
+            competitorBId: lanes[1]?.id,
+            competitorCId: lanes[2]?.id,
             status: isBye ? "COMPLETE" : "PENDING",
-            winnerId: isBye ? lane[0]?.id : undefined,
+            winnerId: isBye ? lanes[0]?.id : undefined,
             completedAt: isBye ? new Date() : undefined,
           },
         });
-        placed.push({ matchPosition: position, names: lane.map((e) => nameOf(e.id)) });
+        placed.push({ matchPosition: position, names: lanes.map((e) => nameOf(e.id)) });
       }
 
       await transaction.advancementAudit.create({
