@@ -144,3 +144,13 @@ body {
   animation: shimmer 1.5s infinite;
   content: "";
 }
+
+/* Guard against the legacy `@config` max-width collision: our custom spacing
+   tokens (xs/sm/md/lg/xl) leak into the named container scale, making
+   `max-w-xs`…`max-w-xl` render as a few pixels. These unlayered rules win over
+   Tailwind's `@layer utilities` output so the container scale is restored. */
+.max-w-xs { max-width: 20rem; }
+.max-w-sm { max-width: 24rem; }
+.max-w-md { max-width: 28rem; }
+.max-w-lg { max-width: 32rem; }
+.max-w-xl { max-width: 36rem; }
