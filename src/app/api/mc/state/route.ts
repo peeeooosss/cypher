@@ -16,6 +16,23 @@ function laneName(reg: { teamName: string | null; user: { name: string | null; u
   return reg.teamName ?? reg.user.name ?? (reg.user.username ? `@${reg.user.username}` : "Unnamed");
 }
 
+type RosterRow = {
+  id: string;
+  name: string;
+  crew: string | null;
+  seed: number | null;
+  status: string;
+};
+
+/** Seed-ordered roster — unseeded entries sort last, then alphabetically. */
+function rosterOf(regs: RosterRow[]): RosterRow[] {
+  return [...regs].sort(
+    (a, b) =>
+      (a.seed ?? Number.MAX_SAFE_INTEGER) - (b.seed ?? Number.MAX_SAFE_INTEGER) ||
+      a.name.localeCompare(b.name),
+  );
+}
+
 export async function GET() {
   try {
     const session = await getStaffSession();
@@ -77,9 +94,36 @@ export async function GET() {
         })
       : [];
 
+    const registrations = await prisma.registration.findMany({
+      where: { categoryId: { in: event.categories.map((c) => c.id) } },
+      select: {
+        id: true,
+        categoryId: true,
+        teamName: true,
+        crew: true,
+        seed: true,
+        status: true,
+        user: { select: { name: true, username: true } },
+      },
+    });
+    const participantsByCategory = new Map<string, RosterRow[]>();
+    for (const reg of registrations) {
+      const row: RosterRow = {
+        id: reg.id,
+        name: reg.teamName ?? reg.user.name ?? (reg.user.username ? `@${reg.user.username}` : "Unnamed"),
+        crew: reg.crew,
+        seed: reg.seed,
+        status: reg.status,
+      };
+      const list = participantsByCategory.get(reg.categoryId) ?? [];
+      list.push(row);
+      participantsByCategory.set(reg.categoryId, list);
+    }
+
     return NextResponse.json({
       eventTitle: event.title,
       eventStatus: event.status,
+      eventId: event.id,
       portal: isBattleType(event.eventType) ? "MC Portal" : "Host Portal",
       label: session.label,
       role: session.role,
@@ -91,6 +135,7 @@ export async function GET() {
           currentPhaseOrder: c.currentPhaseOrder,
           rounds: c.rounds,
           activePhase: active,
+          participants: rosterOf(participantsByCategory.get(c.id) ?? []),
           matches: matches
             .filter((m) => m.categoryId === c.id)
             .map((m) => {
@@ -108,10 +153,10 @@ export async function GET() {
                 winnerLocked: m.winnerLocked,
                 runnerUpId: m.runnerUpId,
                 lanes: [
-                  { corner: "red", registrationId: m.competitorAId, name: laneName(m.competitorA) },
-                  { corner: "blue", registrationId: m.competitorBId, name: laneName(m.competitorB) },
+                  { corner: "red", registrationId: m.competitorAId, name: laneName(m.competitorA), seed: m.competitorA?.seed ?? null },
+                  { corner: "blue", registrationId: m.competitorBId, name: laneName(m.competitorB), seed: m.competitorB?.seed ?? null },
                   ...(m.matchSize >= 3 || m.competitorCId
-                    ? [{ corner: "green", registrationId: m.competitorCId, name: laneName(m.competitorC) }]
+                    ? [{ corner: "green", registrationId: m.competitorCId, name: laneName(m.competitorC), seed: m.competitorC?.seed ?? null }]
                     : []),
                 ],
                 votes: { red: redVotes, blue: blueVotes, green: greenVotes },

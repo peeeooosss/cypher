@@ -57,7 +57,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             key={t.id}
             role="status"
             className={cx(
-              "pointer-events-auto w-full max-w-md animate-fade-in rounded-lg border bg-paper-raised px-4 py-3 text-body-sm font-medium shadow-raised",
+              "pointer-events-auto w-full max-w-lg break-words animate-fade-in rounded-lg border bg-paper-raised px-4 py-3 text-body-sm font-medium shadow-raised",
               tones[t.tone],
             )}
           >

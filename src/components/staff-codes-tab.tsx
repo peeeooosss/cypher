@@ -177,13 +177,15 @@ export function StaffCodesTab({
   return (
     <div className="space-y-xl">
       {freshCode ? (
-        <div className="rounded-lg border border-accent bg-accent/10 p-lg" role="alert">
+        <div className="rounded-lg border border-accent bg-accent/10 p-lg break-words" role="alert">
           <p className="font-display text-title-md uppercase text-accent">Share this code now</p>
           <p className="mt-xs text-body-sm text-ink-muted">
             “{freshCode.label}” — it is shown once. Send it to your MC/Host on WhatsApp, or have
             them open <span className="font-mono">/mc/{freshCode.code}</span>.
           </p>
-          <p className="mt-md text-center font-mono text-display-md tracking-[0.15em]">{freshCode.code}</p>
+          <p className="mt-md break-all text-center font-mono text-display-sm tracking-[0.15em] sm:text-display-md">
+            {freshCode.code}
+          </p>
           <div className="mt-md flex flex-wrap justify-center gap-sm">
             <Button size="sm" onClick={() => void copyText(freshCode.code, "Code copied")}>
               Copy code
@@ -204,7 +206,7 @@ export function StaffCodesTab({
       ) : null}
 
       <div className="border border-line p-lg">
-        <p className="font-display text-title-md uppercase">New MC / Host code</p>
+        <p className="font-display text-title-md uppercase tracking-wide">New MC / Host code</p>
         <div className="mt-md grid gap-md md:grid-cols-[1fr_160px_auto]">
           <div>
             <Label htmlFor="staff-label">Label</Label>
@@ -235,7 +237,7 @@ export function StaffCodesTab({
       </div>
 
       <div className="border border-line p-lg">
-        <p className="font-display text-title-md uppercase">Active codes ({codes.length})</p>
+        <p className="font-display text-title-md uppercase tracking-wide">Active codes ({codes.length})</p>
         {codes.length === 0 ? (
           <div className="mt-md">
             <EmptyState title="No codes yet" description="Generate the first code above for your MC or Host." />
@@ -277,7 +279,7 @@ export function StaffCodesTab({
       <div className="border border-line p-lg">
         <div className="flex flex-col gap-md sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
-            <p className="font-display text-title-md uppercase">Running order</p>
+            <p className="font-display text-title-md uppercase tracking-wide">Running order</p>
             <p className="mt-xs text-body-sm text-ink-muted">
               Every category and phase in calling order — send this to your HOST so names get
               called right.

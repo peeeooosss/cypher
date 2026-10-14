@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { FieldError, Input, Label } from "@/components/ui/input";
+import { Input, Label } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { Logo } from "@/components/logo";
 
@@ -45,10 +45,10 @@ export function McEntryForm({ initialCode = "" }: { initialCode?: string }) {
   }
 
   return (
-    <main className="mx-auto flex min-h-[70vh] w-full max-w-md flex-col items-center justify-center px-md py-section text-center">
+    <main className="mx-auto flex min-h-[70vh] w-full max-w-2xl flex-col items-center justify-center px-md py-section text-center">
       <Logo width={160} height={40} className="block h-10 w-auto" />
       <p className="mt-lg text-body-xs font-bold uppercase tracking-[0.2em] text-accent">MC / Host access</p>
-      <h1 className="mt-2 font-display text-display-lg uppercase">Run the show</h1>
+      <h1 className="mt-2 font-display text-display-lg uppercase tracking-wide">Run the show</h1>
       <p className="mt-2 text-body-sm text-ink-muted">
         Enter the code your organizer shared to open the live battle controls — no login needed.
       </p>
@@ -63,7 +63,14 @@ export function McEntryForm({ initialCode = "" }: { initialCode?: string }) {
           autoCapitalize="characters"
           className="text-center font-mono uppercase tracking-[0.2em]"
         />
-        {error ? <FieldError>{error}</FieldError> : null}
+        {error ? (
+          <p
+            role="alert"
+            className="mt-sm rounded-md border border-accent/40 bg-accent/10 px-3 py-2 text-body-sm break-words text-accent"
+          >
+            {error}
+          </p>
+        ) : null}
         <Button type="submit" loading={busy} className="mt-md w-full" size="lg">
           Enter portal
         </Button>

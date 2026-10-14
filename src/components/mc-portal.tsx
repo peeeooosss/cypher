@@ -11,7 +11,7 @@ import { ListSkeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import { responseError } from "@/lib/client-error";
 
-type Lane = { corner: string; registrationId: string | null; name: string };
+type Lane = { corner: string; registrationId: string | null; name: string; seed: number | null };
 type PortalMatch = {
   id: string;
   round: number;
@@ -34,17 +34,26 @@ type Phase = {
   matchSize: number;
   phaseStatus: string | null;
 };
+type Participant = {
+  id: string;
+  name: string;
+  crew: string | null;
+  seed: number | null;
+  status: string;
+};
 type Category = {
   id: string;
   name: string;
   currentPhaseOrder: number | null;
   rounds: Phase[];
   activePhase: Phase | null;
+  participants: Participant[];
   matches: PortalMatch[];
 };
 type PortalState = {
   eventTitle: string;
   eventStatus: string;
+  eventId: string;
   portal: string;
   label: string;
   role: string;
@@ -63,14 +72,27 @@ const cornerBorder: Record<string, string> = {
   green: "border-l-success",
 };
 
+function matchTone(status: string): "neutral" | "accent" | "success" | "warning" {
+  if (status === "LIVE") return "accent";
+  if (status === "COMPLETE") return "success";
+  if (status === "LOCKED") return "warning";
+  return "neutral";
+}
+
+function entryTone(status: string): "neutral" | "success" | "warning" {
+  if (status === "CONFIRMED") return "success";
+  if (status === "WITHDRAWN") return "warning";
+  return "neutral";
+}
+
+const NO_BATTLE_ROUND = ["CYPHER", "QUALIFIER"];
+
 export function McPortal() {
   const router = useRouter();
   const { toast } = useToast();
   const [state, setState] = useState<PortalState | null>(null);
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState<string | null>(null);
-  const [topN, setTopN] = useState<Record<string, string>>({});
-  const [runnerPick, setRunnerPick] = useState<Record<string, string>>({});
+  const [categoryQueries, setCategoryQueries] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     try {
@@ -125,27 +147,6 @@ export function McPortal() {
     };
   }, [load, router]);
 
-  async function act(url: string, method: string, body: unknown, key: string, done: string) {
-    setBusy(key);
-    try {
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        toast(await responseError(res, "Action failed"), "error");
-        return;
-      }
-      toast(done, "success");
-      await load();
-    } catch {
-      toast("Network error. Please try again.", "error");
-    } finally {
-      setBusy(null);
-    }
-  }
-
   async function signOut() {
     await fetch("/api/mc/session", { method: "DELETE" });
     router.replace("/mc");
@@ -176,7 +177,7 @@ export function McPortal() {
 
   if (!state && !error) {
     return (
-      <main className="mx-auto w-full max-w-6xl px-md py-section">
+      <main className="mx-auto w-full max-w-7xl px-md py-section md:px-xl">
         <ListSkeleton rows={5} />
       </main>
     );
@@ -184,7 +185,7 @@ export function McPortal() {
 
   if (!state) {
     return (
-      <main className="mx-auto w-full max-w-6xl px-md py-section">
+      <main className="mx-auto w-full max-w-7xl px-md py-section md:px-xl">
         <EmptyState
           title="Portal unreachable"
           description={error || "Could not load the portal."}
@@ -197,11 +198,11 @@ export function McPortal() {
   const waHref = `https://wa.me/?text=${encodeURIComponent(runningOrderText())}`;
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-md pb-section pt-lg">
+    <main className="mx-auto w-full max-w-7xl px-md pb-section pt-lg md:px-xl">
       <div className="flex flex-wrap items-start justify-between gap-md">
-        <div>
+        <div className="min-w-0">
           <p className="text-body-xs font-bold uppercase tracking-[0.2em] text-accent">{state.portal}</p>
-          <h1 className="mt-1 font-display text-display-md uppercase">{state.eventTitle}</h1>
+          <h1 className="mt-1 font-display text-display-md uppercase tracking-wide">{state.eventTitle}</h1>
           <p className="mt-1 text-body-sm text-ink-muted">
             {state.label} · {state.role} · {state.eventStatus}
           </p>
@@ -228,199 +229,218 @@ export function McPortal() {
       </div>
 
       {error ? (
-        <p role="alert" className="mt-md rounded-md border border-accent/40 bg-accent/10 px-4 py-3 text-body-sm text-accent">
+        <p
+          role="alert"
+          className="mt-md rounded-lg border border-accent/40 bg-accent/10 px-md py-md text-body-sm break-words text-accent"
+        >
           {error}
         </p>
       ) : null}
 
-      <div className="mt-lg space-y-lg">
-        {state.categories.map((category) => (
-          <section key={category.id} className="rounded-lg border border-line bg-paper-soft p-md sm:p-lg">
-            <div className="flex flex-wrap items-start justify-between gap-md">
-              <div>
-                <h2 className="font-display text-title-md uppercase">{category.name}</h2>
-                <div className="mt-2 space-y-1">
-                  {category.rounds.map((r) => (
-                    <p key={r.id} className="text-body-sm text-ink-muted">
-                      <span className={category.activePhase?.id === r.id ? "font-bold text-ink" : ""}>
-                        {r.label ?? r.type}
-                      </span>{" "}
-                      <span className="font-mono text-[0.65rem] uppercase">
-                        {r.type}
-                        {r.matchSize === 3 ? " · 3-way" : ""}
-                        {r.advanceCount != null ? ` · Top ${r.advanceCount}` : ""}
-                      </span>{" "}
-                      {category.activePhase?.id === r.id ? (
-                        <Badge tone="accent">On now</Badge>
-                      ) : (
-                        <Badge>{r.phaseStatus ?? "PENDING"}</Badge>
-                      )}
-                    </p>
-                  ))}
+      <div className="mt-lg space-y-xl">
+        {state.categories.map((category) => {
+          const needle = (categoryQueries[category.id] ?? "").trim().toLowerCase();
+          const visibleParticipants = needle
+            ? category.participants.filter((p) =>
+                `${p.name} ${p.crew ?? ""} ${p.seed != null ? `seed ${p.seed}` : ""}`
+                  .toLowerCase()
+                  .includes(needle),
+              )
+            : category.participants;
+          const visibleMatches = needle
+            ? category.matches.filter((m) =>
+                `${m.lanes.map((lane) => `${lane.name} ${lane.seed ?? ""}`).join(" ")} r${m.round} m${m.position}`
+                  .toLowerCase()
+                  .includes(needle),
+              )
+            : category.matches;
+
+          const phaseLine =
+            category.currentPhaseOrder != null
+              ? `Phase ${(category.currentPhaseOrder ?? 0) + 1} of ${category.rounds.length}: ${
+                  category.rounds.find((r) => r.order === category.currentPhaseOrder)?.label ?? "Active"
+                }`
+              : category.rounds.length > 0 && category.rounds.every((r) => r.phaseStatus === "COMPLETE")
+                ? "All phases complete"
+                : "Not started";
+
+          const noBattle = NO_BATTLE_ROUND.includes(category.activePhase?.type ?? "");
+
+          return (
+            <section key={category.id} className="rounded-lg border border-line bg-paper-soft p-md sm:p-lg">
+              <div className="flex flex-wrap items-start justify-between gap-md">
+                <div className="min-w-0">
+                  <h2 className="font-display text-title-md uppercase tracking-wide">{category.name}</h2>
+                  <p className="mt-xs text-body-sm text-ink-muted">{phaseLine}</p>
                 </div>
-              </div>
-              <div className="flex items-center gap-sm">
                 <Input
-                  aria-label={`Top-N for ${category.name}`}
-                  value={topN[category.id] ?? ""}
-                  onChange={(e) => setTopN((p) => ({ ...p, [category.id]: e.target.value }))}
-                  placeholder={`Top ${category.activePhase?.advanceCount ?? "N"}`}
-                  inputMode="numeric"
-                  className="h-9 w-24 text-center"
+                  type="search"
+                  aria-label={`Find an artist in ${category.name}`}
+                  value={categoryQueries[category.id] ?? ""}
+                  onChange={(e) => setCategoryQueries((q) => ({ ...q, [category.id]: e.target.value }))}
+                  placeholder="Find an artist…"
+                  className="h-9 w-40 sm:w-48"
                 />
-                <Button
-                  size="sm"
-                  disabled={busy === `adv-${category.id}`}
-                  onClick={() =>
-                    void act(
-                      "/api/mc/advance",
-                      "POST",
-                      {
-                        categoryId: category.id,
-                        advanceCount: topN[category.id] ? Number(topN[category.id]) : undefined,
-                      },
-                      `adv-${category.id}`,
-                      "Phase advanced",
-                    )
-                  }
-                >
-                  {busy === `adv-${category.id}` ? "Working..." : "Advance"}
-                </Button>
               </div>
-            </div>
 
-            <div className="mt-md space-y-sm">
-              {category.matches.length === 0 ? (
-                <p className="text-body-sm text-ink-muted">
-                  {category.activePhase ? "No matches in this phase yet." : "No active phase."}
-                </p>
-              ) : null}
-              {category.matches.map((match) => (
-                <div key={match.id} className="rounded-md border border-line bg-paper p-md">
-                  <div className="flex flex-wrap items-center justify-between gap-sm">
-                    <div className="flex flex-wrap items-center gap-sm">
-                      <p className="font-display text-title-sm uppercase">
-                        Round {match.round} · Match {match.position}
-                      </p>
-                      <Badge
-                        tone={
-                          match.status === "LIVE" ? "accent" : match.status === "COMPLETE" ? "success" : "neutral"
-                        }
-                      >
-                        {match.status}
-                      </Badge>
-                      {match.matchSize === 3 ? (
-                        <Badge tone="neutral">{match.winnerCount === 2 ? "3-way · 2 winners" : "3-way · 1 winner"}</Badge>
-                      ) : null}
-                    </div>
-                    <div className="flex flex-wrap gap-sm">
-                      {match.status === "PENDING" ? (
-                        <>
-                          {match.matchSize === 3 ? (
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              disabled={busy === `wc-${match.id}`}
-                              onClick={() =>
-                                void act(
-                                  "/api/mc/match",
-                                  "PATCH",
-                                  { matchId: match.id, winnerCount: match.winnerCount === 2 ? 1 : 2 },
-                                  `wc-${match.id}`,
-                                  match.winnerCount === 2 ? "Set to 1 winner" : "Set to 2 winners",
-                                )
-                              }
-                            >
-                              {match.winnerCount === 2 ? "2 winners" : "1 winner"}
-                            </Button>
-                          ) : null}
-                          <Button
-                            size="sm"
-                            disabled={busy === `live-${match.id}`}
-                            onClick={() =>
-                              void act("/api/mc/match", "POST", { matchId: match.id }, `live-${match.id}`, "Match is live")
-                            }
-                          >
-                            Push live
-                          </Button>
-                        </>
-                      ) : null}
-                    </div>
+              {category.rounds.length > 0 ? (
+                <div className="mt-md">
+                  <div className="flex gap-xs">
+                    {category.rounds.map((round) => {
+                      const done = round.phaseStatus === "COMPLETE" || round.phaseStatus === "ACTIVE";
+                      return (
+                        <div
+                          key={round.id}
+                          className={`h-2 flex-1 ${done ? "bg-accent" : "bg-line"}`}
+                          title={`${round.label ?? round.type} — ${round.phaseStatus ?? "PENDING"}`}
+                        />
+                      );
+                    })}
                   </div>
-
-                  <div className="mt-md grid gap-sm sm:grid-cols-3">
-                    {match.lanes.map((lane) => (
-                      <div
-                        key={lane.corner}
-                        className={`rounded-md border border-l-4 border-line px-3 py-3 ${
-                          cornerBorder[lane.corner] ?? ""
-                        } ${
-                          match.winnerId === lane.registrationId
-                            ? "bg-accent/10 ring-1 ring-accent/40"
-                            : match.runnerUpId === lane.registrationId
-                              ? "bg-success/10 ring-1 ring-success/30"
-                              : ""
-                        }`}
-                      >
-                        <p className={`font-display text-title-sm uppercase ${cornerColor[lane.corner] ?? ""}`}>
-                          {lane.corner} · {lane.name}
-                        </p>
-                        <p className="mt-1 font-mono text-[0.65rem] uppercase text-ink-muted">
-                          Votes: {match.votes[lane.corner as keyof typeof match.votes] ?? 0}
-                          {match.winnerId === lane.registrationId ? " · Winner" : ""}
-                          {match.runnerUpId === lane.registrationId ? " · Runner-up" : ""}
-                        </p>
-                        {match.status !== "COMPLETE" ? (
-                          <div className="mt-2 flex flex-wrap gap-1">
-                            <button
-                              type="button"
-                              disabled={!lane.registrationId || busy === `win-${match.id}`}
-                              onClick={() =>
-                                void act(
-                                  "/api/mc/match",
-                                  "PUT",
-                                  {
-                                    matchId: match.id,
-                                    winnerId: lane.registrationId,
-                                    runnerUpId:
-                                      match.matchSize >= 3 && match.winnerCount === 2
-                                        ? (runnerPick[match.id] ?? undefined)
-                                        : undefined,
-                                  },
-                                  `win-${match.id}`,
-                                  `Winner: ${lane.name}`,
-                                )
-                              }
-                              className="cursor-pointer rounded border border-accent px-2 py-1 font-mono text-[0.6rem] font-bold uppercase text-accent transition-colors hover:bg-accent hover:text-accent-contrast disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                              Winner
-                            </button>
-                            {match.matchSize >= 3 && match.winnerCount === 2 ? (
-                              <button
-                                type="button"
-                                disabled={!lane.registrationId}
-                                onClick={() =>
-                                  setRunnerPick((p) => ({ ...p, [match.id]: lane.registrationId as string }))
-                                }
-                                className={`cursor-pointer rounded border px-2 py-1 font-mono text-[0.6rem] font-bold uppercase transition-colors ${
-                                  runnerPick[match.id] === lane.registrationId
-                                    ? "border-success bg-success/15 text-success"
-                                    : "border-line-strong text-ink-muted hover:border-success hover:text-success"
-                                }`}
-                              >
-                                Runner-up{runnerPick[match.id] === lane.registrationId ? " ✓" : ""}
-                              </button>
-                            ) : null}
-                          </div>
-                        ) : null}
-                      </div>
+                  <div className="mt-xs flex text-[0.6rem] font-mono uppercase text-ink-muted">
+                    {category.rounds.map((round) => (
+                      <span key={round.id} className="flex-1 truncate px-xs">
+                        {round.label ?? round.type.replace("_", " ")}
+                      </span>
                     ))}
                   </div>
                 </div>
-              ))}
-            </div>
-          </section>
-        ))}
+              ) : null}
+
+              <div className="mt-md space-y-1">
+                {category.rounds.map((r) => (
+                  <p key={r.id} className="text-body-sm text-ink-muted">
+                    <span className={category.activePhase?.id === r.id ? "font-bold text-ink" : ""}>
+                      {r.label ?? r.type}
+                    </span>{" "}
+                    <span className="font-mono text-[0.65rem] uppercase">
+                      {r.type}
+                      {r.matchSize === 3 ? " · 3-way" : ""}
+                      {r.advanceCount != null ? ` · Top ${r.advanceCount}` : ""}
+                    </span>{" "}
+                    {category.activePhase?.id === r.id ? <Badge tone="accent">On now</Badge> : <Badge>{r.phaseStatus ?? "PENDING"}</Badge>}
+                  </p>
+                ))}
+              </div>
+
+              <div className="mt-lg">
+                <div className="flex flex-wrap items-center justify-between gap-sm">
+                  <p className="text-body-xs font-bold uppercase tracking-[0.2em] text-accent">
+                    All artists ({category.participants.length}) · seed order
+                  </p>
+                  {needle ? (
+                    <p className="text-body-xs text-ink-muted">{visibleParticipants.length} matching</p>
+                  ) : null}
+                </div>
+                {category.participants.length === 0 ? (
+                  <p className="mt-sm text-body-sm text-ink-muted">No artists registered yet.</p>
+                ) : visibleParticipants.length === 0 ? (
+                  <p className="mt-sm text-body-sm text-ink-muted">No artists for “{categoryQueries[category.id]}”.</p>
+                ) : (
+                  <ul className="mt-sm grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
+                    {visibleParticipants.map((p) => (
+                      <li
+                        key={p.id}
+                        className="flex items-center gap-sm rounded border border-line bg-paper px-2.5 py-1.5"
+                      >
+                        <span className="w-8 shrink-0 text-right font-mono text-xs text-accent">
+                          {p.seed != null ? `#${p.seed}` : "—"}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span
+                            className={`block break-words text-body-sm ${
+                              p.status === "WITHDRAWN" ? "text-ink-muted line-through" : "text-ink"
+                            }`}
+                          >
+                            {p.name}
+                          </span>
+                          {p.crew ? (
+                            <span className="block break-words text-[0.65rem] uppercase text-ink-muted">{p.crew}</span>
+                          ) : null}
+                        </span>
+                        <Badge tone={entryTone(p.status)}>{p.status}</Badge>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className="mt-lg">
+                <p className="text-body-xs font-bold uppercase tracking-[0.2em] text-accent">
+                  {category.activePhase
+                    ? `${category.activePhase.label ?? category.activePhase.type} bracket`
+                    : "Bracket"}
+                </p>
+                {visibleMatches.length === 0 ? (
+                  <p className="mt-sm text-body-sm text-ink-muted">
+                    {needle
+                      ? `No matches for “${categoryQueries[category.id]}”.`
+                      : noBattle
+                        ? "No battles in this round — call artists from the list above."
+                        : category.activePhase
+                          ? "No battles in this phase yet."
+                          : "No active phase."}
+                  </p>
+                ) : null}
+                {visibleMatches.map((match) => (
+                  <div key={match.id} className="mt-sm rounded-md border border-line bg-paper p-md">
+                    <div className="flex flex-wrap items-center justify-between gap-sm">
+                      <div className="flex flex-wrap items-center gap-sm">
+                        <p className="font-display text-title-sm uppercase tracking-wide">
+                          Round {match.round} · Match {match.position}
+                        </p>
+                        <Badge tone={matchTone(match.status)}>{match.status}</Badge>
+                        {match.matchSize === 3 ? (
+                          <Badge>
+                            {match.winnerCount === 2 ? "3-way · 2 winners" : "3-way · 1 winner"}
+                          </Badge>
+                        ) : null}
+                      </div>
+                      {match.winnerLocked ? <Badge tone="success">Winner locked</Badge> : null}
+                    </div>
+
+                    <div className="mt-md grid gap-sm sm:grid-cols-3">
+                      {match.lanes.map((lane) => (
+                        <div
+                          key={lane.corner}
+                          className={`rounded-md border border-l-4 border-line px-3 py-3 ${
+                            cornerBorder[lane.corner] ?? ""
+                          } ${
+                            match.winnerId === lane.registrationId
+                              ? "bg-accent/10 ring-1 ring-accent/40"
+                              : match.runnerUpId === lane.registrationId
+                                ? "bg-success/10 ring-1 ring-success/30"
+                                : ""
+                          }`}
+                        >
+                          <p className={`font-mono text-[0.6rem] uppercase ${cornerColor[lane.corner] ?? ""}`}>
+                            {lane.corner}
+                          </p>
+                          <p
+                            className={`mt-0.5 break-words font-display text-title-sm uppercase tracking-wide ${
+                              match.winnerId === lane.registrationId || match.runnerUpId === lane.registrationId
+                                ? "text-ink"
+                                : ""
+                            }`}
+                          >
+                            {lane.seed != null ? <span className="text-ink-muted">#{lane.seed} </span> : null}
+                            {lane.name}
+                          </p>
+                          <p className="mt-1 font-mono text-[0.65rem] uppercase text-ink-muted">
+                            {match.votes[lane.corner as keyof typeof match.votes] ?? 0} vote
+                            {(match.votes[lane.corner as keyof typeof match.votes] ?? 0) === 1 ? "" : "s"}
+                            {match.winnerId === lane.registrationId ? " · Winner" : ""}
+                            {match.runnerUpId === lane.registrationId ? " · Runner-up" : ""}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          );
+        })}
       </div>
     </main>
   );
