@@ -21,15 +21,16 @@ export type JudgeDashboardProps = {
   initialLiveMatch: MatchLiveData | null;
 };
 
-type VoteCorner = "RED" | "BLUE";
+type VoteCorner = "RED" | "BLUE" | "GREEN";
 
 type Tally = {
   red: number;
   blue: number;
+  green: number;
   judgeCount: number;
 };
 
-const EMPTY_TALLY: Tally = { red: 0, blue: 0, judgeCount: 0 };
+const EMPTY_TALLY: Tally = { red: 0, blue: 0, green: 0, judgeCount: 0 };
 
 function VoteButton({
   corner,
@@ -45,6 +46,14 @@ function VoteButton({
   onSelect: (corner: VoteCorner) => void;
 }) {
   const isRed = corner === "RED";
+  const isGreen = corner === "GREEN";
+  const border = isRed ? "border-accent" : isGreen ? "border-success" : "border-[#2980FF]";
+  const solid = isRed ? "bg-accent text-paper" : isGreen ? "bg-success text-paper" : "bg-[#2980FF] text-paper";
+  const ghost = isRed
+    ? "bg-transparent text-accent hover:bg-accent/10"
+    : isGreen
+      ? "bg-transparent text-success hover:bg-success/10"
+      : "bg-transparent text-[#2980FF] hover:bg-[#2980FF]/10";
   return (
     <button
       type="button"
@@ -52,17 +61,11 @@ function VoteButton({
       onClick={() => onSelect(corner)}
       className={[
         "w-full border-2 px-md py-lg text-center font-display uppercase transition-colors disabled:cursor-not-allowed disabled:opacity-50",
-        isRed ? "border-accent" : "border-[#2980FF]",
-        selected
-          ? isRed
-            ? "bg-accent text-paper"
-            : "bg-[#2980FF] text-paper"
-          : isRed
-            ? "bg-transparent text-accent hover:bg-accent/10"
-            : "bg-transparent text-[#2980FF] hover:bg-[#2980FF]/10",
+        border,
+        selected ? solid : ghost,
       ].join(" ")}
     >
-      <span className="block text-button-md leading-tight">Vote {corner === "RED" ? "red" : "blue"}</span>
+      <span className="block text-button-md leading-tight">Vote {corner.toLowerCase()}</span>
       <span className="mt-xs block break-words text-body-sm font-bold normal-case">
         {name}
       </span>
@@ -75,18 +78,23 @@ function VoteButton({
   );
 }
 
-function TallyReadout({ tally }: { tally: Tally }) {
-  const total = tally.red + tally.blue;
+function TallyReadout({ tally, threeWay }: { tally: Tally; threeWay: boolean }) {
+  const total = tally.red + tally.blue + tally.green;
   return (
     <div className="w-full">
-      <div className="flex items-center justify-between gap-md">
+      <div className="flex flex-wrap items-center justify-between gap-md">
         <span className="font-mono text-body-sm uppercase text-accent">Red {tally.red}</span>
         <span className="font-mono text-body-sm uppercase text-[#2980FF]">Blue {tally.blue}</span>
+        {threeWay ? <span className="font-mono text-body-sm uppercase text-success">Green {tally.green}</span> : null}
       </div>
       <div className="mt-xs flex h-2 w-full overflow-hidden border border-line" aria-hidden="true">
         <div
           className="bg-accent"
           style={{ width: `${total === 0 ? 0 : Math.round((tally.red / total) * 100)}%` }}
+        />
+        <div
+          className="bg-success"
+          style={{ width: `${total === 0 || !threeWay ? 0 : Math.round((tally.green / total) * 100)}%` }}
         />
         <div className="flex-1 bg-[#2980FF]" />
       </div>
@@ -115,7 +123,12 @@ function CompetitorHeader({
   members?: string[];
 }) {
   const isRed = corner === "RED";
-  const tone = isRed ? "border-accent text-accent" : "border-[#2980FF] text-[#2980FF]";
+  const isGreen = corner === "GREEN";
+  const tone = isRed
+    ? "border-accent text-accent"
+    : isGreen
+      ? "border-success text-success"
+      : "border-[#2980FF] text-[#2980FF]";
   return (
     <div className="flex items-start gap-md">
       <div className={`flex h-16 w-16 shrink-0 items-center justify-center border-2 bg-paper-soft font-display ${tone}`}>
@@ -163,7 +176,8 @@ export function JudgeDashboard({
   const [feedback, setFeedback] = useState<{
     red: { templateId?: string; custom: string };
     blue: { templateId?: string; custom: string };
-  }>({ red: { custom: "" }, blue: { custom: "" } });
+    green: { templateId?: string; custom: string };
+  }>({ red: { custom: "" }, blue: { custom: "" }, green: { custom: "" } });
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [joinError, setJoinError] = useState<string | null>(null);
@@ -183,25 +197,28 @@ export function JudgeDashboard({
           // so keys stay scoreRed/scoreBlue here rather than red/blue.
           const data = (await res.json()) as {
             status: string;
-            aggregate?: { scoreRed?: number; scoreBlue?: number; judgeCount?: number };
+            aggregate?: { scoreRed?: number; scoreBlue?: number; scoreGreen?: number; judgeCount?: number };
             myVote: VoteCorner | null;
             myFeedbackRed: string | null;
             myFeedbackBlue: string | null;
+            myFeedbackGreen?: string | null;
           };
           setTally({
             red: data.aggregate?.scoreRed ?? 0,
             blue: data.aggregate?.scoreBlue ?? 0,
+            green: data.aggregate?.scoreGreen ?? 0,
             judgeCount: data.aggregate?.judgeCount ?? 0,
           });
           if (data.myVote) {
             setVote(data.myVote);
             setSubmitted(true);
           }
-          if (data.myFeedbackRed || data.myFeedbackBlue) {
-            setFeedback({
-              red: { custom: data.myFeedbackRed ?? "" },
-              blue: { custom: data.myFeedbackBlue ?? "" },
-            });
+          if (data.myFeedbackRed || data.myFeedbackBlue || data.myFeedbackGreen) {
+            setFeedback((prev) => ({
+              red: { custom: data.myFeedbackRed ?? prev.red.custom },
+              blue: { custom: data.myFeedbackBlue ?? prev.blue.custom },
+              green: { custom: data.myFeedbackGreen ?? prev.green.custom },
+            }));
           }
         } catch {
           // non-fatal: the socket keeps the tally live
@@ -232,14 +249,19 @@ export function JudgeDashboard({
       setSubmitted(false);
       setVote(null);
       setTally(EMPTY_TALLY);
-      setFeedback({ red: { custom: "" }, blue: { custom: "" } });
+      setFeedback({ red: { custom: "" }, blue: { custom: "" }, green: { custom: "" } });
       setSubmitError(null);
       fetchMyBallot(data.matchId);
     };
 
     const onScoreSubmitted = (data: ScoreSubmittedData) => {
       if (data.matchId !== liveMatch?.matchId) return;
-      setTally({ red: data.aggregateRed, blue: data.aggregateBlue, judgeCount: data.judgeCount });
+      setTally({
+        red: data.aggregateRed,
+        blue: data.aggregateBlue,
+        green: data.aggregateGreen ?? 0,
+        judgeCount: data.judgeCount,
+      });
       if (data.judgeSlotId === slotId) {
         setSubmitted(true);
         if (data.winnerCorner) setVote(data.winnerCorner);
@@ -286,6 +308,7 @@ export function JudgeDashboard({
             judgeCode: code,
             feedbackRed: feedback.red.custom || undefined,
             feedbackBlue: feedback.blue.custom || undefined,
+            feedbackGreen: feedback.green.custom || undefined,
             feedbackTemplateIdRed: feedback.red.templateId,
             feedbackTemplateIdBlue: feedback.blue.templateId,
           }),
@@ -297,13 +320,14 @@ export function JudgeDashboard({
         }
 
         const result = (await response.json()) as {
-          aggregate?: { scoreRed: number; scoreBlue: number; judgeCount: number };
+          aggregate?: { scoreRed: number; scoreBlue: number; scoreGreen?: number; judgeCount: number };
         };
         setSubmitted(true);
         if (result.aggregate) {
           setTally({
             red: result.aggregate.scoreRed,
             blue: result.aggregate.scoreBlue,
+            green: result.aggregate.scoreGreen ?? 0,
             judgeCount: result.aggregate.judgeCount,
           });
         }
@@ -345,7 +369,8 @@ export function JudgeDashboard({
     );
   }
 
-  const votedLabel = vote === "RED" ? "Red" : "Blue";
+  const votedLabel = vote === "RED" ? "Red" : vote === "GREEN" ? "Green" : "Blue";
+  const threeWay = liveMatch?.green != null;
 
   return (
     <main className="flex min-h-screen flex-col bg-paper">
@@ -371,7 +396,7 @@ export function JudgeDashboard({
           </p>
         </div>
 
-        <div className="grid min-h-[50vh] lg:grid-cols-2">
+        <div className={`grid min-h-[50vh] ${threeWay ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
           <section className="flex flex-col gap-md border-b border-line px-md py-lg lg:border-b-0 lg:border-r md:px-xl">
             <CompetitorHeader
               corner="RED"
@@ -390,7 +415,7 @@ export function JudgeDashboard({
             />
           </section>
 
-          <section className="flex flex-col gap-md px-md py-lg md:px-xl">
+          <section className={`flex flex-col gap-md border-b border-line px-md py-lg lg:border-b-0 md:px-xl ${threeWay ? "lg:border-r" : ""}`}>
             <CompetitorHeader
               corner="BLUE"
               name={liveMatch.blue.name}
@@ -407,6 +432,26 @@ export function JudgeDashboard({
               onSelect={setVote}
             />
           </section>
+
+          {threeWay && liveMatch.green ? (
+            <section className="flex flex-col gap-md px-md py-lg md:px-xl">
+              <CompetitorHeader
+                corner="GREEN"
+                name={liveMatch.green.name}
+                crew={liveMatch.green.crew}
+                seed={liveMatch.green.seed}
+                avatar={liveMatch.green.avatar}
+                members={liveMatch.green.members}
+              />
+              <VoteButton
+                corner="GREEN"
+                name={liveMatch.green.name}
+                selected={vote === "GREEN"}
+                disabled={locked}
+                onSelect={setVote}
+              />
+            </section>
+          ) : null}
         </div>
       </div>
 
@@ -417,7 +462,7 @@ export function JudgeDashboard({
           </div>
         ) : (
           <>
-            <div className="grid gap-md md:grid-cols-2">
+            <div className={`grid gap-md ${threeWay ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
               <FeedbackSelect
                 code={code}
                 label={`Feedback for ${liveMatch.red.name} (optional)`}
@@ -430,10 +475,18 @@ export function JudgeDashboard({
                 value={feedback.blue}
                 onChange={(next) => setFeedback((prev) => ({ ...prev, blue: next }))}
               />
+              {threeWay && liveMatch.green ? (
+                <FeedbackSelect
+                  code={code}
+                  label={`Feedback for ${liveMatch.green.name} (optional)`}
+                  value={feedback.green}
+                  onChange={(next) => setFeedback((prev) => ({ ...prev, green: next }))}
+                />
+              ) : null}
             </div>
 
             <div className="mt-lg grid gap-md md:grid-cols-[1fr_auto] md:items-end">
-              <TallyReadout tally={tally} />
+              <TallyReadout tally={tally} threeWay={threeWay} />
               <div className="flex flex-col items-stretch gap-sm md:items-end">
                 <button
                   type="button"
@@ -453,7 +506,7 @@ export function JudgeDashboard({
                   </p>
                 ) : vote == null ? (
                   <p className="font-mono text-[0.65rem] uppercase text-ink-muted">
-                    Pick red or blue to submit your vote
+                    {threeWay ? "Pick red, blue, or green to submit your vote" : "Pick red or blue to submit your vote"}
                   </p>
                 ) : null}
               </div>

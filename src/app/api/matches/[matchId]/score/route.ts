@@ -15,8 +15,8 @@ const scoreSchema = z
     // Battles are decided by vote. `winnerCorner` is the only field the judge
     // UI sends now; the section/score fields stay for legacy replays.
     winnerCorner: z
-      .enum(["RED", "BLUE", "red", "blue"])
-      .transform((v) => v.toUpperCase() as "RED" | "BLUE")
+      .enum(["RED", "BLUE", "GREEN", "red", "blue", "green"])
+      .transform((v) => v.toUpperCase() as "RED" | "BLUE" | "GREEN")
       .optional(),
     scoreA: z.number().min(0).max(20).optional(),
     scoreB: z.number().min(0).max(20).optional(),
@@ -26,6 +26,7 @@ const scoreSchema = z
     feedback: z.string().optional(),
     feedbackRed: z.string().max(500).optional(),
     feedbackBlue: z.string().max(500).optional(),
+    feedbackGreen: z.string().max(500).optional(),
     feedbackTemplateIdRed: z.string().cuid().optional(),
     feedbackTemplateIdBlue: z.string().cuid().optional(),
   })
@@ -73,7 +74,7 @@ export async function GET(request: Request, { params }: Context) {
       getMatchDecisionAggregate(matchId),
       prisma.matchScore.findUnique({
         where: { matchId_judgeSlotId: { matchId, judgeSlotId: slot.id } },
-        select: { winnerCorner: true, feedbackRed: true, feedbackBlue: true },
+        select: { winnerCorner: true, feedbackRed: true, feedbackBlue: true, feedbackGreen: true },
       }),
     ]);
 
@@ -83,6 +84,7 @@ export async function GET(request: Request, { params }: Context) {
       myVote: mine?.winnerCorner ?? null,
       myFeedbackRed: mine?.feedbackRed ?? null,
       myFeedbackBlue: mine?.feedbackBlue ?? null,
+      myFeedbackGreen: mine?.feedbackGreen ?? null,
     });
   } catch (error) {
     console.error(error);
@@ -111,6 +113,7 @@ export async function POST(request: Request, { params }: Context) {
       feedback,
       feedbackRed: rawFeedbackRed,
       feedbackBlue: rawFeedbackBlue,
+      feedbackGreen: rawFeedbackGreen,
       feedbackTemplateIdRed,
       feedbackTemplateIdBlue,
     } = parsed.data;
@@ -163,6 +166,7 @@ export async function POST(request: Request, { params }: Context) {
 
     const feedbackRed = await resolveFeedback(feedbackTemplateIdRed, rawFeedbackRed);
     const feedbackBlue = await resolveFeedback(feedbackTemplateIdBlue, rawFeedbackBlue);
+    const feedbackGreen = rawFeedbackGreen?.slice(0, 500) ?? null;
 
     const isVote = winnerCorner != null;
     const hasSections = sectionsA != null && sectionsB != null;
@@ -192,6 +196,7 @@ export async function POST(request: Request, { params }: Context) {
         feedback,
         feedbackRed,
         feedbackBlue,
+        feedbackGreen,
       },
       create: {
         matchId,
@@ -203,6 +208,7 @@ export async function POST(request: Request, { params }: Context) {
         feedback,
         feedbackRed,
         feedbackBlue,
+        feedbackGreen,
       },
     });
 
@@ -216,6 +222,7 @@ export async function POST(request: Request, { params }: Context) {
         status: "LIVE",
         scoreA: aggregate.scoreRed,
         scoreB: aggregate.scoreBlue,
+        ...("scoreGreen" in aggregate ? { scoreC: (aggregate as { scoreGreen: number }).scoreGreen } : {}),
       },
       include: {
         competitorA: { include: { user: { select: { name: true } } } },
@@ -229,8 +236,10 @@ export async function POST(request: Request, { params }: Context) {
       judgeSlotId: slot.id,
       scoreRed: aggregate.scoreRed,
       scoreBlue: aggregate.scoreBlue,
+      ...("scoreGreen" in aggregate ? { scoreGreen: (aggregate as { scoreGreen: number }).scoreGreen } : {}),
       aggregateRed: aggregate.scoreRed,
       aggregateBlue: aggregate.scoreBlue,
+      ...("scoreGreen" in aggregate ? { aggregateGreen: (aggregate as { scoreGreen: number }).scoreGreen } : {}),
       judgeCount: aggregate.judgeCount,
       winnerCorner: winnerCorner ?? null,
       ...(hasSections

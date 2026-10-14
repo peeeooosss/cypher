@@ -14,7 +14,7 @@ export function LiveSpectator({
   const { socket, status, joinEventRoom } = useSocket();
 
   const [liveMatch, setLiveMatch] = useState<MatchLiveData | null>(null);
-  const [scores, setScores] = useState({ red: 0, blue: 0 });
+  const [scores, setScores] = useState({ red: 0, blue: 0, green: 0 });
   const [judgeCount, setJudgeCount] = useState(0);
   const [winnerCorner, setWinnerCorner] = useState<"red" | "blue" | "green" | null>(null);
   const [locked, setLocked] = useState(false);
@@ -29,14 +29,14 @@ export function LiveSpectator({
 
     const onMatchLive = (data: MatchLiveData) => {
       setLiveMatch(data);
-      setScores({ red: 0, blue: 0 });
+      setScores({ red: 0, blue: 0, green: 0 });
       setJudgeCount(0);
       setWinnerCorner(null);
       setLocked(false);
     };
     const onScore = (data: ScoreSubmittedData) => {
       if (data.matchId !== liveMatch?.matchId) return;
-      setScores({ red: data.aggregateRed, blue: data.aggregateBlue });
+      setScores({ red: data.aggregateRed, blue: data.aggregateBlue, green: data.aggregateGreen ?? 0 });
       setJudgeCount(data.judgeCount);
     };
     const onComplete = (data: MatchCompleteData) => {
@@ -95,7 +95,7 @@ export function LiveSpectator({
         </div>
       </div>
 
-      <div className="grid grid-cols-2">
+      <div className={`grid ${liveMatch.green ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-2"}`}>
         <div className={`flex flex-col items-center gap-sm px-md py-xl text-center ${blueWins ? "opacity-40" : ""}`}>
           <span className="font-display text-body-sm uppercase text-accent">Red</span>
           <h3 className="font-display text-display-lg uppercase leading-none text-accent">
@@ -111,7 +111,7 @@ export function LiveSpectator({
             {judgeCount > 0 ? `${scores.red} judge vote${scores.red === 1 ? "" : "s"}` : "no votes"}
           </p>
         </div>
-        <div className={`flex flex-col items-center gap-sm border-l border-line px-md py-xl text-center ${redWins ? "opacity-40" : ""}`}>
+        <div className={`flex flex-col items-center gap-sm border-line px-md py-xl text-center ${liveMatch.green ? "border-t sm:border-l sm:border-t-0" : "border-l"} ${redWins ? "opacity-40" : ""}`}>
           <span className="font-display text-body-sm uppercase text-[#2980FF]">Blue</span>
           <h3 className="font-display text-display-lg uppercase leading-none text-[#2980FF]">
             {liveMatch.blue.name}
@@ -126,6 +126,23 @@ export function LiveSpectator({
             {judgeCount > 0 ? `${scores.blue} judge vote${scores.blue === 1 ? "" : "s"}` : "no votes"}
           </p>
         </div>
+        {liveMatch.green ? (
+          <div className={`flex flex-col items-center gap-sm border-t border-line px-md py-xl text-center sm:border-l sm:border-t-0 ${redWins || blueWins ? "opacity-40" : ""}`}>
+            <span className="font-display text-body-sm uppercase text-success">Green</span>
+            <h3 className="font-display text-display-lg uppercase leading-none text-success">
+              {liveMatch.green.name}
+            </h3>
+            <p className="font-mono text-[0.7rem] uppercase text-ink-muted">
+              Seed #{liveMatch.green.seed ?? "—"}
+              {liveMatch.green.crew ? ` / ${liveMatch.green.crew}` : ""}
+            </p>
+            {liveMatch.green.members && liveMatch.green.members.length > 0 ? <p className="max-w-xs text-xs uppercase text-ink-muted">{liveMatch.green.members.join(" · ")}</p> : null}
+            <p className="font-display text-display-xl uppercase text-success">{scores.green}</p>
+            <p className="font-mono text-[0.7rem] uppercase text-ink-muted">
+              {judgeCount > 0 ? `${scores.green} judge vote${scores.green === 1 ? "" : "s"}` : "no votes"}
+            </p>
+          </div>
+        ) : null}
       </div>
 
       <div className="border-t border-line px-md py-sm text-center font-mono text-[0.7rem] uppercase text-ink-muted">

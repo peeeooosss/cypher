@@ -28,8 +28,10 @@ export async function GET(_: Request, { params }: BracketRouteContext) {
       include: {
          competitorA: { include: { user: { select: { id: true, name: true } }, members: { where: { status: "ACCEPTED" }, select: { user: { select: { name: true, username: true } } } } } },
          competitorB: { include: { user: { select: { id: true, name: true } }, members: { where: { status: "ACCEPTED" }, select: { user: { select: { name: true, username: true } } } } } },
+         competitorC: { include: { user: { select: { id: true, name: true } }, members: { where: { status: "ACCEPTED" }, select: { user: { select: { name: true, username: true } } } } } },
          winner: { include: { user: { select: { id: true, name: true } }, members: { where: { status: "ACCEPTED" }, select: { user: { select: { name: true, username: true } } } } } },
-        scores: true,
+         runnerUp: { include: { user: { select: { id: true, name: true } }, members: { where: { status: "ACCEPTED" }, select: { user: { select: { name: true, username: true } } } } } },
+        scores: { include: { judgeSlot: { select: { id: true, name: true, code: true } } } },
       },
       orderBy: [{ round: "asc" }, { position: "asc" }],
     });
@@ -72,7 +74,9 @@ export async function POST(_: Request, { params }: BracketRouteContext) {
     );
     if (!currentPhase) return badRequest("No active battle phase");
 
-    const matches = await generateBracket(categoryId, user.id, currentPhase.id);
+    const matches = await generateBracket(categoryId, user.id, currentPhase.id, {
+      matchSize: currentPhase.matchSize === 3 ? 3 : 2,
+    });
     return NextResponse.json(matches, { status: 201 });
   } catch (error) {
     if (error instanceof BracketError) {

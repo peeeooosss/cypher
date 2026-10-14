@@ -35,12 +35,17 @@ type LeaderboardMatch = {
   status: string;
   redName: string;
   blueName: string;
+  greenName?: string | null;
   winnerId: string | null;
   winnerName: string | null;
+  runnerUpId?: string | null;
+  runnerUpName?: string | null;
+  matchSize?: number;
   labelA: string | null;
   labelB: string | null;
   redMembers: string[];
   blueMembers: string[];
+  greenMembers?: string[];
   scores: {
     winnerCorner: string | null;
     scoreA: number | null;
@@ -170,29 +175,38 @@ function RankedRow({ row, fallbackLabel }: { row: RankedRowData; fallbackLabel: 
 type MatchTally = {
   red: number;
   blue: number;
+  green: number;
   label: string;
 };
 
 function matchTally(match: LeaderboardMatch): MatchTally {
   const redVotes = match.scores.filter((s) => s.winnerCorner === "RED").length;
   const blueVotes = match.scores.filter((s) => s.winnerCorner === "BLUE").length;
+  const greenVotes = match.scores.filter((s) => s.winnerCorner === "GREEN").length;
+  const threeWay = (match.matchSize ?? 2) === 3 || match.greenName != null;
 
-  if (redVotes + blueVotes > 0) {
-    return { red: redVotes, blue: blueVotes, label: `Votes ${redVotes} : ${blueVotes}` };
+  if (redVotes + blueVotes + greenVotes > 0) {
+    return {
+      red: redVotes,
+      blue: blueVotes,
+      green: greenVotes,
+      label: threeWay ? `Votes ${redVotes} : ${blueVotes} : ${greenVotes}` : `Votes ${redVotes} : ${blueVotes}`,
+    };
   }
 
   const legacy = match.scores.filter((s) => s.hasSections);
   if (legacy.length > 0) {
     const red = legacy.reduce((sum, s) => sum + (s.scoreA ?? 0), 0);
     const blue = legacy.reduce((sum, s) => sum + (s.scoreB ?? 0), 0);
-    return { red, blue, label: `Scored ${red.toFixed(1)} – ${blue.toFixed(1)} (legacy)` };
+    return { red, blue, green: 0, label: `Scored ${red.toFixed(1)} – ${blue.toFixed(1)} (legacy)` };
   }
 
-  return { red: 0, blue: 0, label: "No votes yet" };
+  return { red: 0, blue: 0, green: 0, label: "No votes yet" };
 }
 
 function MatchStatusChip({ match }: { match: LeaderboardMatch }) {
   const decided = match.status === "COMPLETE" && match.winnerName;
+  const finale = decided && match.runnerUpName;
   return (
     <span
       className={`shrink-0 border px-md py-xs font-mono text-[0.7rem] uppercase ${
@@ -203,18 +217,24 @@ function MatchStatusChip({ match }: { match: LeaderboardMatch }) {
             : "border-line text-ink-muted"
       }`}
     >
-      {decided ? `Winner: ${match.winnerName}` : match.status.toLowerCase()}
+      {finale
+        ? `Winner 1: ${match.winnerName} · Winner 2: ${match.runnerUpName}`
+        : decided
+          ? `Winner: ${match.winnerName}`
+          : match.status.toLowerCase()}
     </span>
   );
 }
 
-function VoteBar({ tally }: { tally: MatchTally }) {
-  const total = tally.red + tally.blue;
+function VoteBar({ tally, threeWay }: { tally: MatchTally; threeWay: boolean }) {
+  const total = tally.red + tally.blue + tally.green;
   if (total === 0) return null;
   const redPct = Math.round((tally.red / total) * 100);
+  const greenPct = threeWay ? Math.round((tally.green / total) * 100) : 0;
   return (
     <div className="flex h-2 w-full overflow-hidden border border-line" aria-hidden="true">
       <div className="bg-accent" style={{ width: `${redPct}%` }} />
+      {threeWay ? <div className="bg-success" style={{ width: `${greenPct}%` }} /> : null}
       <div className="flex-1 bg-[#2980FF]" />
     </div>
   );
@@ -222,6 +242,7 @@ function VoteBar({ tally }: { tally: MatchTally }) {
 
 function MatchRow({ match }: { match: LeaderboardMatch }) {
   const tally = matchTally(match);
+  const threeWay = (match.matchSize ?? 2) === 3 || match.greenName != null;
   const showMembers = match.redMembers.length > 0 || match.blueMembers.length > 0;
   const customLabel = match.labelA ?? null;
 
@@ -267,11 +288,24 @@ function MatchRow({ match }: { match: LeaderboardMatch }) {
                 </p>
               ) : null}
             </div>
+            {threeWay && match.greenName ? (
+              <div>
+                <p className="font-mono text-[0.6rem] uppercase tracking-[0.15em] text-success">Green</p>
+                <p className="break-words font-display text-body-md uppercase leading-tight text-success">
+                  {match.greenName}
+                </p>
+                {(match.greenMembers?.length ?? 0) > 0 ? (
+                  <p className="break-words text-[0.65rem] uppercase leading-snug text-ink-muted">
+                    {match.greenMembers!.join(" · ")}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         )}
 
         <div className="mt-sm space-y-xs">
-          <VoteBar tally={tally} />
+          <VoteBar tally={tally} threeWay={threeWay} />
           <p className="font-mono text-[0.65rem] uppercase text-ink-muted">{tally.label}</p>
         </div>
       </div>
@@ -295,6 +329,14 @@ function MatchRow({ match }: { match: LeaderboardMatch }) {
               <span className="font-display text-title-sm uppercase text-[#2980FF]">
                 {match.blueName}
               </span>
+              {threeWay && match.greenName ? (
+                <>
+                  <span className="mx-sm text-ink-muted">vs</span>
+                  <span className="font-display text-title-sm uppercase text-success">
+                    {match.greenName}
+                  </span>
+                </>
+              ) : null}
             </span>
           )}
           <span className="shrink-0 font-mono text-[0.7rem] uppercase text-ink-muted">

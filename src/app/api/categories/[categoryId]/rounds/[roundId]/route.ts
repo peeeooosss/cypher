@@ -17,7 +17,6 @@ const updateRoundSchema = z.object({
       BATTLE_3V3: "BATTLE_3V3",
       BATTLE_4V4: "BATTLE_4V4",
       CREW_VS_CREW: "CREW_VS_CREW",
-      SEVEN_TO_SMOKE: "SEVEN_TO_SMOKE",
       FINAL: "FINAL",
     } as const,
   ).optional(),
@@ -25,6 +24,7 @@ const updateRoundSchema = z.object({
   roundCount: z.number().int().min(1).optional(),
   roundDuration: z.number().int().optional().nullable(),
   advanceCount: z.number().int().optional().nullable(),
+  matchSize: z.union([z.literal(2), z.literal(3)]).optional(),
   order: z.number().int().min(0).optional(),
 });
 

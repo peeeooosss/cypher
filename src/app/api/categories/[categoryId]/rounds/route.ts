@@ -18,11 +18,14 @@ const BATTLE_ROUND_TYPES: RoundType[] = [
 type Context = { params: Promise<{ categoryId: string }> };
 
 const createRoundSchema = z.object({
-  type: z.nativeEnum(RoundType),
+  type: z
+    .nativeEnum(RoundType)
+    .refine((t) => t !== RoundType.SEVEN_TO_SMOKE, "7-to-Smoke is not supported — use a battle phase instead"),
   label: z.string().optional(),
   roundCount: z.number().int().min(1).default(1),
   roundDuration: z.number().int().optional(),
   advanceCount: z.number().int().optional(),
+  matchSize: z.union([z.literal(2), z.literal(3)]).default(2),
 });
 
 export async function GET(_request: Request, context: Context) {
@@ -61,7 +64,7 @@ export async function POST(request: Request, context: Context) {
     const body = createRoundSchema.safeParse(await request.json());
     if (!body.success) return badRequest(body.error.issues[0].message);
 
-    const { type, label, roundCount, roundDuration, advanceCount } = body.data;
+    const { type, label, roundCount, roundDuration, advanceCount, matchSize } = body.data;
 
     if (isCompetitionType(category.event.eventType) && BATTLE_ROUND_TYPES.includes(type)) {
       return badRequest("Competition events use single-point scoring (CYPHER/QUALIFIER) — no 1v1 battle rounds");
@@ -81,6 +84,7 @@ export async function POST(request: Request, context: Context) {
         roundCount,
         roundDuration,
         advanceCount,
+        matchSize,
         order,
       },
     });

@@ -41,6 +41,7 @@ export async function GET(_: Request, { params }: Context) {
         include: {
           competitorA: { include: { user: { select: { name: true } } } },
           competitorB: { include: { user: { select: { name: true } } } },
+          competitorC: { include: { user: { select: { name: true } } } },
           scores: true,
         },
         orderBy: [{ round: "asc" }, { position: "asc" }],

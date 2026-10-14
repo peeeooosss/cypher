@@ -11,6 +11,8 @@ import { formatInr, isEventFlatFeePaid } from "@/lib/money";
 import { BATTLE_FORMATS, CATEGORY_FORMAT_LABELS, COMPETITION_FORMATS, EVENT_TYPE_LABELS, EVENT_TYPE_LIST, defaultRosterSize, formatLabel, isCompetitionType, isWorkshopType, SINGLE_POINT_ROUND_TYPES } from "@/lib/event-types";
 import { INDIAN_STATES } from "@/lib/states";
 import { responseError } from "@/lib/client-error";
+import { AdvancementStudio } from "@/components/advancement-studio";
+import { StaffCodesTab } from "@/components/staff-codes-tab";
 import { useToast } from "@/components/ui/toast";
 import type { CategoryFormat, EventStatus, RoundType, RegistrationStatus, PaymentStatus } from "@/generated/prisma/enums";
 
@@ -23,6 +25,7 @@ type Round = {
   roundCount: number;
   roundDuration: number | null;
   advanceCount: number | null;
+  matchSize?: number | null;
   phaseStatus: string | null;
 };
 
@@ -143,7 +146,7 @@ type RegistrationRow = {
   members?: Array<{ id: string; userId: string; role: string; status: string; user: { id: string; name: string | null; username: string | null; whatsappNumber: string | null } }>;
 };
 
-const TABS = ["Overview", "Event Info", "Schedule", "Notices", "Categories", "Judges", "Registrations", "Prizes", "Leaderboard", "Control Room"] as const;
+const TABS = ["Overview", "Event Info", "Schedule", "Notices", "Categories", "Judges", "Registrations", "Prizes", "Leaderboard", "MC / Host", "Control Room"] as const;
 
 const STATUS_OPTIONS: EventStatus[] = ["DRAFT", "PUBLISHED", "LIVE", "COMPLETED"];
 
@@ -155,7 +158,6 @@ const ROUND_TYPES: RoundType[] = [
   "BATTLE_3V3",
   "BATTLE_4V4",
   "CREW_VS_CREW",
-  "SEVEN_TO_SMOKE",
   "FINAL",
 ];
 
@@ -295,6 +297,14 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
       {resolvedTab === "Leaderboard" && (
         <LiveLeaderboard eventId={event.id} title="Leaderboard" />
       )}
+      {resolvedTab === "MC / Host" && (
+        <StaffCodesTab
+          eventId={event.id}
+          eventTitle={event.title}
+          eventStartsAt={event.startsAt}
+          categories={event.categories}
+        />
+      )}
       {resolvedTab === "Control Room" && (
         <div className="space-y-xl">
           <div className="flex flex-wrap items-center justify-between gap-md">
@@ -428,6 +438,23 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
                              : "Qualifier round — pick the entries who advance below."}
                         </span>
                       )}
+                      {(() => {
+                        const activePhase = category.rounds.find((r) => r.order === category.currentPhaseOrder && r.phaseStatus === "ACTIVE");
+                        if (!activePhase) return null;
+                        return (
+                          <div className="w-full">
+                            <AdvancementStudio
+                              key={`${category.id}-${activePhase.id}-${controlRoomKey}`}
+                              categoryId={category.id}
+                              categoryName={category.name}
+                              roundId={activePhase.id}
+                              phaseLabel={activePhase.label ?? activePhase.type}
+                              advanceCount={activePhase.advanceCount}
+                              onChanged={() => void refreshControlRoom()}
+                            />
+                          </div>
+                        );
+                      })()}
                     </>
                   )}
                 </div>
@@ -474,6 +501,7 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
                     eventId={event.id}
                     categoryId={category.id}
                     query={categoryQueries[category.id] ?? ""}
+                    advanceCount={category.rounds.find((r) => r.order === category.currentPhaseOrder)?.advanceCount ?? null}
                     onResult={(ok, message) => {
                       setNotice(ok ? "Advancement confirmed" : message ?? "Failed to advance");
                       if (ok) void refreshControlRoom();
@@ -1605,6 +1633,7 @@ function RoundEditor({
   const [roundCount, setRoundCount] = useState(String(round.roundCount));
   const [roundDuration, setRoundDuration] = useState(round.roundDuration?.toString() ?? "");
   const [advanceCount, setAdvanceCount] = useState(round.advanceCount?.toString() ?? "");
+  const [matchSize, setMatchSize] = useState(round.matchSize === 3 ? "3" : "2");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -1614,6 +1643,7 @@ function RoundEditor({
     setRoundCount(String(round.roundCount));
     setRoundDuration(round.roundDuration?.toString() ?? "");
     setAdvanceCount(round.advanceCount?.toString() ?? "");
+    setMatchSize(round.matchSize === 3 ? "3" : "2");
     setError("");
     setEditing(true);
   }
@@ -1631,6 +1661,7 @@ function RoundEditor({
           roundCount: Number(roundCount) || 1,
           roundDuration: roundDuration ? Number(roundDuration) : null,
           advanceCount: advanceCount ? Number(advanceCount) : null,
+          matchSize: Number(matchSize) === 3 ? 3 : 2,
         }),
       });
 
@@ -1657,7 +1688,8 @@ function RoundEditor({
           <span className="ml-sm text-ink-muted">
             ({round.roundCount} round{round.roundCount > 1 ? "s" : ""}
             {round.roundDuration ? `, ${round.roundDuration}s` : ""}
-            {round.advanceCount != null ? `, advance ${round.advanceCount}` : ""})
+            {round.advanceCount != null ? `, advance ${round.advanceCount}` : ""}
+            {round.matchSize === 3 ? ", 3-way" : ""})
           </span>
           {round.phaseStatus && round.phaseStatus !== "PENDING" && (
             <span className="ml-sm font-mono text-[0.6rem] uppercase text-ink-muted">[{round.phaseStatus}]</span>
@@ -1713,6 +1745,17 @@ function RoundEditor({
           onChange={(event) => setRoundDuration(event.target.value)}
           placeholder="Duration (seconds)"
         />
+        <label className="block">
+          <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Match size</span>
+          <select
+            className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm"
+            value={matchSize}
+            onChange={(event) => setMatchSize(event.target.value)}
+          >
+            <option value="2">1v1 — classic</option>
+            <option value="3">3-way — 1v1v1</option>
+          </select>
+        </label>
         <input
           className="border border-line bg-paper px-md py-sm text-body-sm sm:col-span-2"
           type="number"
@@ -2338,7 +2381,7 @@ function JudgeSlotRow({
   );
 }
 
-function CypherDancerPicker({ eventId, categoryId, onResult, query = "" }: { eventId: string; categoryId: string; onResult: (ok: boolean, message?: string) => void; query?: string }) {
+function CypherDancerPicker({ eventId, categoryId, onResult, query = "", advanceCount = null }: { eventId: string; categoryId: string; onResult: (ok: boolean, message?: string) => void; query?: string; advanceCount?: number | null }) {
   const router = useRouter();
   const [regs, setRegs] = useState<Array<{ id: string; user: { name: string | null }; teamName?: string | null; crew: string | null; seed: number | null; dancerScores: Array<{ score: number }>; members?: Array<{ status: string; user: { name: string | null; username: string | null } }> }>>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -2427,6 +2470,23 @@ function CypherDancerPicker({ eventId, categoryId, onResult, query = "" }: { eve
        <p className="mb-md text-body-sm text-ink-muted">
           Tick complete entries that move to the next round, then confirm. {hasScores ? "Ranked by total score, highest first." : ""}
         </p>
+       {advanceCount != null && hasScores && !needle ? (
+         <div className="mb-md flex flex-wrap items-center gap-sm">
+           <button
+             type="button"
+             onClick={() => setSelected(new Set(orderedRegs.slice(0, advanceCount).map((r) => r.id)))}
+             className="border border-accent px-md py-xs text-body-sm font-bold uppercase text-accent hover:bg-accent hover:text-paper"
+           >
+             Select top {advanceCount}
+           </button>
+           <span className="text-body-sm text-ink-muted">
+             Cutoff: rank {advanceCount}
+             {orderedRegs.length >= advanceCount
+               ? ` — #${advanceCount} ${orderedRegs[advanceCount - 1]?.teamName ?? orderedRegs[advanceCount - 1]?.user.name ?? ""} (${scoreOf(orderedRegs[advanceCount - 1])}) vs #${advanceCount + 1} ${orderedRegs.length > advanceCount ? `${orderedRegs[advanceCount]?.teamName ?? orderedRegs[advanceCount]?.user.name ?? ""} (${scoreOf(orderedRegs[advanceCount])})` : "—"}`
+               : ` — only ${orderedRegs.length} scored entries`}
+           </span>
+         </div>
+       ) : null}
        {error ? <p className="mb-md text-body-sm text-accent">{error}</p> : null}
       {needle && orderedRegs.length === 0 ? (
         <p className="py-xs text-body-sm text-ink-muted">No entries match “{query.trim()}”.</p>
@@ -3334,6 +3394,8 @@ function PrizePoolSection({
   );
 }
 
+type BracketLane = { seed: number | null; teamName: string | null; user: { name: string | null }; members: { user: { name: string | null; username: string | null } }[] } | null;
+
 type BracketMatch = {
   id: string;
   round: number;
@@ -3341,15 +3403,288 @@ type BracketMatch = {
   status: string;
   winnerLocked: boolean;
   nextMatchId: string | null;
-  competitorA: { seed: number | null; teamName: string | null; user: { name: string | null }; members: { user: { name: string | null; username: string | null } }[] } | null;
-  competitorB: { seed: number | null; teamName: string | null; user: { name: string | null }; members: { user: { name: string | null; username: string | null } }[] } | null;
+  matchSize?: number;
+  winnerCount?: number;
+  competitorA: BracketLane;
+  competitorB: BracketLane;
+  competitorC?: BracketLane;
   competitorAId: string | null;
   competitorBId: string | null;
+  competitorCId?: string | null;
   winnerId: string | null;
+  runnerUpId?: string | null;
   scoreA: number;
   scoreB: number;
-  scores: { winnerCorner: string | null; scoreA: number; scoreB: number; scoreAMusicality: number | null }[];
+  scoreC?: number;
+  scores: {
+    judgeSlotId: string;
+    winnerCorner: string | null;
+    scoreA: number;
+    scoreB: number;
+    scoreAMusicality: number | null;
+    judgeSlot: { id: string; name: string | null; code: string };
+  }[];
 };
+
+function ThreeWayDecider({
+  match,
+  labelA,
+  labelB,
+  labelC,
+  leading,
+  complete,
+  busy,
+  onRun,
+}: {
+  match: BracketMatch;
+  labelA: string;
+  labelB: string;
+  labelC: string;
+  leading: string | null;
+  complete: boolean;
+  busy: boolean;
+  onRun: (body: { winnerId: string | null; runnerUpId?: string | null }) => void;
+}) {
+  const [runnerUpId, setRunnerUpId] = useState<string | null>(match.runnerUpId ?? null);
+  const isThreeWay = (match.matchSize ?? 2) === 3 || match.competitorCId != null;
+  const needsRunnerUp = isThreeWay && (match.winnerCount ?? 1) === 2;
+
+  const lanes = [
+    { id: match.competitorAId, label: labelA, cls: "border-accent text-accent" },
+    { id: match.competitorBId, label: labelB, cls: "border-[#2980FF] text-[#2980FF]" },
+    ...(isThreeWay ? [{ id: match.competitorCId ?? null, label: labelC, cls: "border-success text-success" }] : []),
+  ];
+
+  return (
+    <div className="mt-sm flex flex-wrap items-center justify-center gap-sm">
+      {leading ? (
+        <span className="w-full text-center font-mono text-[0.65rem] uppercase text-ink-muted">
+          Panel leans {leading} — {complete ? "pick the corrected winner" : "confirm below"}
+        </span>
+      ) : null}
+      {lanes.map((lane) => (
+        <button
+          key={lane.label}
+          type="button"
+          className={`border px-md py-xs text-body-sm font-bold uppercase disabled:opacity-60 ${lane.cls}`}
+          disabled={busy || !lane.id}
+          onClick={() => onRun({ winnerId: lane.id, runnerUpId: needsRunnerUp ? runnerUpId : undefined })}
+        >
+          Winner: {lane.label}
+        </button>
+      ))}
+      {needsRunnerUp ? (
+        <span className="flex w-full flex-wrap items-center justify-center gap-sm">
+          <span className="font-mono text-[0.65rem] uppercase text-ink-muted">Runner-up:</span>
+          {lanes.map((lane) => (
+            <button
+              key={`ru-${lane.label}`}
+              type="button"
+              disabled={!lane.id}
+              onClick={() => setRunnerUpId(lane.id)}
+              className={`cursor-pointer rounded border px-2 py-1 font-mono text-[0.6rem] font-bold uppercase ${
+                runnerUpId === lane.id
+                  ? "border-success bg-success/15 text-success"
+                  : "border-line-strong text-ink-muted hover:border-success hover:text-success"
+              }`}
+            >
+              {lane.label}
+            </button>
+          ))}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+type SurgeryEntry = {
+  id: string;
+  teamName: string | null;
+  seed: number | null;
+  status: string;
+  user: { name: string | null };
+};
+
+function MatchSurgery({
+  match,
+  entries,
+  placedIds,
+  onDone,
+}: {
+  match: BracketMatch;
+  entries: SurgeryEntry[];
+  placedIds: Set<string>;
+  onDone: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [laneA, setLaneA] = useState(match.competitorAId ?? "");
+  const [laneB, setLaneB] = useState(match.competitorBId ?? "");
+  const [laneC, setLaneC] = useState(match.competitorCId ?? "");
+  const [working, setWorking] = useState(false);
+  const { toast } = useToast();
+  const isThreeWay = (match.matchSize ?? 2) === 3 || match.competitorCId != null;
+
+  if (match.status !== "PENDING") return null;
+
+  async function call(url: string, method: string, body?: unknown, confirmText?: string) {
+    if (confirmText && !window.confirm(confirmText)) return;
+    setWorking(true);
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (!res.ok) {
+        toast(await responseError(res, "Action failed"), "error");
+        return;
+      }
+      setOpen(false);
+      toast("Match updated", "success");
+      onDone();
+    } catch {
+      toast("Network error. Please try again.", "error");
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  const entryLabel = (e: SurgeryEntry) =>
+    `${e.seed != null ? `#${e.seed} ` : ""}${e.teamName ?? e.user.name ?? "Unnamed"}${e.status === "WITHDRAWN" ? " (back in on save)" : ""}${placedIds.has(e.id) && e.id !== match.competitorAId && e.id !== match.competitorBId && e.id !== match.competitorCId ? " (placed elsewhere)" : ""}`;
+
+  return (
+    <div className="mt-sm border-t border-line pt-sm">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="font-mono text-[0.65rem] uppercase text-ink-muted hover:text-accent"
+      >
+        {open ? "− Close lane surgery" : "+ Lane surgery (swap / substitute / delete)"}
+      </button>
+      {open ? (
+        <div className="mt-sm space-y-sm rounded border border-line bg-paper p-sm">
+          <div className="grid gap-sm sm:grid-cols-3">
+            {(
+              [
+                { key: "A", value: laneA, set: setLaneA },
+                { key: "B", value: laneB, set: setLaneB },
+                ...(isThreeWay ? [{ key: "C", value: laneC, set: setLaneC }] : []),
+              ] as const
+            ).map((lane) => (
+              <label key={lane.key} className="block">
+                <span className="font-mono text-[0.6rem] uppercase text-ink-muted">Lane {lane.key}</span>
+                <select
+                  value={lane.value}
+                  onChange={(e) => lane.set(e.target.value)}
+                  className="mt-xs w-full border border-line bg-paper px-sm py-xs text-body-sm"
+                >
+                  <option value="">— empty —</option>
+                  {entries.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {entryLabel(e)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-sm">
+            <button
+              type="button"
+              disabled={working}
+              onClick={() =>
+                void call(`/api/matches/${match.id}/lanes`, "PATCH", {
+                  competitorAId: laneA || null,
+                  competitorBId: laneB || null,
+                  ...(isThreeWay ? { competitorCId: laneC || null } : {}),
+                })
+              }
+              className="border border-accent px-md py-xs text-body-sm font-bold uppercase text-accent disabled:opacity-60"
+            >
+              {working ? "Saving..." : "Save lanes"}
+            </button>
+            <button
+              type="button"
+              disabled={working}
+              onClick={() => {
+                setLaneA(match.competitorBId ?? "");
+                setLaneB(match.competitorAId ?? "");
+              }}
+              className="border border-line px-md py-xs text-body-sm font-bold uppercase text-ink hover:border-accent"
+            >
+              Swap A↔B
+            </button>
+            <button
+              type="button"
+              disabled={working}
+              onClick={() =>
+                void call(
+                  `/api/matches/${match.id}/lanes`,
+                  "DELETE",
+                  undefined,
+                  `Delete M${match.position}? Its lanes return to the pool. This cannot be undone.`,
+                )
+              }
+              className="border border-line px-md py-xs text-body-sm font-bold uppercase text-accent hover:border-accent"
+            >
+              Delete match
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function VoteVoidList({ match, onDone }: { match: BracketMatch; onDone: () => void }) {
+  const [working, setWorking] = useState<string | null>(null);
+  const { toast } = useToast();
+  const votes = (match.scores ?? []).filter((s) => s.winnerCorner != null);
+  if (votes.length === 0 || match.status === "COMPLETE") return null;
+
+  async function voidVote(judgeSlotId: string, judgeName: string) {
+    if (!window.confirm(`Void ${judgeName}'s vote on M${match.position}? The tally updates instantly.`)) return;
+    setWorking(judgeSlotId);
+    try {
+      const res = await fetch(`/api/matches/${match.id}/score/void`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ judgeSlotId }),
+      });
+      if (!res.ok) {
+        toast(await responseError(res, "Failed to void vote"), "error");
+        return;
+      }
+      toast("Vote voided", "success");
+      onDone();
+    } catch {
+      toast("Network error. Please try again.", "error");
+    } finally {
+      setWorking(null);
+    }
+  }
+
+  return (
+    <div className="mt-sm border-t border-line pt-sm">
+      <p className="font-mono text-[0.6rem] uppercase text-ink-muted">Panel votes — void a mistaken/biased vote</p>
+      <div className="mt-xs flex flex-wrap gap-sm">
+        {votes.map((v) => (
+          <span key={v.judgeSlotId} className="inline-flex items-center gap-xs border border-line px-sm py-xs font-mono text-[0.6rem] uppercase text-ink-muted">
+            {v.judgeSlot.name ?? v.judgeSlot.code}: {v.winnerCorner}
+            <button
+              type="button"
+              disabled={working === v.judgeSlotId}
+              onClick={() => void voidVote(v.judgeSlotId, v.judgeSlot.name ?? v.judgeSlot.code)}
+              className="cursor-pointer text-accent hover:underline disabled:opacity-50"
+            >
+              {working === v.judgeSlotId ? "…" : "void"}
+            </button>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function BracketView({
   categoryId,
@@ -3365,8 +3700,10 @@ function BracketView({
   query?: string;
 }) {
   const [matches, setMatches] = useState<BracketMatch[]>([]);
+  const [entries, setEntries] = useState<SurgeryEntry[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const { toast } = useToast();
 
   const needle = query.trim().toLowerCase();
   const visibleMatches = needle
@@ -3396,9 +3733,103 @@ function BracketView({
       const data = await res.json();
       setMatches(Array.isArray(data) ? data : []);
     } catch {
-      setError("Network error. Please try again.");
+      setError("Action failed");
+    } finally {
+      setBusy(null);
     }
   }, [categoryId, eventId]);
+
+  const loadEntries = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/events/${eventId}/registrations?categoryId=${categoryId}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setEntries(
+          data
+            .filter((r: { category?: { id: string } }) => !r.category || r.category.id === categoryId)
+            .map((r: { id: string; teamName: string | null; seed: number | null; status: string; user: { name: string | null } }) => ({
+              id: r.id,
+              teamName: r.teamName,
+              seed: r.seed,
+              status: r.status,
+              user: { name: r.user?.name ?? null },
+            })),
+        );
+      }
+    } catch {
+      // entries power surgery selects; bracket still works without them
+    }
+  }, [categoryId, eventId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/events/${eventId}/registrations?categoryId=${categoryId}`)
+      .then(async (res) => {
+        if (cancelled || !res.ok) return;
+        const data = await res.json();
+        if (cancelled || !Array.isArray(data)) return;
+        setEntries(
+          data
+            .filter((r: { category?: { id: string } }) => !r.category || r.category.id === categoryId)
+            .map((r: { id: string; teamName: string | null; seed: number | null; status: string; user: { name: string | null } }) => ({
+              id: r.id,
+              teamName: r.teamName,
+              seed: r.seed,
+              status: r.status,
+              user: { name: r.user?.name ?? null },
+            })),
+        );
+      })
+      .catch(() => {
+        // entries power surgery selects; bracket still works without them
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [categoryId, eventId]);
+
+  const placedIds = new Set(
+    matches.flatMap((m) => [m.competitorAId, m.competitorBId, m.competitorCId ?? null]).filter((id): id is string => Boolean(id)),
+  );
+
+  async function rebuild(mode: "pending-only" | "full") {
+    const kept = mode === "pending-only" ? matches.filter((m) => m.status === "COMPLETE").length : 0;
+    const destroyed = mode === "full" ? matches.length : matches.length - kept;
+    const votes = matches.reduce((n, m) => n + (m.scores?.length ?? 0), 0);
+    if (
+      !window.confirm(
+        mode === "full"
+          ? `FULL regen: destroys all ${destroyed} matches and ${votes} judge votes in this phase, then rebuilds by seed. This cannot be undone. Continue?`
+          : `Rebuild keeping results: ${kept} completed match${kept === 1 ? "" : "es"} frozen, ${destroyed} pending rebuilt, new entries seated. Continue?`,
+      )
+    ) {
+      return;
+    }
+    setBusy("rebuild");
+    setError("");
+    try {
+      const res = await fetch(`/api/events/${eventId}/categories/${categoryId}/bracket/rebuild`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode }),
+      });
+      if (!res.ok) {
+        setError(await responseError(res, "Rebuild failed"));
+        return;
+      }
+      const result = (await res.json()) as { kept: number; rebuilt: number; created: number; byes: number };
+      setError("");
+      await load();
+      await loadEntries();
+      setBusy(null);
+      toast(`Bracket rebuilt — ${result.kept} kept · ${result.created} new${result.byes ? ` · ${result.byes} bye${result.byes === 1 ? "" : "s"}` : ""}`, "success");
+    } catch {
+      setError("Rebuild failed");
+    } finally {
+      setBusy(null);
+    }
+  }
 
   useEffect(() => {
     const initial = async () => {
@@ -3439,46 +3870,81 @@ function BracketView({
 
   return (
     <div className="mt-lg border-t border-line pt-md">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-sm">
         <p className="font-mono text-[0.7rem] uppercase text-ink-muted mb-md">
           {phaseLabel} bracket matches{advanceCount != null ? ` · ${advanceCount} advance` : ""}
         </p>
-        {error && <p className="mb-md text-body-sm text-accent">{error}</p>}
+        <div className="mb-md flex flex-wrap gap-sm">
+          <button
+            type="button"
+            disabled={busy === "rebuild"}
+            onClick={() => void rebuild("pending-only")}
+            className="border border-line px-md py-xs font-mono text-[0.65rem] font-bold uppercase text-ink hover:border-accent hover:text-accent disabled:opacity-60"
+            title="Freeze completed matches, regenerate the rest, seat new entries"
+          >
+            {busy === "rebuild" ? "Rebuilding..." : "Rebuild (keep results)"}
+          </button>
+          <button
+            type="button"
+            disabled={busy === "rebuild"}
+            onClick={() => void rebuild("full")}
+            className="border border-line px-md py-xs font-mono text-[0.65rem] font-bold uppercase text-ink-muted hover:border-accent hover:text-accent disabled:opacity-60"
+            title="Destroy every match of this phase and regenerate by seed"
+          >
+            Full regen
+          </button>
+        </div>
+        {error && <p className="mb-md w-full text-body-sm text-accent">{error}</p>}
       </div>
       {needle && visibleMatches.length === 0 ? (
         <p className="mt-sm text-body-sm text-ink-muted">No matches for “{query.trim()}”.</p>
       ) : null}
       {visibleMatches.map(match => {
-        const ready = match.competitorAId && match.competitorBId;
+        const isThreeWay = (match.matchSize ?? 2) === 3 || match.competitorCId != null;
+        const ready = match.competitorAId && match.competitorBId && (!isThreeWay || match.competitorCId);
         const locked = match.status === "LOCKED";
         const live = match.status === "LIVE";
         const complete = match.status === "COMPLETE";
         const nameA = match.competitorA?.teamName ?? match.competitorA?.user.name ?? "TBD";
         const nameB = match.competitorB?.teamName ?? match.competitorB?.user.name ?? "TBD";
+        const nameC = match.competitorC?.teamName ?? match.competitorC?.user.name ?? "TBD";
         const labelA = match.competitorA?.seed != null ? `#${match.competitorA.seed} · ${nameA}` : nameA;
         const labelB = match.competitorB?.seed != null ? `#${match.competitorB.seed} · ${nameB}` : nameB;
+        const labelC = match.competitorC?.seed != null ? `#${match.competitorC.seed} · ${nameC}` : nameC;
 
         // Battles are decided by judge vote; fall back to the legacy 4-section
         // totals for matches scored before the switch to voting.
         const panelScores = match.scores ?? [];
         const redVotes = panelScores.filter(s => s.winnerCorner === "RED").length;
         const blueVotes = panelScores.filter(s => s.winnerCorner === "BLUE").length;
-        const hasVotes = redVotes + blueVotes > 0;
+        const greenVotes = panelScores.filter(s => s.winnerCorner === "GREEN").length;
+        const hasVotes = redVotes + blueVotes + greenVotes > 0;
         const legacy = hasVotes ? [] : panelScores.filter(s => s.scoreAMusicality != null);
         const legacyA = legacy.reduce((sum, s) => sum + s.scoreA, 0);
         const legacyB = legacy.reduce((sum, s) => sum + s.scoreB, 0);
         const tallyLabel = hasVotes
-          ? `RED ${redVotes} · BLUE ${blueVotes}`
+          ? `RED ${redVotes} · BLUE ${blueVotes}${isThreeWay ? ` · GREEN ${greenVotes}` : ""}`
           : legacy.length > 0
             ? `SCORED ${legacyA.toFixed(1)} – ${legacyB.toFixed(1)}`
             : "NO VOTES YET";
-        const leading = hasVotes && redVotes !== blueVotes
-          ? redVotes > blueVotes ? labelA : labelB
+        const voteCounts = [
+          { count: redVotes, label: labelA },
+          { count: blueVotes, label: labelB },
+          ...(isThreeWay ? [{ count: greenVotes, label: labelC }] : []),
+        ];
+        const topVotes = Math.max(...voteCounts.map(v => v.count));
+        const leading = hasVotes && voteCounts.filter(v => v.count === topVotes).length === 1
+          ? voteCounts.find(v => v.count === topVotes)!.label
           : null;
         return (
           <div key={match.id} className="mt-sm border border-line p-md">
             <div className="flex flex-wrap items-center justify-between gap-sm">
-              <span className="font-mono text-[0.7rem] text-ink-muted">R{match.round} M{match.position} / {match.status}</span>
+              <span className="font-mono text-[0.7rem] text-ink-muted">
+                R{match.round} M{match.position} / {match.status}
+                {isThreeWay ? ` / 3-way · ${match.winnerCount === 2 ? "2 winners" : "1 winner"}` : ""}
+                {complete && match.winnerId ? ` / Winner 1: ${match.winnerId === match.competitorAId ? nameA : match.winnerId === match.competitorBId ? nameB : nameC}` : ""}
+                {complete && match.runnerUpId ? ` / Winner 2: ${match.runnerUpId === match.competitorAId ? nameA : match.runnerUpId === match.competitorBId ? nameB : nameC}` : ""}
+              </span>
               <div className="flex flex-wrap gap-sm">
                 {!complete && ready && !live && (
                   <button
@@ -3488,6 +3954,26 @@ function BracketView({
                     onClick={() => void run(match.id, `/api/matches/${match.id}/push-live`)}
                   >
                     {busy === match.id ? "Pushing..." : "Push live"}
+                  </button>
+                )}
+                {!complete && !live && isThreeWay && (match.winnerCount ?? 1) !== 2 && (
+                  <button
+                    type="button"
+                    className="border border-line px-md py-xs text-body-sm font-bold uppercase text-ink disabled:opacity-60"
+                    disabled={busy === match.id}
+                    onClick={() => void run(match.id, `/api/matches/${match.id}/setup`, { winnerCount: 2 })}
+                  >
+                    {busy === match.id ? "Working..." : "2 winners"}
+                  </button>
+                )}
+                {!complete && !live && isThreeWay && (match.winnerCount ?? 1) === 2 && (
+                  <button
+                    type="button"
+                    className="border border-accent px-md py-xs text-body-sm font-bold uppercase text-accent disabled:opacity-60"
+                    disabled={busy === match.id}
+                    onClick={() => void run(match.id, `/api/matches/${match.id}/setup`, { winnerCount: 1 })}
+                  >
+                    {busy === match.id ? "Working..." : "1 winner"}
                   </button>
                 )}
                 {(live || locked) && (
@@ -3533,39 +4019,61 @@ function BracketView({
                 )}
               </div>
             </div>
-            <div className="mt-sm grid grid-cols-[1fr_auto_auto_auto_1fr] items-center gap-sm text-body-sm">
-               <span className="break-words text-right">{labelA}</span>
-              <span className="font-mono text-[0.7rem] uppercase text-ink-muted">{hasVotes ? redVotes : ""}</span>
-              <span className="border border-line px-sm py-xs font-mono text-[0.6rem] uppercase text-ink-muted">vs</span>
-              <span className="font-mono text-[0.7rem] uppercase text-ink-muted">{hasVotes ? blueVotes : ""}</span>
-               <span className="break-words">{labelB}</span>
-            </div>
+            {!isThreeWay ? (
+              <div className="mt-sm grid grid-cols-[1fr_auto_auto_auto_1fr] items-center gap-sm text-body-sm">
+                 <span className="break-words text-right">{labelA}</span>
+                <span className="font-mono text-[0.7rem] uppercase text-ink-muted">{hasVotes ? redVotes : ""}</span>
+                <span className="border border-line px-sm py-xs font-mono text-[0.6rem] uppercase text-ink-muted">vs</span>
+                <span className="font-mono text-[0.7rem] uppercase text-ink-muted">{hasVotes ? blueVotes : ""}</span>
+                 <span className="break-words">{labelB}</span>
+              </div>
+            ) : (
+              <div className="mt-sm grid gap-sm sm:grid-cols-3">
+                {[
+                  { corner: "RED", label: labelA, votes: redVotes, color: "text-accent" },
+                  { corner: "BLUE", label: labelB, votes: blueVotes, color: "text-[#2980FF]" },
+                  { corner: "GREEN", label: labelC, votes: greenVotes, color: "text-success" },
+                ].map((lane) => (
+                  <div key={lane.corner} className="rounded border border-line px-sm py-xs text-body-sm">
+                    <p className={`font-mono text-[0.6rem] uppercase ${lane.color}`}>{lane.corner}</p>
+                    <p className="break-words">{lane.label}</p>
+                    <p className="font-mono text-[0.65rem] uppercase text-ink-muted">
+                      {hasVotes ? `${lane.votes} vote${lane.votes === 1 ? "" : "s"}` : ""}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
             <p className="mt-xs font-mono text-[0.65rem] uppercase text-ink-muted">{tallyLabel}</p>
             {ready && (!complete || !match.winnerLocked) && (
-              <div className="mt-sm flex flex-wrap items-center justify-center gap-sm">
-                {leading ? (
-                  <span className="w-full text-center font-mono text-[0.65rem] uppercase text-ink-muted">
-                    Panel leans {leading} — {complete ? "pick the corrected winner" : "confirm below"}
-                  </span>
-                ) : null}
+              <ThreeWayDecider
+                match={match}
+                labelA={labelA}
+                labelB={labelB}
+                labelC={labelC}
+                leading={leading}
+                complete={complete}
+                busy={busy === match.id}
+                onRun={(body) => run(match.id, `/api/matches/${match.id}/complete`, body)}
+              />
+            )}
+            {match.status !== "PENDING" && ready && (
+              <div className="mt-sm flex justify-center">
                 <button
                   type="button"
-                  className="border border-accent px-md py-xs text-body-sm font-bold uppercase text-accent disabled:opacity-60"
                   disabled={busy === match.id}
-                  onClick={() => void run(match.id, `/api/matches/${match.id}/complete`, { winnerId: match.competitorAId })}
+                  onClick={() => {
+                    if (!window.confirm(`Spawn an overtime tiebreak for M${match.position} with the same lanes?`)) return;
+                    void run(match.id, `/api/matches/${match.id}/tiebreak`, {});
+                  }}
+                  className="font-mono text-[0.65rem] uppercase text-ink-muted hover:text-accent disabled:opacity-60"
                 >
-                   Winner: {labelA}
-                </button>
-                <button
-                  type="button"
-                  className="border border-[#2980FF] px-md py-xs text-body-sm font-bold uppercase text-[#2980FF] disabled:opacity-60"
-                  disabled={busy === match.id}
-                  onClick={() => void run(match.id, `/api/matches/${match.id}/complete`, { winnerId: match.competitorBId })}
-                >
-                   Winner: {labelB}
+                  + Overtime tiebreak
                 </button>
               </div>
             )}
+            <MatchSurgery match={match} entries={entries} placedIds={placedIds} onDone={() => { void load(); void loadEntries(); }} />
+            <VoteVoidList match={match} onDone={() => void load()} />
           </div>
         );
       })}

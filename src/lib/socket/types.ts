@@ -29,7 +29,8 @@ export const SubmitScoreSchema = z.object({
   matchId: z.string().cuid(),
   scoreRed: z.number().min(0).max(10).optional(),
   scoreBlue: z.number().min(0).max(10).optional(),
-  winnerCorner: z.enum(["red", "blue"]).optional(),
+  scoreGreen: z.number().min(0).max(10).optional(),
+  winnerCorner: z.enum(["red", "blue", "green"]).optional(),
   scoreRedSections: SectionScoresSchema.optional(),
   scoreBlueSections: SectionScoresSchema.optional(),
   feedback: z.string().max(500).optional(),
@@ -49,7 +50,7 @@ export const SubmitScoreSchema = z.object({
 
 export const AdvanceWinnerSchema = z.object({
   matchId: z.string().cuid(),
-  winnerCorner: z.enum(["red", "blue"]),
+  winnerCorner: z.enum(["red", "blue", "green"]),
 });
 
 export const LockVotingSchema = z.object({
@@ -57,26 +58,23 @@ export const LockVotingSchema = z.object({
   locked: z.boolean(),
 });
 
+const liveLane = z.object({
+  id: z.string(),
+  name: z.string(),
+  crew: z.string().nullable(),
+  seed: z.number().nullable(),
+  avatar: z.string().nullable(),
+  members: z.array(z.string()).optional(),
+});
+
 export const MatchLivePayload = z.object({
   matchId: z.string().cuid(),
   round: z.number(),
   position: z.number(),
-  red: z.object({
-    id: z.string(),
-    name: z.string(),
-    crew: z.string().nullable(),
-    seed: z.number().nullable(),
-    avatar: z.string().nullable(),
-    members: z.array(z.string()).optional(),
-  }),
-  blue: z.object({
-    id: z.string(),
-    name: z.string(),
-    crew: z.string().nullable(),
-    seed: z.number().nullable(),
-    avatar: z.string().nullable(),
-    members: z.array(z.string()).optional(),
-  }),
+  red: liveLane,
+  blue: liveLane,
+  green: liveLane.optional(),
+  entries: z.array(liveLane.extend({ corner: z.enum(["red", "blue", "green"]) })).optional(),
   timeLimitMs: z.number(),
   status: z.literal("LIVE"),
 });
@@ -86,12 +84,14 @@ export const ScoreSubmittedPayload = z.object({
   judgeSlotId: z.string(),
   scoreRed: z.number(),
   scoreBlue: z.number(),
+  scoreGreen: z.number().optional(),
   aggregateRed: z.number(),
   aggregateBlue: z.number(),
+  aggregateGreen: z.number().optional(),
   judgeCount: z.number(),
   // Battles are decided by vote, so the submitting judge's corner is the
-  // meaningful field. `aggregateRed`/`aggregateBlue` carry the panel tally.
-  winnerCorner: z.enum(["RED", "BLUE"]).nullable().optional(),
+  // meaningful field. `aggregateRed`/`aggregateBlue`/`aggregateGreen` carry the panel tally.
+  winnerCorner: z.enum(["RED", "BLUE", "GREEN"]).nullable().optional(),
   redSections: z.object({
     musicality: z.number(),
     foundation: z.number(),

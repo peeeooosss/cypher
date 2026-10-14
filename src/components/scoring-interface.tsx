@@ -8,7 +8,7 @@ import { EMPTY_SECTIONS, sectionTotal, type SectionScores } from "@/lib/scoring-
 
 type Competitor = { teamName?: string | null; user: { name: string | null }; members?: { user: { name: string | null; username: string | null } }[] } | null;
 
-type VoteCorner = "RED" | "BLUE";
+type VoteCorner = "RED" | "BLUE" | "GREEN";
 
 type MatchDisplay = {
   id: string;
@@ -17,8 +17,14 @@ type MatchDisplay = {
   status: string;
   scoreA: number;
   scoreB: number;
+  scoreC?: number;
+  matchSize?: number;
+  competitorAId?: string | null;
+  competitorBId?: string | null;
+  competitorCId?: string | null;
   competitorA: Competitor;
   competitorB: Competitor;
+  competitorC?: Competitor;
   scores: { winnerCorner: string | null; judgeSlot: { name: string | null } }[];
 };
 
@@ -112,7 +118,7 @@ export function ScoringInterface({
   const [submittedIds, setSubmittedIds] = useState<Set<string>>(new Set());
   const [votes, setVotes] = useState<Record<string, VoteCorner>>({});
   const [matchFeedback, setMatchFeedback] = useState<
-    Record<string, { red: string; blue: string }>
+    Record<string, { red: string; blue: string; green: string }>
   >({});
   const [submitting, setSubmitting] = useState<Record<string, boolean>>({});
   const [draftScores, setDraftScores] = useState<Record<string, SectionScores | null>>(
@@ -234,7 +240,7 @@ export function ScoringInterface({
     const winnerCorner = votes[matchId];
     if (!winnerCorner) return;
 
-    const notes = matchFeedback[matchId] ?? { red: "", blue: "" };
+    const notes = matchFeedback[matchId] ?? { red: "", blue: "", green: "" };
 
     setSubmitting((prev) => ({ ...prev, [matchId]: true }));
     setError("");
@@ -247,6 +253,7 @@ export function ScoringInterface({
           judgeCode: code,
           feedbackRed: notes.red || undefined,
           feedbackBlue: notes.blue || undefined,
+          feedbackGreen: notes.green || undefined,
         }),
       });
 
@@ -424,10 +431,13 @@ export function ScoringInterface({
 
              const nameA = match.competitorA?.teamName ?? match.competitorA?.user.name ?? "TBD";
              const nameB = match.competitorB?.teamName ?? match.competitorB?.user.name ?? "TBD";
-            const notes = matchFeedback[match.id] ?? { red: "", blue: "" };
+             const nameC = match.competitorC?.teamName ?? match.competitorC?.user.name ?? "TBD";
+             const isThreeWay = match.matchSize === 3 || match.competitorCId != null;
+            const notes = matchFeedback[match.id] ?? { red: "", blue: "", green: "" };
 
             const redVotes = match.scores.filter((s) => s.winnerCorner === "RED").length;
             const blueVotes = match.scores.filter((s) => s.winnerCorner === "BLUE").length;
+            const greenVotes = match.scores.filter((s) => s.winnerCorner === "GREEN").length;
 
             return (
               <article
@@ -454,20 +464,30 @@ export function ScoringInterface({
                   <p className="break-words font-mono text-[0.65rem] uppercase text-ink-muted">{match.scoreB}</p>
                 </div>
 
+                {isThreeWay ? (
+                  <div className="mt-md space-y-sm">
+                    <p className="font-mono text-[0.65rem] uppercase tracking-[0.15em] text-success">Green</p>
+                    <p className="break-words font-display text-body-md uppercase leading-tight text-success">
+                      {nameC}
+                    </p>
+                    <p className="break-words font-mono text-[0.65rem] uppercase text-ink-muted">{match.scoreC ?? 0}</p>
+                  </div>
+                ) : null}
+
                 <p className="mt-md border-t border-line pt-sm font-mono text-[0.65rem] uppercase text-ink-muted">
-                  {redVotes + blueVotes > 0
-                    ? `Votes: red ${redVotes} / blue ${blueVotes}`
+                  {redVotes + blueVotes + greenVotes > 0
+                    ? `Votes: red ${redVotes} / blue ${blueVotes}${isThreeWay ? ` / green ${greenVotes}` : ""}`
                     : "No votes yet"}
                 </p>
 
                 {isSubmitted ? (
                   <p className="mt-lg border border-accent px-md py-sm text-center font-display text-body-sm uppercase text-accent">
-                    Vote recorded{myVote ? `: ${myVote === "RED" ? "Red" : "Blue"}` : ""} — you can
+                    Vote recorded{myVote ? `: ${myVote === "RED" ? "Red" : myVote === "BLUE" ? "Blue" : "Green"}` : ""} — you can
                     change it
                   </p>
                 ) : null}
 
-                <div className="mt-lg grid grid-cols-2 gap-sm">
+                <div className={`mt-lg grid gap-sm ${isThreeWay ? "grid-cols-3" : "grid-cols-2"}`}>
                   <button
                     type="button"
                     className={`border-2 border-accent px-md py-md text-center font-display uppercase ${
@@ -486,6 +506,17 @@ export function ScoringInterface({
                   >
                     Vote blue
                   </button>
+                  {isThreeWay ? (
+                    <button
+                      type="button"
+                      className={`border-2 border-success px-md py-md text-center font-display uppercase ${
+                        myVote === "GREEN" ? "bg-success text-paper" : "text-success"
+                      }`}
+                      onClick={() => selectVote(match.id, "GREEN")}
+                    >
+                      Vote green
+                    </button>
+                  ) : null}
                 </div>
 
                 <div className="mt-md space-y-xs">
@@ -513,6 +544,20 @@ export function ScoringInterface({
                       }))
                     }
                   />
+                  {isThreeWay ? (
+                    <input
+                      className="w-full border border-line bg-paper px-md py-sm text-body-sm"
+                      placeholder={`Feedback for ${nameC} (optional)`}
+                      value={notes.green}
+                      maxLength={500}
+                      onChange={(e) =>
+                        setMatchFeedback((prev) => ({
+                          ...prev,
+                          [match.id]: { ...notes, green: e.target.value },
+                        }))
+                      }
+                    />
+                  ) : null}
                 </div>
 
                 <button

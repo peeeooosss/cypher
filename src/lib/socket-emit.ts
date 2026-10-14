@@ -16,6 +16,11 @@ type LegacyEvents = {
   "phase:activated": PhaseActivatedData;
   "bracket:generated": BracketGeneratedData;
   "registration:withdrawn": RegistrationWithdrawnData;
+  "registrations:topped-up": {
+    categoryId: string;
+    registrationIds: string[];
+    confirmedCount: number;
+  };
   "leaderboard:update": LeaderboardUpdateData;
   "dancer:updated": {
     dancerScore: unknown;

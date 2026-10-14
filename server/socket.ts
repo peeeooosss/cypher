@@ -270,7 +270,12 @@ io.on("connection", (socket) => {
       }
 
       const isDecision = parsed.data.winnerCorner != null;
-      const winnerCorner = parsed.data.winnerCorner?.toUpperCase() === "RED" ? "RED" : "BLUE";
+      const winnerCorner =
+        parsed.data.winnerCorner?.toUpperCase() === "GREEN"
+          ? "GREEN"
+          : parsed.data.winnerCorner?.toUpperCase() === "BLUE"
+            ? "BLUE"
+            : "RED";
       const hasSections = parsed.data.scoreRedSections != null && parsed.data.scoreBlueSections != null;
 
       async function resolveTemplate(templateId: string | undefined, fallback: string | undefined) {
@@ -380,16 +385,24 @@ io.on("connection", (socket) => {
 
       await prisma.battleMatch.update({
         where: { id: match.id },
-        data: { status: "LIVE", scoreA: aggregate.scoreRed, scoreB: aggregate.scoreBlue },
+        data: {
+          status: "LIVE",
+          scoreA: aggregate.scoreRed,
+          scoreB: aggregate.scoreBlue,
+          ...("scoreGreen" in aggregate ? { scoreC: (aggregate as { scoreGreen: number }).scoreGreen } : {}),
+        },
       });
 
+      const greenTotal = "scoreGreen" in aggregate ? (aggregate as { scoreGreen: number }).scoreGreen : undefined;
       const payloadData: ScoreSubmittedData = {
         matchId: match.id,
         judgeSlotId: user.slotId,
         scoreRed: isDecision ? (parsed.data.winnerCorner === "red" ? 1 : 0) : scoreA,
         scoreBlue: isDecision ? (parsed.data.winnerCorner === "blue" ? 1 : 0) : scoreB,
+        ...(greenTotal !== undefined ? { scoreGreen: isDecision ? (parsed.data.winnerCorner === "green" ? 1 : 0) : 0 } : {}),
         aggregateRed: aggregate.scoreRed,
         aggregateBlue: aggregate.scoreBlue,
+        ...(greenTotal !== undefined ? { aggregateGreen: greenTotal } : {}),
         judgeCount: aggregate.judgeCount,
         winnerCorner: isDecision ? winnerCorner : null,
         ...(hasSections && aggregate.redSections ? { redSections: aggregate.redSections } : {}),
@@ -417,7 +430,8 @@ io.on("connection", (socket) => {
     if (!match) { acknowledge?.({ ok: false, error: "Match not found" }); return; }
     if (match.category.event.organizerId !== user.userId) { acknowledge?.({ ok: false, error: "Not your event" }); return; }
 
-    const winnerRegistrationId = parsed.data.winnerCorner === "red" ? match.competitorAId : match.competitorBId;
+    const winnerRegistrationId =
+      parsed.data.winnerCorner === "green" ? match.competitorCId : parsed.data.winnerCorner === "red" ? match.competitorAId : match.competitorBId;
     if (!winnerRegistrationId) { acknowledge?.({ ok: false, error: "Winner competitor is not set" }); return; }
 
     await prisma.battleMatch.update({
