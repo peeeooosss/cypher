@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { CopyLinkButton } from "@/components/copy-link-button";
 import { responseError } from "@/lib/client-error";
 
 type CardScore = { score: number; roundFormatId: string };
@@ -170,12 +171,20 @@ export function EventCardLeaderboard({ eventId, slug }: { eventId: string; slug:
     <div ref={ref} className="border-t border-line bg-paper/40 px-md py-md">
       <div className="flex flex-wrap items-center justify-between gap-xs">
         <p className="font-mono text-[0.65rem] uppercase tracking-[0.18em] text-accent">Final standings</p>
-        <Link
-          href={`/events/${slug}`}
-          className="font-mono text-[0.6rem] uppercase tracking-[0.12em] text-ink-muted transition-colors hover:text-accent"
-        >
-          Full results →
-        </Link>
+        <span className="flex items-center gap-sm">
+          <CopyLinkButton
+            path={`/events/${slug}/standings`}
+            label="Copy link"
+            copiedLabel="Copied"
+            title="Copy this standings link to share with artists"
+          />
+          <Link
+            href={`/events/${slug}/standings`}
+            className="font-mono text-[0.6rem] uppercase tracking-[0.12em] text-ink-muted transition-colors hover:text-accent"
+          >
+            Full results →
+          </Link>
+        </span>
       </div>
 
       {error ? <p className="mt-sm text-body-sm text-accent">{error}</p> : null}
