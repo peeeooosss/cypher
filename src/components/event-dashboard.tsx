@@ -407,7 +407,11 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
                         onClick={async () => {
                           setPhaseAction(`${category.id}:advance`);
                           try {
-                            const res = await fetch(`/api/categories/${category.id}/advance-phase`, { method: "POST" });
+                            const res = await fetch(`/api/categories/${category.id}/advance-phase`, {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({}),
+                            });
                             if (res.ok) {
                               setNotice("Advanced to the next phase");
                               await refreshControlRoom();

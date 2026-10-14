@@ -20,7 +20,7 @@ export async function POST(request: Request, { params }: Context) {
     if (!user) return unauthorized();
     if (user.role !== "ORGANIZER") return forbidden();
 
-    const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+    const parsed = bodySchema.safeParse((await request.json().catch(() => null)) ?? {});
     if (!parsed.success) return badRequest("Invalid request body");
 
     const result = await advancePhaseCore({
