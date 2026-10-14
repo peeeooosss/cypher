@@ -275,10 +275,10 @@ export function StaffCodesTab({
       </div>
 
       <div className="border border-line p-lg">
-        <div className="flex flex-wrap items-start justify-between gap-md">
-          <div>
+        <div className="flex flex-col gap-md sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1">
             <p className="font-display text-title-md uppercase">Running order</p>
-            <p className="mt-xs max-w-xl text-body-sm text-ink-muted">
+            <p className="mt-xs text-body-sm text-ink-muted">
               Every category and phase in calling order — send this to your HOST so names get
               called right.
             </p>

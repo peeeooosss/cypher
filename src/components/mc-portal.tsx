@@ -57,6 +57,12 @@ const cornerColor: Record<string, string> = {
   green: "text-success",
 };
 
+const cornerBorder: Record<string, string> = {
+  red: "border-l-accent",
+  blue: "border-l-[#2980FF]",
+  green: "border-l-success",
+};
+
 export function McPortal() {
   const router = useRouter();
   const { toast } = useToast();
@@ -170,7 +176,7 @@ export function McPortal() {
 
   if (!state && !error) {
     return (
-      <main className="mx-auto w-full max-w-4xl px-md py-section">
+      <main className="mx-auto w-full max-w-6xl px-md py-section">
         <ListSkeleton rows={5} />
       </main>
     );
@@ -178,7 +184,7 @@ export function McPortal() {
 
   if (!state) {
     return (
-      <main className="mx-auto w-full max-w-4xl px-md py-section">
+      <main className="mx-auto w-full max-w-6xl px-md py-section">
         <EmptyState
           title="Portal unreachable"
           description={error || "Could not load the portal."}
@@ -191,7 +197,7 @@ export function McPortal() {
   const waHref = `https://wa.me/?text=${encodeURIComponent(runningOrderText())}`;
 
   return (
-    <main className="mx-auto w-full max-w-4xl px-md pb-section pt-lg">
+    <main className="mx-auto w-full max-w-6xl px-md pb-section pt-lg">
       <div className="flex flex-wrap items-start justify-between gap-md">
         <div>
           <p className="text-body-xs font-bold uppercase tracking-[0.2em] text-accent">{state.portal}</p>
@@ -292,10 +298,21 @@ export function McPortal() {
               {category.matches.map((match) => (
                 <div key={match.id} className="rounded-md border border-line bg-paper p-md">
                   <div className="flex flex-wrap items-center justify-between gap-sm">
-                    <p className="font-mono text-[0.7rem] uppercase text-ink-muted">
-                      R{match.round} M{match.position} · {match.status}
-                      {match.matchSize === 3 ? ` · 3-way · ${match.winnerCount === 2 ? "2 winners" : "1 winner"}` : ""}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-sm">
+                      <p className="font-display text-title-sm uppercase">
+                        Round {match.round} · Match {match.position}
+                      </p>
+                      <Badge
+                        tone={
+                          match.status === "LIVE" ? "accent" : match.status === "COMPLETE" ? "success" : "neutral"
+                        }
+                      >
+                        {match.status}
+                      </Badge>
+                      {match.matchSize === 3 ? (
+                        <Badge tone="neutral">{match.winnerCount === 2 ? "3-way · 2 winners" : "3-way · 1 winner"}</Badge>
+                      ) : null}
+                    </div>
                     <div className="flex flex-wrap gap-sm">
                       {match.status === "PENDING" ? (
                         <>
@@ -331,13 +348,24 @@ export function McPortal() {
                     </div>
                   </div>
 
-                  <div className="mt-sm grid gap-sm sm:grid-cols-3">
+                  <div className="mt-md grid gap-sm sm:grid-cols-3">
                     {match.lanes.map((lane) => (
-                      <div key={lane.corner} className="rounded-md border border-line px-3 py-2">
-                        <p className={`font-display text-body-sm uppercase ${cornerColor[lane.corner] ?? ""}`}>
+                      <div
+                        key={lane.corner}
+                        className={`rounded-md border border-l-4 border-line px-3 py-3 ${
+                          cornerBorder[lane.corner] ?? ""
+                        } ${
+                          match.winnerId === lane.registrationId
+                            ? "bg-accent/10 ring-1 ring-accent/40"
+                            : match.runnerUpId === lane.registrationId
+                              ? "bg-success/10 ring-1 ring-success/30"
+                              : ""
+                        }`}
+                      >
+                        <p className={`font-display text-title-sm uppercase ${cornerColor[lane.corner] ?? ""}`}>
                           {lane.corner} · {lane.name}
                         </p>
-                        <p className="font-mono text-[0.65rem] uppercase text-ink-muted">
+                        <p className="mt-1 font-mono text-[0.65rem] uppercase text-ink-muted">
                           Votes: {match.votes[lane.corner as keyof typeof match.votes] ?? 0}
                           {match.winnerId === lane.registrationId ? " · Winner" : ""}
                           {match.runnerUpId === lane.registrationId ? " · Runner-up" : ""}
