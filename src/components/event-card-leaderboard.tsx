@@ -303,11 +303,16 @@ export function EventCardLeaderboard({ eventId, slug }: { eventId: string; slug:
                       </>
                     )}
                   </p>
-                  {!match.labelA && (match.redMembers.length > 0 || match.blueMembers.length > 0) && (
-                    <p className="mt-xs break-words font-mono text-[0.55rem] uppercase leading-snug text-ink-muted">
-                      {match.redMembers.join(" · ") || "TBD"} vs {match.blueMembers.join(" · ") || "TBD"}
-                    </p>
-                  )}
+                  {!match.labelA && (() => {
+                    const redRoster = match.redMembers.filter((m) => m && m !== match.redName);
+                    const blueRoster = match.blueMembers.filter((m) => m && m !== match.blueName);
+                    const rosterText = [redRoster.join(" · "), blueRoster.join(" · ")].filter(Boolean).join("  vs  ");
+                    return rosterText ? (
+                      <p className="mt-xs break-words font-mono text-[0.55rem] uppercase leading-snug text-ink-muted">
+                        {rosterText}
+                      </p>
+                    ) : null;
+                  })()}
                 </div>
               ))}
             </div>

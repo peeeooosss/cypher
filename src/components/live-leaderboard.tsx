@@ -243,8 +243,13 @@ function VoteBar({ tally, threeWay }: { tally: MatchTally; threeWay: boolean }) 
 function MatchRow({ match }: { match: LeaderboardMatch }) {
   const tally = matchTally(match);
   const threeWay = (match.matchSize ?? 2) === 3 || match.greenName != null;
-  const showMembers = match.redMembers.length > 0 || match.blueMembers.length > 0;
   const customLabel = match.labelA ?? null;
+  // Members only add information when they differ from the competitor's display
+  // name (i.e. a team/crew roster). For solo entries the roster repeats the name.
+  const redRoster = match.redMembers.filter((m) => m && m !== match.redName);
+  const blueRoster = match.blueMembers.filter((m) => m && m !== match.blueName);
+  const greenRoster = (match.greenMembers ?? []).filter((m) => m && m !== match.greenName);
+  const rosterText = [redRoster.join(" · "), blueRoster.join(" · ")].filter(Boolean).join("  vs  ");
 
   return (
     <>
@@ -271,9 +276,9 @@ function MatchRow({ match }: { match: LeaderboardMatch }) {
               <p className="break-words font-display text-body-md uppercase leading-tight text-accent">
                 {match.redName}
               </p>
-              {match.redMembers.length > 0 ? (
+              {redRoster.length > 0 ? (
                 <p className="break-words text-[0.65rem] uppercase leading-snug text-ink-muted">
-                  {match.redMembers.join(" · ")}
+                  {redRoster.join(" · ")}
                 </p>
               ) : null}
             </div>
@@ -282,9 +287,9 @@ function MatchRow({ match }: { match: LeaderboardMatch }) {
               <p className="break-words font-display text-body-md uppercase leading-tight text-[#2980FF]">
                 {match.blueName}
               </p>
-              {match.blueMembers.length > 0 ? (
+              {blueRoster.length > 0 ? (
                 <p className="break-words text-[0.65rem] uppercase leading-snug text-ink-muted">
-                  {match.blueMembers.join(" · ")}
+                  {blueRoster.join(" · ")}
                 </p>
               ) : null}
             </div>
@@ -294,9 +299,9 @@ function MatchRow({ match }: { match: LeaderboardMatch }) {
                 <p className="break-words font-display text-body-md uppercase leading-tight text-success">
                   {match.greenName}
                 </p>
-                {(match.greenMembers?.length ?? 0) > 0 ? (
+                {greenRoster.length > 0 ? (
                   <p className="break-words text-[0.65rem] uppercase leading-snug text-ink-muted">
-                    {match.greenMembers!.join(" · ")}
+                    {greenRoster.join(" · ")}
                   </p>
                 ) : null}
               </div>
@@ -344,9 +349,9 @@ function MatchRow({ match }: { match: LeaderboardMatch }) {
           </span>
           <MatchStatusChip match={match} />
         </div>
-        {showMembers && !customLabel ? (
+        {rosterText && !customLabel ? (
           <p className="mt-xs pl-10 text-[0.7rem] uppercase text-ink-muted">
-            {match.redMembers.join(" · ") || "TBD"} vs {match.blueMembers.join(" · ") || "TBD"}
+            {rosterText}
           </p>
         ) : null}
       </div>

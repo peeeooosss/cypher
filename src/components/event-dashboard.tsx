@@ -3438,6 +3438,8 @@ function ThreeWayDecider({
   leading,
   complete,
   busy,
+  canSetMode,
+  onSetMode,
   onRun,
 }: {
   match: BracketMatch;
@@ -3447,11 +3449,15 @@ function ThreeWayDecider({
   leading: string | null;
   complete: boolean;
   busy: boolean;
+  canSetMode: boolean;
+  onSetMode: (winnerCount: 1 | 2) => void;
   onRun: (body: { winnerId: string | null; runnerUpId?: string | null }) => void;
 }) {
-  const [runnerUpId, setRunnerUpId] = useState<string | null>(match.runnerUpId ?? null);
   const isThreeWay = (match.matchSize ?? 2) === 3 || match.competitorCId != null;
-  const needsRunnerUp = isThreeWay && (match.winnerCount ?? 1) === 2;
+  const needsTwo = isThreeWay && (match.winnerCount ?? 1) === 2;
+  const [checked, setChecked] = useState<string[]>(() =>
+    [match.winnerId, match.runnerUpId ?? null].filter((id): id is string => Boolean(id)),
+  );
 
   const lanes = [
     { id: match.competitorAId, label: labelA, cls: "border-accent text-accent" },
@@ -3459,44 +3465,103 @@ function ThreeWayDecider({
     ...(isThreeWay ? [{ id: match.competitorCId ?? null, label: labelC, cls: "border-success text-success" }] : []),
   ];
 
+  function toggle(id: string) {
+    setChecked((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (prev.length >= 2) return prev;
+      return [...prev, id];
+    });
+  }
+
   return (
     <div className="mt-sm flex flex-wrap items-center justify-center gap-sm">
+      {canSetMode ? (
+        <div className="flex w-full items-center justify-center gap-sm">
+          <span className="font-mono text-[0.65rem] uppercase text-ink-muted">Advance:</span>
+          {([1, 2] as const).map((n) => {
+            const active = (match.winnerCount ?? 1) === n;
+            return (
+              <button
+                key={n}
+                type="button"
+                disabled={busy}
+                onClick={() => onSetMode(n)}
+                className={`border px-md py-xs text-body-sm font-bold uppercase disabled:opacity-60 ${
+                  active
+                    ? "border-accent bg-accent/10 text-accent"
+                    : "border-line text-ink-muted hover:border-accent hover:text-accent"
+                }`}
+              >
+                {n === 1 ? "1 winner" : "2 winners"}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
       {leading ? (
         <span className="w-full text-center font-mono text-[0.65rem] uppercase text-ink-muted">
           Panel leans {leading} — {complete ? "pick the corrected winner" : "confirm below"}
         </span>
       ) : null}
-      {lanes.map((lane) => (
-        <button
-          key={lane.label}
-          type="button"
-          className={`border px-md py-xs text-body-sm font-bold uppercase disabled:opacity-60 ${lane.cls}`}
-          disabled={busy || !lane.id}
-          onClick={() => onRun({ winnerId: lane.id, runnerUpId: needsRunnerUp ? runnerUpId : undefined })}
-        >
-          Winner: {lane.label}
-        </button>
-      ))}
-      {needsRunnerUp ? (
-        <span className="flex w-full flex-wrap items-center justify-center gap-sm">
-          <span className="font-mono text-[0.65rem] uppercase text-ink-muted">Runner-up:</span>
-          {lanes.map((lane) => (
-            <button
-              key={`ru-${lane.label}`}
-              type="button"
-              disabled={!lane.id}
-              onClick={() => setRunnerUpId(lane.id)}
-              className={`cursor-pointer rounded border px-2 py-1 font-mono text-[0.6rem] font-bold uppercase ${
-                runnerUpId === lane.id
-                  ? "border-success bg-success/15 text-success"
-                  : "border-line-strong text-ink-muted hover:border-success hover:text-success"
-              }`}
-            >
-              {lane.label}
-            </button>
-          ))}
-        </span>
-      ) : null}
+
+      {needsTwo ? (
+        <div className="w-full space-y-xs">
+          <p className="text-center font-mono text-[0.65rem] uppercase text-ink-muted">
+            Tick 2 entries to advance
+          </p>
+          {lanes.map((lane) => {
+            const order = checked.indexOf(lane.id ?? "");
+            const disabled = busy || !lane.id || (checked.length >= 2 && order === -1);
+            const tone =
+              order === 0
+                ? "border-accent text-accent"
+                : order === 1
+                  ? "border-success text-success"
+                  : "border-line text-ink";
+            return (
+              <label
+                key={lane.label}
+                className={`flex cursor-pointer items-center gap-sm rounded border px-sm py-1.5 text-body-sm ${tone} ${disabled ? "opacity-60" : ""}`}
+              >
+                <input
+                  type="checkbox"
+                  className="border border-line bg-paper"
+                  checked={order !== -1}
+                  disabled={disabled}
+                  onChange={() => lane.id && toggle(lane.id)}
+                />
+                <span className="min-w-0 flex-1 truncate">{lane.label}</span>
+                {order !== -1 ? (
+                  <span className="shrink-0 font-mono text-[0.6rem] font-bold uppercase">
+                    Winner {order + 1}
+                  </span>
+                ) : null}
+              </label>
+            );
+          })}
+          <button
+            type="button"
+            disabled={busy || checked.length !== 2}
+            onClick={() => onRun({ winnerId: checked[0], runnerUpId: checked[1] })}
+            className="w-full border border-accent bg-accent px-md py-xs text-body-sm font-bold uppercase text-paper disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {busy ? "Working..." : "Confirm — advance 2"}
+          </button>
+        </div>
+      ) : (
+        lanes.map((lane) => (
+          <button
+            key={lane.label}
+            type="button"
+            className={`border px-md py-xs text-body-sm font-bold uppercase disabled:opacity-60 ${lane.cls}`}
+            disabled={busy || !lane.id}
+            onClick={() => onRun({ winnerId: lane.id, runnerUpId: undefined })}
+          >
+            Winner: {lane.label}
+          </button>
+        ))
+      )}
     </div>
   );
 }
@@ -3852,12 +3917,12 @@ function BracketView({
     void initial();
   }, [categoryId, eventId]);
 
-  async function run(matchId: string, url: string, body?: unknown) {
+  async function run(matchId: string, url: string, body?: unknown, method: string = "POST") {
     setBusy(matchId);
     setError("");
     try {
       const res = await fetch(url, {
-        method: "POST",
+        method,
         headers: { "Content-Type": "application/json" },
         body: body ? JSON.stringify(body) : undefined,
       });
@@ -3960,26 +4025,6 @@ function BracketView({
                     {busy === match.id ? "Pushing..." : "Push live"}
                   </button>
                 )}
-                {!complete && !live && isThreeWay && (match.winnerCount ?? 1) !== 2 && (
-                  <button
-                    type="button"
-                    className="border border-line px-md py-xs text-body-sm font-bold uppercase text-ink disabled:opacity-60"
-                    disabled={busy === match.id}
-                    onClick={() => void run(match.id, `/api/matches/${match.id}/setup`, { winnerCount: 2 })}
-                  >
-                    {busy === match.id ? "Working..." : "2 winners"}
-                  </button>
-                )}
-                {!complete && !live && isThreeWay && (match.winnerCount ?? 1) === 2 && (
-                  <button
-                    type="button"
-                    className="border border-accent px-md py-xs text-body-sm font-bold uppercase text-accent disabled:opacity-60"
-                    disabled={busy === match.id}
-                    onClick={() => void run(match.id, `/api/matches/${match.id}/setup`, { winnerCount: 1 })}
-                  >
-                    {busy === match.id ? "Working..." : "1 winner"}
-                  </button>
-                )}
                 {(live || locked) && (
                   <button
                     type="button"
@@ -4058,6 +4103,10 @@ function BracketView({
                 leading={leading}
                 complete={complete}
                 busy={busy === match.id}
+                canSetMode={match.status === "PENDING" && isThreeWay}
+                onSetMode={(winnerCount) =>
+                  run(match.id, `/api/matches/${match.id}/setup`, { winnerCount }, "PATCH")
+                }
                 onRun={(body) => run(match.id, `/api/matches/${match.id}/complete`, body)}
               />
             )}
