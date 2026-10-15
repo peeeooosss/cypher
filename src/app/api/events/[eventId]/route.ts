@@ -37,6 +37,7 @@ const updateEventSchema = z.object({
   contactDetails: z.string().trim().max(5000).nullable().optional(),
   checkInInstructions: z.string().trim().max(5000).nullable().optional(),
   lastRegistrationAt: z.coerce.date().nullable().optional(),
+  showPublicLeaderboard: z.boolean().optional(),
 }).superRefine((data, ctx) => {
   if (data.posterFileKey && (!data.posterUrl || !isUploadThingUrl(data.posterUrl))) {
     ctx.addIssue({ code: "custom", message: "Poster must be uploaded through UploadThing", path: ["posterUrl"] });
@@ -90,6 +91,7 @@ export async function PATCH(request: Request, { params }: EventRouteContext) {
         commissionPaid: true,
         commissionPaymentStatus: true,
         posterFileKey: true,
+        showPublicLeaderboard: true,
       },
     });
 
@@ -206,6 +208,15 @@ export async function PATCH(request: Request, { params }: EventRouteContext) {
       parsed.data.posterFileKey !== ownedEvent.posterFileKey
     ) {
       await deleteUploadThingFile(ownedEvent.posterFileKey);
+    }
+
+    if (
+      parsed.data.showPublicLeaderboard !== undefined &&
+      parsed.data.showPublicLeaderboard !== ownedEvent.showPublicLeaderboard
+    ) {
+      await emitToSocket(eventId, "leaderboard_visibility", {
+        visible: parsed.data.showPublicLeaderboard,
+      });
     }
 
     return NextResponse.json(

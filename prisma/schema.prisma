@@ -208,6 +208,7 @@ model User {
   messages                 Message[]
   emailVerificationTokens  EmailVerificationToken[]
   payments                 Payment[]
+  galleryItems             GalleryItem[]
   judgedSlots              JudgeSlot[]              @relation("JudgeSlotsJudge")
   createdAt                DateTime                 @default(now())
   updatedAt                DateTime                 @updatedAt
@@ -303,6 +304,9 @@ model Event {
   scheduleItems               EventScheduleItem[]
   notices                     EventNotice[]
   staffCodes                  EventStaffCode[]
+  judges                      EventJudge[]
+  galleryItems                GalleryItem[]
+  showPublicLeaderboard       Boolean                  @default(true)
   createdAt                   DateTime      @default(now())
   updatedAt                   DateTime      @updatedAt
 
@@ -495,10 +499,12 @@ model JudgeSlot {
   code             String            @unique
   name             String?
   judgeUserId      String?
+  eventJudgeId     String?
   isActive         Boolean           @default(true)
   event            Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
   category         Category          @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   judgeUser        User?             @relation("JudgeSlotsJudge", fields: [judgeUserId], references: [id])
+  eventJudge       EventJudge?       @relation(fields: [eventJudgeId], references: [id], onDelete: SetNull)
   scores           MatchScore[]
   dancerScores     DancerScore[]
   judgeAssignments JudgeAssignment[]
@@ -867,4 +873,51 @@ model PricingConfig {
   updatedBy        String?
   updatedAt        DateTime @updatedAt
   createdAt        DateTime @default(now())
+}
+
+enum GalleryItemType {
+  PHOTO
+  VIDEO
+}
+
+model EventJudge {
+  id           String      @id @default(cuid())
+  eventId      String
+  name         String
+  title        String?
+  bio          String?     @db.Text
+  photoUrl     String?
+  photoFileKey String?
+  socialLinks  Json?
+  displayOrder Int         @default(0)
+  isPublic     Boolean     @default(true)
+  event        Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  judgeSlots   JudgeSlot[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([eventId, displayOrder])
+}
+
+model GalleryItem {
+  id                  String          @id @default(cuid())
+  title               String?
+  caption             String?         @db.Text
+  type                GalleryItemType
+  url                 String
+  fileKey             String?
+  thumbnailUrl        String?
+  sourceLink          String?
+  eventId             String?
+  isFeaturedHomepage  Boolean         @default(false)
+  displayOrder        Int             @default(0)
+  isPublished         Boolean         @default(true)
+  createdById         String?
+  event               Event?          @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  createdBy           User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  @@index([isPublished, displayOrder])
+  @@index([eventId])
 }

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { LiveLeaderboard } from "@/components/live-leaderboard";
 import { CopyLinkButton } from "@/components/copy-link-button";
 import { EventStatus } from "@/generated/prisma/enums";
+import { canViewLeaderboard } from "@/lib/leaderboard-access";
 
 type PageParams = { params: Promise<{ slug: string }> };
 
@@ -20,10 +21,12 @@ export default async function EventStandingsPage({ params }: PageParams) {
 
   const event = await prisma.event.findUnique({
     where: { slug },
-    select: { id: true, title: true, status: true, city: true, venue: true },
+    select: { id: true, title: true, status: true, city: true, venue: true, showPublicLeaderboard: true, organizerId: true },
   });
 
   if (!event) notFound();
+
+  const allowed = await canViewLeaderboard(event.id, event);
 
   const isLive = event.status === EventStatus.LIVE;
   const standingsPath = `/events/${slug}/standings`;
@@ -60,11 +63,21 @@ export default async function EventStandingsPage({ params }: PageParams) {
       </header>
 
       <div className="mx-auto max-w-7xl px-md py-lg md:px-xl">
-        <LiveLeaderboard
-          eventId={event.id}
-          title={`${event.title} — ${isLive ? "Live standings" : "Final standings"}`}
-          live={isLive}
-        />
+        {!allowed ? (
+          <div className="border border-line bg-paper-soft p-lg text-center">
+            <p className="font-display text-title-md uppercase">Results paused</p>
+            <p className="mt-sm text-body-sm text-ink-muted">
+              The organizer has hidden results for now. Registered artists can still see their own
+              scores on their dashboard.
+            </p>
+          </div>
+        ) : (
+          <LiveLeaderboard
+            eventId={event.id}
+            title={`${event.title} — ${isLive ? "Live standings" : "Final standings"}`}
+            live={isLive}
+          />
+        )}
       </div>
     </main>
   );

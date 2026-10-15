@@ -13,6 +13,7 @@ import { INDIAN_STATES } from "@/lib/states";
 import { responseError } from "@/lib/client-error";
 import { AdvancementStudio } from "@/components/advancement-studio";
 import { StaffCodesTab } from "@/components/staff-codes-tab";
+import { EventJudgesManager, type EventJudgeRecord } from "@/components/event-judges-manager";
 import { useToast } from "@/components/ui/toast";
 import type { CategoryFormat, EventStatus, RoundType, RegistrationStatus, PaymentStatus } from "@/generated/prisma/enums";
 
@@ -99,7 +100,9 @@ type EventWithRelations = {
   contactDetails: string | null;
   lastRegistrationAt: Date | string | null;
   checkInInstructions: string | null;
+  showPublicLeaderboard: boolean;
   categories: Category[];
+  judges: EventJudgeRecord[];
   judgeSlots: JudgeSlotWithCategory[];
   scheduleItems: EventScheduleItem[];
   notices: EventNotice[];
@@ -286,7 +289,14 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
         <CategoriesTab event={event} refresh={refreshControlRoom} refreshing={refreshing} />
       )}
       {resolvedTab === "Judges" && (
-        <JudgesTab event={event} refresh={refreshControlRoom} />
+        <div className="space-y-xl">
+          <EventJudgesManager
+            eventId={event.id}
+            initialJudges={event.judges ?? []}
+            onChanged={() => void refreshControlRoom()}
+          />
+          <JudgesTab event={event} refresh={refreshControlRoom} />
+        </div>
       )}
       {resolvedTab === "Registrations" && (
         <RegistrationsTab event={event} />
@@ -549,9 +559,32 @@ function OverviewTab({
   const pricing = usePricing();
   const commissionPct = Math.round(pricing.commissionBps / 100);
   const [saving, setSaving] = useState(false);
+  const [boardSaving, setBoardSaving] = useState(false);
   const [error, setError] = useState("");
 
   const flatFeePaid = isEventFlatFeePaid(event);
+
+  async function handleBoardToggle() {
+    setError("");
+    setBoardSaving(true);
+    try {
+      const res = await fetch(`/api/events/${event.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ showPublicLeaderboard: !event.showPublicLeaderboard }),
+      });
+      if (!res.ok) {
+        setError(await responseError(res, "Failed to update leaderboard visibility"));
+        return;
+      }
+      const updated = await res.json();
+      setEvent({ ...event, showPublicLeaderboard: updated.showPublicLeaderboard, startsAt: new Date(updated.startsAt) });
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setBoardSaving(false);
+    }
+  }
 
   async function handleStatusChange(status: EventStatus) {
     setError("");
@@ -687,6 +720,27 @@ function OverviewTab({
           })}
         </div>
         {error && <p className="mt-md text-body-sm text-accent">{error}</p>}
+      </div>
+
+      <div className="border border-line p-lg">
+        <p className="font-mono text-[0.7rem] uppercase text-ink-muted">Public leaderboard</p>
+        <p className="mt-sm text-body-sm text-ink-muted">
+          {event.showPublicLeaderboard
+            ? "Results are visible to everyone. Turn this off to hide standings from the public during the event — you and registered artists can still see them."
+            : "Results are hidden from the public. Only you and registered artists can see the standings."}
+        </p>
+        <button
+          type="button"
+          disabled={boardSaving}
+          onClick={() => void handleBoardToggle()}
+          className={`mt-md border px-md py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] disabled:opacity-60 ${
+            event.showPublicLeaderboard
+              ? "border-line text-ink hover:border-accent"
+              : "border-accent bg-accent text-paper"
+          }`}
+        >
+          {boardSaving ? "Saving..." : event.showPublicLeaderboard ? "Hide leaderboard" : "Show leaderboard"}
+        </button>
       </div>
       </div>
 

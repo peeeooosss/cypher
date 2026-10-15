@@ -72,3 +72,5 @@ Payments are handled **manually** (offline UPI). No Razorpay or PayU gateway is 
 ## Media storage
 
 Artist avatars, studio logos, and event posters use UploadThing. Existing image URLs remain valid and are not migrated automatically.
+
+Event judge photos and gallery images also use UploadThing (`judgePhotoUploader` for organizers, `galleryImageUploader` for admins). Gallery videos are link embeds (YouTube/Vimeo/Instagram/Drive or direct MP4) — no video transcoding infrastructure yet.

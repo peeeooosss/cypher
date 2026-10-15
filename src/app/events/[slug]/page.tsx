@@ -1,17 +1,43 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { StatusBadge } from "@/components/status-badge";
-import { EventPoster } from "@/components/event-poster";
 import { LiveLeaderboard } from "@/components/live-leaderboard";
-import { formatDate } from "@/lib/format";
+import { EventHero } from "@/components/event-hero";
+import { EventSubNav } from "@/components/event-sub-nav";
+import { SectionHeading } from "@/components/section-heading";
+import { EventJudges } from "@/components/event-judges";
+import { EventCategories } from "@/components/event-categories";
+import { EventSchedule } from "@/components/event-schedule";
+import { EventInfoAccordion } from "@/components/event-info-accordion";
+import { EventAside } from "@/components/event-aside";
+import { EventGalleryStrip } from "@/components/event-gallery-strip";
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
-import { EventStatus, EventType } from "@/generated/prisma/enums";
-import { EVENT_TYPE_LABELS, formatLabel, isWorkshopType } from "@/lib/event-types";
+import { EventStatus } from "@/generated/prisma/enums";
+import { isWorkshopType } from "@/lib/event-types";
 
 export const dynamic = "force-dynamic";
 
 type EventDetailContext = { params: Promise<{ slug: string }> };
+
+export async function generateMetadata({ params }: EventDetailContext): Promise<Metadata> {
+  const { slug } = await params;
+  const event = await prisma.event.findUnique({
+    where: { slug },
+    select: { title: true, description: true, posterUrl: true, city: true },
+  });
+  if (!event) return { title: "Event not found" };
+  const description = event.description ?? `Register, compete and follow live scores at ${event.title}.`;
+  return {
+    title: `${event.title} — CYPHR`,
+    description: description.slice(0, 160),
+    openGraph: {
+      title: event.title,
+      description: description.slice(0, 200),
+      ...(event.posterUrl ? { images: [{ url: event.posterUrl }] } : {}),
+    },
+  };
+}
 
 export default async function EventDetailPage({ params }: EventDetailContext) {
   const { slug } = await params;
@@ -33,6 +59,15 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
         where: { isArchived: false },
         orderBy: { publishedAt: "desc" },
       },
+      judges: {
+        where: { isPublic: true },
+        orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }],
+      },
+      galleryItems: {
+        where: { isPublished: true },
+        orderBy: [{ displayOrder: "asc" }, { createdAt: "desc" }],
+        take: 8,
+      },
     },
   });
 
@@ -41,6 +76,8 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
   }
 
   const isArtist = user?.role === "ARTIST";
+  const isOwner = user?.role === "ORGANIZER" && event.organizerId === user.id;
+  const workshop = isWorkshopType(event.eventType);
   const registrations = isArtist
     ? await prisma.registration.findMany({
         where: {
@@ -54,399 +91,271 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
   const paidCategoryIds = new Set(registrations.filter((r) => r.paid).map((r) => r.categoryId));
 
   const isOpen = event.status !== EventStatus.COMPLETED && event.status !== EventStatus.CANCELLED;
+  const isLive = event.status === EventStatus.LIVE;
+  const isCompleted = event.status === EventStatus.COMPLETED;
 
-  function formatFee(category: { entryFee: number | null; entryCurrency: string }) {
-    if (!category.entryFee || category.entryFee <= 0) return "Free entry";
-    return category.entryCurrency === "INR"
-      ? `₹${category.entryFee} entry`
-      : `${category.entryCurrency} ${category.entryFee} entry`;
-  }
+  const canViewBoard =
+    event.showPublicLeaderboard || isOwner || registeredCategoryIds.size > 0;
+  const showBoard = (isLive || isCompleted) && !workshop && canViewBoard;
+  const boardPaused = (isLive || isCompleted) && !workshop && !canViewBoard;
 
-  function formatPrize(prizePool: { totalAmount: number; currency: string } | null) {
-    if (!prizePool || prizePool.totalAmount <= 0) return null;
-    return prizePool.currency === "INR"
-      ? `₹${prizePool.totalAmount.toLocaleString("en-IN")} prize pool`
-      : `${prizePool.currency} ${prizePool.totalAmount.toLocaleString()} prize pool`;
-  }
+  const registerHref = isArtist && isOpen ? `/events/${event.slug}/register` : null;
+  const registerLabel = workshop ? "Join this workshop" : "Register for this event";
+  const liveHref = isLive ? `/events/${event.slug}/live` : null;
+  const standingsHref = showBoard ? `/events/${event.slug}/standings` : null;
 
   const totalPrizePool = event.categories.reduce(
     (sum, c) => sum + (c.prizePool?.totalAmount ?? 0),
     0,
   );
 
-  const jumpLinks = [
-    { id: "about", label: "About", show: Boolean(event.description) },
-    { id: "details", label: "Event Details", show: Boolean(event.eventDetails) },
-    { id: "accommodation", label: "Accommodation", show: Boolean(event.accommodationAvailable || event.accommodationDetails) },
-    { id: "food", label: "Food", show: Boolean(event.foodAvailable || event.foodDetails) },
-    { id: "rules", label: "Rules & Regulations", show: Boolean(event.rulesAndRegulations) },
-    { id: "registration", label: "Registration Info", show: Boolean(event.registrationInstructions) },
-    { id: "checkin", label: "Check-in", show: Boolean(event.checkInInstructions) },
+  const categories = event.categories.map((category) => ({
+    id: category.id,
+    name: category.name,
+    format: category.format,
+    minMembers: category.minMembers,
+    maxMembers: category.maxMembers,
+    entryFee: category.entryFee,
+    entryCurrency: category.entryCurrency,
+    maxCompetitors: category.maxCompetitors,
+    registeredCount: category._count.registrations,
+    prizeTotal: category.prizePool?.totalAmount ?? 0,
+    prizeCurrency: category.prizePool?.currency ?? "INR",
+  }));
+
+  const judges = event.judges.map((judge) => ({
+    id: judge.id,
+    name: judge.name,
+    title: judge.title,
+    bio: judge.bio,
+    photoUrl: judge.photoUrl,
+    socialLinks: (judge.socialLinks as Record<string, string> | null) ?? null,
+  }));
+
+  const infoSections = [
+    { id: "rules", label: "Rules & regulations", body: event.rulesAndRegulations },
+    { id: "registration", label: "Registration info", body: event.registrationInstructions },
+    { id: "checkin", label: "Check-in", body: event.checkInInstructions },
+    {
+      id: "stay",
+      label: "Stay & food",
+      body: [event.accommodationDetails, event.foodDetails].filter(Boolean).join("\n\n"),
+    },
+    { id: "contact", label: "Contact", body: event.contactDetails },
+  ];
+
+  const subNav = [
+    { id: "about", label: "About", show: Boolean(event.description ?? event.eventDetails) },
+    { id: "judges", label: "Judges", show: judges.length > 0 },
+    { id: "categories", label: workshop ? "Sessions" : "Categories", show: true },
     { id: "schedule", label: "Schedule", show: event.scheduleItems.length > 0 },
+    { id: "gallery", label: "Gallery", show: event.galleryItems.length > 0 },
     { id: "notices", label: "Notices", show: event.notices.length > 0 },
-    { id: "contact", label: "Contact", show: Boolean(event.contactDetails) },
+    { id: "info", label: "Info", show: infoSections.some((s) => s.body && s.body.trim()) },
+    { id: "results", label: "Results", show: showBoard || boardPaused },
   ].filter((link) => link.show);
 
   return (
-    <main className="min-h-screen bg-paper">
-      <div className="border-b border-line bg-paper-soft">
-        <div className="mx-auto max-w-7xl px-md py-section md:px-xl">
-          <div className="flex flex-wrap items-center gap-md">
-            <StatusBadge status={event.status} />
-            {event.eventType && (
-              <span className="font-mono text-[0.65rem] uppercase tracking-[0.15em] text-accent">
-                {EVENT_TYPE_LABELS[event.eventType as EventType] ?? event.eventType}
-              </span>
-            )}
-            {event.city && (
-              <span className="font-mono text-[0.65rem] uppercase tracking-[0.15em] text-ink-muted">
-                {event.city}
-              </span>
-            )}
-            {event.state && (
-              <span className="font-mono text-[0.65rem] uppercase tracking-[0.15em] text-ink-muted">
-                {event.state}
-              </span>
-            )}
-          </div>
-          <div className="mt-lg grid items-start gap-xl lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-            <EventPoster
-              posterUrl={event.posterUrl}
-              title={event.title}
-              fit="contain"
-              eager
-              className="w-full rounded-lg border border-line shadow-raised"
-            />
-            <div className="min-w-0">
-              <h1 className="font-display text-display-xl uppercase leading-[1.05]">{event.title}</h1>
-              {event.description ? (
-                <p className="mt-md max-w-2xl text-body-md leading-relaxed text-ink-muted">
-                  {event.description}
-                </p>
-              ) : null}
-              <div className="mt-lg flex flex-col gap-sm sm:flex-row sm:flex-wrap">
-                {event.status === EventStatus.LIVE ? (
-                  <Link
-                    href={`/events/${event.slug}/live`}
-                    className="inline-flex h-12 items-center justify-center rounded-md bg-accent px-6 text-button-md text-accent-contrast transition-all hover:brightness-110 active:scale-[0.98]"
-                  >
-                    View live scores
-                  </Link>
-                ) : null}
-                {isArtist && isOpen ? (
-                  <Link
-                    href={`/events/${event.slug}/register`}
-                    className={`inline-flex h-12 items-center justify-center rounded-md px-6 text-button-md transition-all active:scale-[0.98] ${
-                      event.status === EventStatus.LIVE
-                        ? "border border-line-strong text-ink hover:border-accent hover:text-accent"
-                        : "bg-accent text-accent-contrast hover:brightness-110"
-                    }`}
-                  >
-                    {isWorkshopType(event.eventType) ? "Join this workshop" : "Register for this event"}
-                  </Link>
-                ) : null}
-                {!isArtist && isOpen ? (
-                  <Link
-                    href="/login"
-                    className="inline-flex h-12 items-center justify-center rounded-md border border-line-strong px-6 text-button-md text-ink transition-colors hover:border-accent hover:text-accent"
-                  >
-                    Sign in as artist to register
-                  </Link>
-                ) : null}
-              </div>
-            </div>
-          </div>
-          {event.organizer.studioLogoUrl || event.organizer.studioName || event.organizer.name ? (
-            <div className="mt-lg flex items-end gap-md">
-              {event.organizer.studioLogoUrl ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={event.organizer.studioLogoUrl} alt="Studio logo" className="h-12 w-12 rounded-full border border-line object-cover" />
-              ) : null}
-              <div>
-                <p className="font-display text-title-md uppercase">{event.organizer.studioName ?? event.organizer.name ?? "Anonymous"}</p>
-                {event.organizer.studioFoundedAt ? (
-                  <p className="font-mono text-[0.65rem] uppercase tracking-[0.15em] text-ink-muted">
-                    Est. {new Date(event.organizer.studioFoundedAt).getFullYear()}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
-          <div className="mt-lg grid gap-lg sm:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <p className="font-mono text-[0.6rem] uppercase tracking-[0.2em] text-ink-muted">Date</p>
-              <p className="mt-xs text-body-sm font-bold text-ink">{formatDate(event.startsAt)}</p>
-            </div>
-            {event.venue && (
-              <div>
-                <p className="font-mono text-[0.6rem] uppercase tracking-[0.2em] text-ink-muted">Venue</p>
-                <p className="mt-xs text-body-sm font-bold text-ink">{event.venue}</p>
-              </div>
-            )}
-            {event.googleMapsUrl && (
-              <div>
-                <p className="font-mono text-[0.6rem] uppercase tracking-[0.2em] text-ink-muted">Directions</p>
-                <a
-                  href={event.googleMapsUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-xs inline-flex items-center gap-xs border border-accent bg-accent px-md py-xs font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper transition-opacity hover:opacity-80"
-                >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
-                  </svg>
-                  Open in Google Maps
-                </a>
-              </div>
-            )}
-            <div>
-              <p className="font-mono text-[0.6rem] uppercase tracking-[0.2em] text-ink-muted">Organizer</p>
-              <p className="mt-xs text-body-sm font-bold text-ink">{event.organizer.name ?? "Anonymous"}</p>
-            </div>
-          </div>
-        </div>
-      </div>
+    <main className="min-h-screen bg-paper pb-24 md:pb-0">
+      <EventHero
+        event={{
+          title: event.title,
+          description: event.description,
+          status: event.status,
+          eventType: event.eventType,
+          city: event.city,
+          state: event.state,
+          venue: event.venue,
+          googleMapsUrl: event.googleMapsUrl,
+          posterUrl: event.posterUrl,
+          slug: event.slug,
+          startsAt: event.startsAt,
+          organizerName: event.organizer.name,
+          studioName: event.organizer.studioName,
+          studioLogoUrl: event.organizer.studioLogoUrl,
+          studioSince: event.organizer.studioFoundedAt
+            ? String(new Date(event.organizer.studioFoundedAt).getFullYear())
+            : null,
+          registerHref,
+          registerLabel,
+          resultsHref: standingsHref,
+          resultsLabel: isCompleted ? "View results" : isLive ? "Live standings" : null,
+          liveHref,
+        }}
+      />
+
+      <EventSubNav links={subNav} />
 
       <div className="mx-auto max-w-7xl px-md py-section md:px-xl">
-        <div className="grid gap-xl lg:grid-cols-[1fr_0.42fr]">
-          <section>
-            {jumpLinks.length > 0 && (
-              <nav className="mb-section flex flex-wrap gap-sm border border-line bg-paper-soft p-md">
-                <span className="mr-xs font-mono text-[0.65rem] uppercase tracking-[0.2em] text-ink-muted">
-                  Jump to:
-                </span>
-                {jumpLinks.map((link) => (
-                  <a
-                    key={link.id}
-                    href={`#${link.id}`}
-                    className="border border-line px-sm py-xs font-mono text-[0.65rem] font-bold uppercase tracking-[0.1em] text-accent transition-colors hover:bg-accent hover:text-paper"
-                  >
-                    {link.label}
-                  </a>
-                ))}
-              </nav>
-            )}
-
-            {event.description && (
-              <section id="about" className="mb-section">
-                <h2 className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">About</h2>
-                <p className="mt-md max-w-prose text-body-md leading-relaxed text-ink-muted whitespace-pre-wrap">
-                  {event.description}
+        <div className="grid gap-xl lg:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="min-w-0 space-y-section">
+            {(event.description ?? event.eventDetails) ? (
+              <section id="about" aria-label="About" className="scroll-mt-24">
+                <SectionHeading eyebrow="The event" title="About" />
+                <p className="max-w-prose whitespace-pre-wrap text-body-lg leading-relaxed text-ink-muted">
+                  {event.description ?? event.eventDetails}
                 </p>
-              </section>
-            )}
-
-            {/* Event Information Sections */}
-            {event.eventDetails && (
-              <section id="details" className="mb-section">
-                <h2 className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Event Details</h2>
-                <div className="mt-md max-w-prose text-body-md leading-relaxed text-ink-muted whitespace-pre-wrap">
-                  {event.eventDetails}
-                </div>
-              </section>
-            )}
-
-            {(event.accommodationAvailable || event.accommodationDetails) && (
-              <section id="accommodation" className="mb-section">
-                <h2 className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Accommodation</h2>
-                {event.accommodationDetails && (
-                  <div className="mt-md max-w-prose text-body-md leading-relaxed text-ink-muted whitespace-pre-wrap">
-                    {event.accommodationDetails}
+                <div className="mt-lg grid grid-cols-3 gap-md">
+                  <div className="rounded-lg border border-line bg-paper-soft p-md text-center">
+                    <p className="font-display text-display-md tabular-nums text-accent">
+                      {event.categories.length}
+                    </p>
+                    <p className="mt-xs font-mono text-[0.6rem] uppercase tracking-[0.15em] text-ink-muted">
+                      {workshop ? "Sessions" : "Categories"}
+                    </p>
                   </div>
-                )}
-              </section>
-            )}
-
-            {(event.foodAvailable || event.foodDetails) && (
-              <section id="food" className="mb-section">
-                <h2 className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Food & Catering</h2>
-                {event.foodDetails && (
-                  <div className="mt-md max-w-prose text-body-md leading-relaxed text-ink-muted whitespace-pre-wrap">
-                    {event.foodDetails}
+                  <div className="rounded-lg border border-line bg-paper-soft p-md text-center">
+                    <p className="font-display text-display-md tabular-nums text-accent">
+                      {event.judges.length}
+                    </p>
+                    <p className="mt-xs font-mono text-[0.6rem] uppercase tracking-[0.15em] text-ink-muted">
+                      Judges
+                    </p>
                   </div>
-                )}
-              </section>
-            )}
-
-            {event.rulesAndRegulations && (
-              <section id="rules" className="mb-section">
-                <h2 className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Rules & Regulations</h2>
-                <div className="mt-md max-w-prose text-body-md leading-relaxed text-ink-muted whitespace-pre-wrap">
-                  {event.rulesAndRegulations}
+                  <div className="rounded-lg border border-line bg-paper-soft p-md text-center">
+                    <p className="font-display text-display-md tabular-nums text-accent">
+                      {totalPrizePool > 0 ? `₹${Math.round(totalPrizePool / 1000)}K` : "—"}
+                    </p>
+                    <p className="mt-xs font-mono text-[0.6rem] uppercase tracking-[0.15em] text-ink-muted">
+                      Prize pool
+                    </p>
+                  </div>
                 </div>
               </section>
-            )}
+            ) : null}
 
-            {event.registrationInstructions && (
-              <section id="registration" className="mb-section">
-                <h2 className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Registration Instructions</h2>
-                <div className="mt-md max-w-prose text-body-md leading-relaxed text-ink-muted whitespace-pre-wrap">
-                  {event.registrationInstructions}
-                </div>
-              </section>
-            )}
+            <EventJudges judges={judges} />
 
-            {event.checkInInstructions && (
-              <section id="checkin" className="mb-section">
-                <h2 className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Check-in Instructions</h2>
-                <div className="mt-md max-w-prose text-body-md leading-relaxed text-ink-muted whitespace-pre-wrap">
-                  {event.checkInInstructions}
-                </div>
-              </section>
-            )}
-
-            {/* Schedule */}
-            {event.scheduleItems && event.scheduleItems.length > 0 && (
-              <section id="schedule" className="mb-section">
-                <h2 className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Schedule</h2>
-                <div className="mt-md border-l border-line pl-lg">
-                  {event.scheduleItems.map((item) => (
-                    <div key={item.id} className="relative mb-lg last:mb-0">
-                      <span className="absolute -left-lg top-sm h-2 w-2 shrink-0 rounded-full bg-accent" />
-                      <p className="font-mono text-[0.65rem] font-bold uppercase tracking-[0.15em] text-accent">
-                        {new Date(item.startTime).toLocaleDateString(undefined, { day: "numeric", month: "short" })}
-                        {" · "}
-                        {new Date(item.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                        {item.endTime ? ` – ${new Date(item.endTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
-                      </p>
-                      <h3 className="mt-xs font-display text-title-md uppercase">{item.title}</h3>
-                      {item.description && <p className="mt-xs text-body-sm text-ink-muted">{item.description}</p>}
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* Notices */}
-            {event.notices && event.notices.length > 0 && (
-              <section id="notices" className="mb-section">
-                <h2 className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Important Notices</h2>
-                <div className="mt-md space-y-md">
-                  {event.notices.map((notice) => (
-                    <div key={notice.id} className="border border-accent bg-accent/5 p-lg">
-                      <h3 className="font-display text-title-md uppercase">{notice.title}</h3>
-                      <p className="mt-sm text-body-md leading-relaxed text-ink-muted whitespace-pre-wrap">{notice.message}</p>
-                      {notice.link && (
-                        <a className="mt-sm inline-flex items-center gap-xs border border-accent bg-accent px-md py-xs font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper" href={notice.link} target="_blank" rel="noopener noreferrer">
-                          Open Link
-                        </a>
-                      )}
-                      <p className="mt-xs font-mono text-[0.65rem] uppercase text-ink-muted">Posted: {new Date(notice.publishedAt).toLocaleDateString()}</p>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {event.contactDetails && (
-              <section id="contact" className="mb-section">
-                <h2 className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Contact Information</h2>
-                <div className="mt-md max-w-prose text-body-md leading-relaxed text-ink-muted whitespace-pre-wrap">
-                  {event.contactDetails}
-                </div>
-              </section>
-            )}
-
-            <div className={event.description ? "mt-section" : ""}>
-              <h2 className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">
-                {isWorkshopType(event.eventType)
-                  ? `Sessions (${event.categories.length})`
-                  : `Categories (${event.categories.length})`}
-              </h2>
-              {event.categories.length === 0 ? (
-                <p className="mt-md border border-line p-lg text-body-sm text-ink-muted">
-                  No categories added yet.
-                </p>
-              ) : (
-                <div className="mt-md grid gap-md sm:grid-cols-2">
-                  {event.categories.map((category) => (
-                    <div
-                      key={category.id}
-                      className="border border-line bg-paper-soft p-lg transition-colors hover:border-accent/40"
-                    >
-                       <h3 className="font-display text-title-md uppercase">{category.name}</h3>
-                       <p className="mt-xs font-mono text-[0.65rem] uppercase tracking-[0.1em] text-accent">{formatLabel(category.format)} · {category.minMembers === category.maxMembers ? category.minMembers : `${category.minMembers}–${category.maxMembers}`} members</p>
-                      <p className="mt-sm font-mono text-body-sm uppercase tracking-[0.1em] text-accent">
-                        {formatFee(category)}
-                      </p>
-                      {formatPrize(category.prizePool) && (
-                        <p className="mt-xs inline-block border border-accent/30 bg-accent/10 px-sm py-xs font-mono text-[0.65rem] uppercase tracking-[0.1em] text-accent">
-                          {formatPrize(category.prizePool)}
-                        </p>
-                      )}
-                      <div className="mt-sm flex flex-wrap gap-md text-body-sm text-ink-muted">
-                        <span>{category._count.registrations} registered</span>
-                        {category.maxCompetitors && (
-                          <span>Max {category.maxCompetitors}</span>
-                        )}
-                        {category._count.matches > 0 && (
-                          <span>{category._count.matches} matches</span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </section>
-
-          <aside className="h-fit space-y-lg border-t border-line pt-lg lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto lg:border-l lg:border-t-0 lg:pl-xl lg:pt-0">
-            <div>
-              <p className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Status</p>
-              <StatusBadge status={event.status} />
-            </div>
-            <div>
-              <p className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Slug</p>
-              <p className="mt-xs font-mono text-body-sm text-ink-muted">{event.slug}</p>
-            </div>
-            <div>
-              <p className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Total categories</p>
-              <p className="mt-xs text-body-md text-ink">{event.categories.length}</p>
-            </div>
-            {totalPrizePool > 0 && (
-              <div>
-                <p className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted">Total prize pool</p>
-                <p className="mt-xs text-title-md font-bold text-accent">₹{totalPrizePool.toLocaleString("en-IN")}</p>
-              </div>
-            )}
-            {isArtist && isOpen && (
-              <Link
-                href={`/events/${event.slug}/register`}
-                className="mt-lg block border border-accent bg-accent px-md py-sm text-center font-mono text-[0.7rem] uppercase tracking-[0.15em] text-paper transition-opacity hover:opacity-80"
-              >
-                {isWorkshopType(event.eventType) ? "Join this workshop" : "Register for this event"}
-              </Link>
-            )}
-            {isArtist && registeredCategoryIds.size > 0 && (
-              <p className="mt-sm text-body-sm text-ink-muted">
-                {isWorkshopType(event.eventType)
-                  ? `You are joining ${registeredCategoryIds.size} ${registeredCategoryIds.size === 1 ? "session" : "sessions"}`
-                  : `You are registered in ${registeredCategoryIds.size} `}
-                {[...paidCategoryIds].length > 0 ? " (paid)" : ""}.
-              </p>
-            )}
-            {!isArtist && isOpen && (
-              <Link
-                href="/login"
-                className="mt-lg block border border-accent px-md py-sm text-center font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent hover:bg-accent hover:text-paper"
-              >
-                Sign in as artist to register
-              </Link>
-            )}
-          </aside>
-        </div>
-
-        {(event.status === EventStatus.LIVE || event.status === EventStatus.COMPLETED) && !isWorkshopType(event.eventType) && (
-          <div className="mt-section border-t border-line pt-section">
-            <LiveLeaderboard
-              eventId={event.id}
-              title={`${event.title} — ${event.status === EventStatus.LIVE ? "Live standings" : "Final standings"}`}
-              live={event.status === EventStatus.LIVE}
+            <EventCategories
+              categories={categories}
+              isWorkshop={workshop}
+              registerHref={registerHref}
+              totalPrize={totalPrizePool}
             />
+
+            <EventSchedule items={event.scheduleItems} />
+
+            <EventGalleryStrip items={event.galleryItems} />
+
+            {event.notices.length > 0 ? (
+              <section id="notices" aria-label="Notices" className="scroll-mt-24">
+                <SectionHeading eyebrow="Heads up" title="Notices" />
+                <div className="space-y-md">
+                  {event.notices.map((notice) => (
+                    <article key={notice.id} className="rounded-lg border border-accent/50 bg-accent/5 p-lg">
+                      <h3 className="font-display text-title-md uppercase">{notice.title}</h3>
+                      <p className="mt-sm whitespace-pre-wrap text-body-md leading-relaxed text-ink-muted">
+                        {notice.message}
+                      </p>
+                      {notice.link ? (
+                        <a
+                          href={notice.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-sm inline-block border border-accent bg-accent px-md py-xs font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper"
+                        >
+                          Open link
+                        </a>
+                      ) : null}
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            <EventInfoAccordion sections={infoSections} />
+
+            {showBoard ? (
+              <div id="results" className="scroll-mt-24 border-t border-line pt-section">
+                <LiveLeaderboard
+                  eventId={event.id}
+                  title={`${event.title} — ${isLive ? "Live standings" : "Final standings"}`}
+                  live={isLive}
+                />
+              </div>
+            ) : null}
+            {boardPaused ? (
+              <div id="results" className="scroll-mt-24 rounded-lg border border-line bg-paper-soft p-lg text-center">
+                <p className="font-display text-title-md uppercase">Results paused</p>
+                <p className="mt-sm text-body-sm text-ink-muted">
+                  The organizer has hidden public results for now. Registered artists can still see
+                  their own scores on their dashboard.
+                </p>
+              </div>
+            ) : null}
           </div>
-        )}
+
+          <EventAside
+            event={{
+              status: event.status,
+              slug: event.slug,
+              startsAt: event.startsAt,
+              venue: event.venue,
+              city: event.city,
+              registrationDeadline: event.lastRegistrationAt,
+              categoryCount: event.categories.length,
+              totalPrize: totalPrizePool,
+              registeredText:
+                registeredCategoryIds.size > 0
+                  ? `You're in${paidCategoryIds.size > 0 ? " (paid)" : ""} — ${registeredCategoryIds.size} ${registeredCategoryIds.size === 1 ? "category" : "categories"}`
+                  : null,
+              registerHref,
+              registerLabel,
+              standingsHref,
+              liveHref,
+            }}
+          />
+        </div>
       </div>
+
+      {!isArtist && isOpen ? (
+        <div className="mx-auto max-w-7xl px-md pb-section md:px-xl">
+          <div className="rounded-lg border border-line bg-paper-soft p-lg text-center">
+            <p className="text-body-md text-ink-muted">
+              Competing at {event.title}? Sign in as an artist to register.
+            </p>
+            <Link
+              href="/login"
+              className="mt-md inline-block rounded-md border border-accent px-lg py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-accent transition-colors hover:bg-accent hover:text-paper"
+            >
+              Sign in as artist
+            </Link>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Mobile sticky action bar */}
+      {(registerHref || standingsHref || liveHref) && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-paper/95 backdrop-blur md:hidden">
+          <div className="flex gap-sm px-md py-sm" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
+            {liveHref ? (
+              <Link
+                href={liveHref}
+                className="flex h-12 flex-1 items-center justify-center gap-xs rounded-md border border-accent bg-accent/10 font-mono text-[0.7rem] font-bold uppercase tracking-[0.12em] text-accent"
+              >
+                <span className="h-2 w-2 animate-pulse-soft rounded-full bg-current" />
+                Live
+              </Link>
+            ) : null}
+            {standingsHref ? (
+              <Link
+                href={standingsHref}
+                className="flex h-12 flex-1 items-center justify-center rounded-md border border-line-strong font-mono text-[0.7rem] font-bold uppercase tracking-[0.12em] text-ink"
+              >
+                Results
+              </Link>
+            ) : null}
+            {registerHref ? (
+              <Link
+                href={registerHref}
+                className="flex h-12 flex-[2] items-center justify-center rounded-md bg-accent font-mono text-[0.7rem] font-bold uppercase tracking-[0.12em] text-paper"
+              >
+                {registerLabel}
+              </Link>
+            ) : null}
+          </div>
+        </div>
+      )}
     </main>
   );
 }

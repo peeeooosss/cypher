@@ -10,6 +10,7 @@ interface VideoModalProps {
   onClose: () => void;
   videoUrl: string;
   title: string;
+  description?: string | null;
 }
 
 function getEmbedUrl(url: string, platform: Platform): string {
@@ -34,7 +35,7 @@ function detectPlatform(url: string): Platform {
   return "other";
 }
 
-export function VideoModal({ isOpen, onClose, videoUrl, title }: VideoModalProps) {
+export function VideoModal({ isOpen, onClose, videoUrl, title, description }: VideoModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -99,6 +100,11 @@ export function VideoModal({ isOpen, onClose, videoUrl, title }: VideoModalProps
           <p className="mt-xs font-mono text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">
             {detectedPlatform.charAt(0).toUpperCase() + detectedPlatform.slice(1)}
           </p>
+          {description ? (
+            <p className="mt-xs max-w-prose text-body-sm normal-case tracking-normal text-ink-muted">
+              {description}
+            </p>
+          ) : null}
         </div>
       </div>
     </div>

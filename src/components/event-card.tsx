@@ -21,6 +21,7 @@ export type EventCardData = {
   eventType?: string | null;
   posterUrl?: string | null;
   googleMapsUrl?: string | null;
+  showPublicLeaderboard?: boolean;
   description?: string | null;
   eventDetails?: string | null;
   accommodationAvailable?: boolean;

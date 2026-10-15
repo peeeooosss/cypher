@@ -147,6 +147,12 @@ export const LeaderboardUpdatePayload = z.object({
   categoryId: z.string().cuid().optional(),
 });
 
+export const LeaderboardVisibilityPayload = z.object({
+  visible: z.boolean(),
+});
+
+export type LeaderboardVisibilityData = z.infer<typeof LeaderboardVisibilityPayload>;
+
 export type JoinRoomInput = z.infer<typeof JoinRoomSchema>;
 export type PushMatchLiveInput = z.infer<typeof PushMatchLiveSchema>;
 export type SubmitScoreInput = z.infer<typeof SubmitScoreSchema>;
@@ -173,6 +179,7 @@ export interface ServerToClientEvents {
   phase_completed: (data: PhaseCompletedData) => void;
   bracket_generated: (data: BracketGeneratedData) => void;
   leaderboard_update: (data: LeaderboardUpdateData) => void;
+  leaderboard_visibility: (data: LeaderboardVisibilityData) => void;
   event_state: (matches: unknown[]) => void;
   match_updated: (data: { match: unknown; score: unknown }) => void;
   dancer_updated: (data: { judgeSlotId: string; registrationId: string; roundFormatId: string; score: number; sections?: SectionScoresInput; feedback?: string | null }) => void;

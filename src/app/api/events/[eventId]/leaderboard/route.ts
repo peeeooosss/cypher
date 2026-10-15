@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { notFound, serverError } from "@/lib/api";
+import { canViewLeaderboard, leaderboardHiddenResponse } from "@/lib/leaderboard-access";
 import { prisma } from "@/lib/prisma";
 
 type Context = { params: Promise<{ eventId: string }> };
@@ -7,6 +8,14 @@ type Context = { params: Promise<{ eventId: string }> };
 export async function GET(_: Request, { params }: Context) {
   try {
     const { eventId } = await params;
+
+    const gate = await prisma.event.findUnique({
+      where: { id: eventId },
+      select: { id: true, showPublicLeaderboard: true, organizerId: true },
+    });
+
+    if (!gate) return notFound("Event");
+    if (!(await canViewLeaderboard(eventId, gate))) return leaderboardHiddenResponse();
 
   const event = await prisma.event.findUnique({
     where: { id: eventId },

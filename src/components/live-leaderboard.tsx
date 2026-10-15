@@ -379,17 +379,26 @@ export function LiveLeaderboard({
   const [formatFilter, setFormatFilter] = useState("");
   const [connectionStatus, setConnectionStatus] = useState("offline");
   const [error, setError] = useState("");
+  const [hidden, setHidden] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     try {
       const res = await fetch(`/api/events/${eventId}/leaderboard`);
       if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        if (res.status === 403 && (body as { code?: string } | null)?.code === "LEADERBOARD_HIDDEN") {
+          setHidden(true);
+          setError("");
+          return;
+        }
+        setHidden(false);
         setError(await responseError(res, "Unable to load leaderboard"));
         return;
       }
       const json = (await res.json()) as LeaderboardData;
       setData(json);
+      setHidden(false);
       setError("");
     } catch {
       setError("Network error. Please try again.");
@@ -403,6 +412,7 @@ export function LiveLeaderboard({
         if (res.ok) {
           const json = (await res.json()) as LeaderboardData;
           setData(json);
+          setHidden(false);
           setError("");
           if (json.categories.length > 0) {
             const first = json.categories[0];
@@ -411,7 +421,13 @@ export function LiveLeaderboard({
             setPhaseId(preferredRound(first.rounds)?.id ?? "");
           }
         } else {
-          setError(await responseError(res, "Unable to load leaderboard"));
+          const body = await res.json().catch(() => null);
+          if (res.status === 403 && (body as { code?: string } | null)?.code === "LEADERBOARD_HIDDEN") {
+            setHidden(true);
+            setError("");
+          } else {
+            setError(await responseError(res, "Unable to load leaderboard"));
+          }
         }
       } catch {
         setError("Network error. Please try again.");
@@ -442,6 +458,7 @@ export function LiveLeaderboard({
     socket.on("match:updated", () => void refresh());
     socket.on("event:state", () => void refresh());
     socket.on("leaderboard:update", () => void refresh());
+    socket.on("leaderboard_visibility", () => void refresh());
     socket.on("score_submitted", () => void refresh());
     socket.on("score_locked", () => void refresh());
     socket.on("match_live", () => void refresh());
@@ -459,6 +476,17 @@ export function LiveLeaderboard({
     } finally {
       setRefreshing(false);
     }
+  }
+
+  if (hidden) {
+    return (
+      <section className="border border-line bg-paper-soft p-lg text-center">
+        <p className="font-display text-title-md uppercase text-ink">Results paused</p>
+        <p className="mt-sm text-body-sm text-ink-muted">
+          The organizer has hidden public results for now. Registered artists can still see their own scores on their dashboard.
+        </p>
+      </section>
+    );
   }
 
   if (error) {

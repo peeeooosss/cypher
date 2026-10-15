@@ -2,6 +2,7 @@ import Link from "next/link";
 import { EventStatus, UserRole, GigStatus, RegistrationStatus } from "@/generated/prisma/enums";
 import { ArtistSlider } from "@/components/artist-slider";
 import { HomeEvents } from "@/components/home-events";
+import { GallerySlider } from "@/components/gallery-slider";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +19,7 @@ const EVENT_SELECT = {
   eventType: true,
   posterUrl: true,
   googleMapsUrl: true,
+  showPublicLeaderboard: true,
   categories: { select: { id: true, name: true }, orderBy: { name: "asc" }, take: 4 },
   scheduleItems: {
     where: { isPublished: true },
@@ -39,7 +41,7 @@ export default async function Home() {
     status: { in: [EventStatus.PUBLISHED, EventStatus.LIVE, EventStatus.COMPLETED] },
   };
 
-  const [liveEvents, upcomingEvents, closedEvents, stats] = await Promise.all([
+  const [liveEvents, upcomingEvents, closedEvents, stats, gallerySlides] = await Promise.all([
     prisma.event.findMany({
       where: { ...where, status: EventStatus.LIVE },
       select: EVENT_SELECT,
@@ -63,6 +65,12 @@ export default async function Home() {
       prisma.registration.count({ where: { status: { in: [RegistrationStatus.CONFIRMED, RegistrationStatus.PENDING] } } }),
       prisma.gig.count({ where: { status: GigStatus.OPEN } }),
     ]).then(([artists, events, registrations, gigs]) => ({ artists, events, registrations, gigs })),
+    prisma.galleryItem.findMany({
+      where: { isPublished: true, isFeaturedHomepage: true },
+      include: { event: { select: { title: true, slug: true } } },
+      orderBy: [{ displayOrder: "asc" }, { createdAt: "desc" }],
+      take: 12,
+    }),
   ]);
 
   return (
@@ -272,6 +280,19 @@ export default async function Home() {
 
       {/* Events tabs */}
       <HomeEvents liveEvents={liveEvents} upcomingEvents={upcomingEvents} closedEvents={closedEvents} />
+
+      {/* Gallery slider — past event moments */}
+      <GallerySlider
+        items={gallerySlides.map((item) => ({
+          id: item.id,
+          type: item.type,
+          url: item.url,
+          thumbnailUrl: item.thumbnailUrl,
+          title: item.title,
+          eventTitle: item.event?.title ?? null,
+          eventSlug: item.event?.slug ?? null,
+        }))}
+      />
 
       {/* Testimonials */}
       <section className="border-t border-line bg-paper-soft">

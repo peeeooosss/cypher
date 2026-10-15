@@ -311,6 +311,121 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 
 ---
 
+## Session 12: MC/Host Portal, Bracket & Leaderboard Fixes, Shareable Standings
+
+### User requirements
+- MC/Host portal must NOT be able to change anything — view + call names only (read-only, locked server-side too)
+- Broad, laptop + mobile friendly MC/Host layout (no narrow/vertical text)
+- Show the full roster + active bracket per category in the MC portal
+- Fix the "Name the code first (e.g. Stage MC)" toast and every alert box rendering as a narrow vertical line
+- Give each event card's leaderboard a proper shareable link to hand directly to artists
+
+### 1. Control-room Advance button (`d0b1f37`)
+- Advance-phase route rejected an empty POST body, so the Advance button failed. Now accepts an empty body.
+
+### 2. Leaderboard / control-room cleanup + 3-way winners (`f5a3b94`)
+- Dropped the duplicate matchup line; `run()` gained a `method` param.
+- `ThreeWayDecider` gained 1st/2nd winner toggles + checkboxes.
+
+### 3. Bracket: lone entries fold into a 1v1v1 (`5929fe9`)
+- New `groupIntoLanes()` in `src/lib/bracket.ts`, wired into `generateBracket` + the bracket rebuild route, so a solitary entry no longer becomes a bye.
+
+### 4. MC/Host layout broadening + clear match view (`ac449aa`)
+- `mc-portal.tsx` container `max-w-4xl` → `max-w-6xl`.
+- Match cards got a `Round X · Match Y` title plus status / 3-way badges.
+- Lanes got corner left-borders, larger names, winner/runner-up highlight.
+- `staff-codes-tab.tsx`: removed `max-w-xl` on Running order; mobile-friendly header.
+
+### 5. Read-only MC portal + enriched state (`46979e1`)
+- `mc-portal.tsx` fully rewritten as a read-only Control-Room style (`max-w-7xl`): phase line, progress bar, per-category artist search, seed-ordered roster with status badges, read-only bracket with `#seed` names + vote counts + winner rings. Removed Advance/Top-N, Push live, Winner/Runner-up, and 1/2-winner toggles.
+- `GET /api/mc/state` now returns `eventId`, per-lane `seed`, and a seed-ordered `participants` roster per category.
+- Deleted `src/app/api/mc/advance/route.ts` and `src/app/api/mc/match/route.ts` (server-side lock).
+- Broadened MC layouts: `ui/empty-state.tsx` dropped the `max-w-sm` description cap + `SectionHeading` `max-w-xl`; `mc-entry-form.tsx` `max-w-md` → `max-w-2xl` and its entry error is now a bordered `role="alert"` box with `break-words`; `ui/toast.tsx` `max-w-md` → `max-w-lg` + `break-words`; `staff-codes-tab.tsx` share-code alert `break-words`, code `break-all`.
+
+### 6. Tailwind named `max-w-*` collision fix (`c961e58`) — the vertical-alert root cause
+- **ROOT CAUSE**: with the legacy `@config`, the default `maxWidth` theme function ends with `...theme("spacing")`. The custom spacing tokens (`xs/sm/md/lg/xl`) leaked into the named container scale, so `.max-w-xs`→`4px`, `.max-w-sm`→`8px`, `.max-w-md`→`16px`, `.max-w-lg`→`24px`, `.max-w-xl`→`32px`. Every alert/toast/box collapsed to one word per line. `max-w-2xl`+ were unaffected (they resolve from `--container-*`).
+- Tried and **failed**: `theme.extend.maxWidth`, top-level `theme.maxWidth`, `theme.extend.container`, and `@utility` definitions — all lost to the spacing spread (the `@utility` variant emitted both declarations, core last).
+- **FIX**: unlayered overrides in `src/app/globals.css` (`.max-w-xs..xl`). Unlayered CSS wins over Tailwind's `@layer utilities` regardless of source order. Verified in the built CSS: both rules exist and the override sits outside any `@layer`.
+- Caveat noted: no responsive variants (`md:max-w-md`, etc.) of the colliding names existed, so the latent trap of an unlayered base rule beating a layered `md:max-w-*` is not currently hit.
+
+### 7. Shareable per-event standings link (`e61344c`)
+- New public route `src/app/events/[slug]/standings/page.tsx` → shareable URL `/events/<slug>/standings`. Server component; fetches the event by slug; renders the full `LiveLeaderboard` (`live` when status LIVE, final otherwise); `generateMetadata` for nice link previews.
+- New reusable `src/components/copy-link-button.tsx` — copies the absolute URL and shows "Copied".
+- `event-card-leaderboard.tsx`: the card leaderboard's "Copy link" button and "Full results →" now point to `/events/<slug>/standings` (was `/events/<slug>`).
+- This was implemented as the **alternative** to moving the leaderboard to the top of the event card — the move-to-top change was NOT done.
+
+### Build / verification
+- `npx tsc --noEmit`, `npx eslint`, `npx next build` all clean; `/events/[slug]/standings` registered in the route manifest; compiled CSS verified.
+
+### Commits
+- `d0b1f37` — fix(control-room): accept empty body in advance-phase to fix Advance button
+- `f5a3b94` — fix(leaderboard,control-room): drop duplicate matchup line; add 3-way 1/2 winner checkboxes
+- `5929fe9` — feat(bracket): fold lone entries into a 1v1v1 instead of a bye
+- `ac449aa` — feat(mc): broaden MC/host layout and clarify match view
+- `46979e1` — feat(mc): read-only MC portal with roster, seeds & brackets; broaden MC layouts
+- `c961e58` — fix(tailwind): restore named max-w-* scale broken by spacing collision
+- `e61344c` — feat(events): add shareable per-event standings page
+
+---
+
+## Session 13: Event Card Redesign, Judges, Leaderboard Toggle, Gallery
+
+### User requirements
+- Beautiful, sectioned event card (no walls of text) with a **Results/Leaderboard button on top**
+- Organizer toggle to enable/disable the **public live leaderboard** (artist dashboards unaffected — artists always see their own scores)
+- **Judges** section with photo + description, addable by the organizer
+- **Homepage gallery slider** of past-event photos
+- **/gallery page** for past-event photos & videos, maintained by the founder (ADMIN)
+
+### 1. Schema + migration (`20261015000000_event_presentation`)
+- `Event.showPublicLeaderboard Boolean @default(true)`
+- `EventJudge` (name, title, bio, photoUrl, photoFileKey, socialLinks Json, displayOrder, isPublic) + `Event.judges`, `JudgeSlot.eventJudgeId` (onDelete SetNull) linking a judge to a scoring slot
+- `GalleryItem` + `GalleryItemType { PHOTO VIDEO }` (title, caption, type, url, fileKey, thumbnailUrl, sourceLink, eventId?, isFeaturedHomepage, displayOrder, isPublished, createdById?)
+- **Applied manually**: `npx prisma migrate dev` is broken (shadow-DB replay fails `P3006`/`P3018` on historical `20260806180000_add_event_billing`, `ERROR: relation "Gig" does not exist`). Migration SQL was hand-written in repo DDL style, then `npx prisma migrate deploy` + `npx prisma generate`.
+
+### 2. UploadThing routers
+- `judgePhotoUploader` (ORGANIZER, image, 1 file, 2MB, JPG/PNG/WebP)
+- `galleryImageUploader` (ADMIN, image, 10 files, config ceiling 8MB but middleware enforces 5MB each)
+
+### 3. APIs
+- `GET/POST /api/events/[eventId]/judges` + `PATCH/DELETE .../judges/[judgeId]` — organizer-scoped (`getEventForOwner`); delete/patch cleans up the old UploadThing file; photo URLs must be UploadThing
+- `GET /api/gallery` — public, filters `featured`/`type`/`limit`, published only
+- `GET/POST /api/admin/gallery` + `PATCH/DELETE /api/admin/gallery/[id]` — `requireAdmin()`; file cleanup on replace/delete
+- `PATCH /api/events/[eventId]` accepts `showPublicLeaderboard` and emits `leaderboard_visibility` over the socket when it changes
+
+### 4. Leaderboard gating
+- `src/lib/leaderboard-access.ts` — `canViewLeaderboard(eventId, gate)` + `LEADERBOARD_HIDDEN_CODE` + `leaderboardHiddenResponse()` (403). Public when `showPublicLeaderboard`; when hidden, only ADMIN, the owning organizer, and artists registered in the event (captain or PENDING/ACCEPTED member) can see it.
+- Gated: `GET /api/events/[eventId]/leaderboard`, `/events/[slug]/live`, `/events/[slug]/standings`; homepage compact boards skipped when hidden.
+- Socket: `leaderboard_visibility` added to `ServerToClientEvents`; `live-leaderboard.tsx` refetches on it and renders a "Results paused" panel on a 403 `LEADERBOARD_HIDDEN`. `event-card-leaderboard.tsx` shows "Results paused by the organizer."
+
+### 5. Event Card redesign (`/events/[slug]/page.tsx`, fully rewritten)
+- Sections: hero (blurred poster backdrop, status/type/city chips, countdown, CTA row incl. Results), sticky sub-nav, About + stat tiles, Meet the judges, Categories (prize banner, fees, spots-left), day-grouped Schedule timeline with "happening now", gallery teaser strip, Notices, Rules/info accordions, Results, sticky aside, mobile sticky CTA bar. `generateMetadata` with OG poster.
+- New components: `event-hero`, `event-countdown`, `event-sub-nav`, `section-heading`, `event-judges`, `event-categories`, `event-schedule`, `event-info-accordion`, `event-aside`, `event-gallery-strip`.
+
+### 6. Organizer dashboard
+- Overview tab: **Public leaderboard** on/off toggle (`handleBoardToggle`).
+- New **Judges** tab: `event-judges-manager.tsx` (CRUD, social links, order, public flag) + `judge-photo-upload.tsx`.
+- `EventWithRelations` gained `showPublicLeaderboard` + `judges`; dashboard + organizer pages include `judges`.
+
+### 7. Gallery
+- `src/app/gallery/page.tsx` (public, All/Photos/Videos filter → `GalleryGrid` with lightbox)
+- `src/app/admin/gallery/page.tsx` + `gallery-manager.tsx` (multi-photo upload, add video by link, feature/hide/delete)
+- `gallery-slider.tsx` wired into homepage (featured items); "Gallery" added to `nav.tsx` + admin sidebar; `video-modal.tsx` gained optional `description`
+
+### Known constraints / notes
+- **Playwright not run**: `playwright.config.ts` requires an isolated `E2E_DATABASE_URL` which is not configured locally. Run in CI.
+- **Prisma migrations**: use the manual-SQL + `migrate deploy` workaround (above) until the shadow-DB history is repaired.
+- Full Playwright coverage for the toggle/judges/gallery flows is still a TODO.
+
+### Build / verification
+- `npx tsc --noEmit` clean, `npm run lint` 0 errors (6 pre-existing `no-img-element` warnings), `npm run build` passes and registers `/gallery` + `/admin/gallery`.
+- Ran production `next start` smoke: event/standings/gallery pages 200, `/api/gallery` 200, judges API 401 unauthenticated, hero + `#results`/`#categories` sections render.
+
+### Commits
+- `93e71e2` — feat(events): redesign event card with judges, leaderboard toggle & gallery
+
+---
+
 ## Key Files Reference (Updated)
 
 ### Schema
@@ -333,10 +448,39 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 - `src/app/api/payments/verify/route.ts` — Razorpay signature verification
 
 ### Event Display
-- `src/app/events/[slug]/page.tsx` — event detail with Google Maps link + prize pool + studio logo
+- `src/app/events/[slug]/page.tsx` — redesigned event card (hero, sub-nav, judges, categories, schedule, accordions, aside, results)
+- `src/app/events/[slug]/standings/page.tsx` — public shareable standings page (`/events/<slug>/standings`), gated by `canViewLeaderboard`
+- `src/app/events/[slug]/live/page.tsx` — live spectator + standings, gated by `canViewLeaderboard`
 - `src/app/events/page.tsx` — events listing with prize pool
-- `src/components/event-card.tsx` — event card with directions link + prize pool
-- `src/app/page.tsx` — homepage with event cards
+- `src/components/event-card.tsx` — event card with directions link + prize pool + (completed) card leaderboard
+- `src/components/event-card-leaderboard.tsx` — compact card standings; "Copy link" + "Full results →" point to `/events/<slug>/standings`; 403 → "Results paused"
+- `src/components/live-leaderboard.tsx` — full live/final leaderboard (reused on event page, `/live`, `/standings`); handles `leaderboard_visibility` + hidden state
+- `src/components/copy-link-button.tsx` — reusable copy-absolute-URL button
+- `src/app/page.tsx` — homepage with event cards + gallery slider
+
+### Event Presentation (Judges + Leaderboard toggle)
+- `src/lib/leaderboard-access.ts` — `canViewLeaderboard`, `LEADERBOARD_HIDDEN_CODE`, `leaderboardHiddenResponse()`
+- `src/app/api/events/[eventId]/judges/route.ts` + `.../judges/[judgeId]/route.ts` — judge CRUD (organizer)
+- `src/components/event-hero.tsx`, `event-countdown.tsx`, `event-sub-nav.tsx`, `section-heading.tsx` — event card chrome
+- `src/components/event-judges.tsx`, `event-categories.tsx`, `event-schedule.tsx`, `event-info-accordion.tsx`, `event-aside.tsx`, `event-gallery-strip.tsx` — event card sections
+- `src/components/event-judges-manager.tsx` + `judge-photo-upload.tsx` — dashboard judges manager
+
+### Gallery
+- `src/app/gallery/page.tsx` — public gallery (All/Photos/Videos)
+- `src/app/api/gallery/route.ts` — public gallery feed
+- `src/app/api/admin/gallery/route.ts` + `.../[id]/route.ts` — admin gallery CRUD
+- `src/components/gallery-slider.tsx` — homepage featured slider
+- `src/components/gallery-grid.tsx` — grid + lightbox (video → VideoModal)
+- `src/app/admin/gallery/page.tsx` + `src/components/gallery-manager.tsx` — founder gallery manager
+
+
+### MC / Host
+- `src/components/mc-portal.tsx` — read-only MC portal (phase line, roster, seed-ordered bracket)
+- `src/app/api/mc/state/route.ts` — read-only MC state (`eventId`, lane `seed`, `participants` roster)
+- DELETED (server-side lock): `src/app/api/mc/advance/route.ts`, `src/app/api/mc/match/route.ts`
+- `src/lib/bracket.ts` — `groupIntoLanes()` (folds lone entries into a 1v1v1)
+- `src/components/mc-entry-form.tsx` — code entry (`max-w-2xl`, bordered `role="alert"` error)
+- `src/components/staff-codes-tab.tsx` — running order + share-code alert
 
 ### Organizer
 - `src/components/event-form.tsx` — event creation with Google Maps URL input
@@ -379,12 +523,12 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 - `src/components/theme-provider.tsx` — useSyncExternalStore theme provider
 - `src/components/theme-toggle.tsx` — dark/light toggle button
 - `src/app/layout.tsx` — ThemeProvider + pre-hydration `data-theme` script
-- `src/app/globals.css` — dark + `[data-theme="light"]` CSS vars, radius tokens
+- `src/app/globals.css` — dark + `[data-theme="light"]` CSS vars, radius tokens, UNLAYERED `.max-w-xs..xl` overrides (see Session 12 collision fix)
 - `tailwind.config.ts` — colors → `var(--*)`, radius/shadows
 
 ### Homepage
-- `src/app/page.tsx` — hero, stats strip, value props, demo, events tabs, testimonials, footer CTA
-- `src/components/home-events.tsx` — Live/Upcoming/Past event tabs
+- `src/app/page.tsx` — hero, stats strip, value props, demo, events tabs, gallery slider, testimonials, footer CTA
+- `src/components/home-events.tsx` — Live/Upcoming/Past event tabs (skips compact board when `showPublicLeaderboard === false`)
 - `src/components/event-card.tsx` — poster `object-contain` + directions + prize pool
 
 ### Admin
@@ -392,6 +536,7 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 - `src/app/admin/analytics/page.tsx` — analytics charts
 - `src/app/admin/payments/page.tsx` — payment verification
 - `src/app/admin/artists/page.tsx` — artist list (with avatar + privacy)
+- `src/app/admin/gallery/page.tsx` — gallery manager (photos + video links)
 - `src/lib/admin.ts` — all admin queries
 
 ### Deployment
@@ -423,6 +568,7 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 - Admin analytics "Categories by registrations" chart counts category rows, not registrations
 - Organizer detail "Regs" column shows category count, not registrations
 - Vercel auto-deploy from GitHub occasionally errors with 0ms build (transient infra issue) — `vercel --prod` CLI deploy always works
+- Tailwind `max-w-xs/sm/md/lg/xl` collide with the custom `spacing` tokens under the legacy `@config` (see Session 12). They are patched with unlayered overrides in `globals.css`; if anyone adds a responsive variant (e.g. `md:max-w-md`) the unlayered base rule would win and break it — add a matching `@media` override if that happens.
 
 ### Required env vars for production
 - `DATABASE_URL` — Neon Postgres
@@ -448,6 +594,14 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 - **Next.js 16 rule**: event handlers (onClick, onChange) cannot be used in server components — only client components with `"use client"`
 
 ### Git History (Recent)
+- `93e71e2` — feat(events): redesign event card with judges, leaderboard toggle & gallery
+- `e61344c` — feat(events): add shareable per-event standings page
+- `c961e58` — fix(tailwind): restore named max-w-* scale broken by spacing collision
+- `46979e1` — feat(mc): read-only MC portal with roster, seeds & brackets; broaden MC layouts
+- `ac449aa` — feat(mc): broaden MC/host layout and clarify match view
+- `5929fe9` — feat(bracket): fold lone entries into a 1v1v1 instead of a bye
+- `f5a3b94` — fix(leaderboard,control-room): drop duplicate matchup line; add 3-way 1/2 winner checkboxes
+- `d0b1f37` — fix(control-room): accept empty body in advance-phase to fix Advance button
 - `08bb633` — fix: artist profile hero avatar/cover with plain <img> (next/image no remotePatterns)
 - `97ba45d` — feat: theme toggle, My Works portfolio, professional artist profiles, homepage restructure, poster fit
 - `f65bf35` — feat(signup): only name, username, email & password — battle profile moves to dashboard

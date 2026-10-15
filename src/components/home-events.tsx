@@ -68,9 +68,11 @@ export function HomeEvents({ liveEvents, upcomingEvents, closedEvents }: HomeEve
             ))}
           </div>
           {liveEvents.map((event) => (
-            <div className="mt-lg" key={`${event.id}-board`}>
-              <LiveLeaderboard eventId={event.id} title={`${event.title} — Standings`} compact />
-            </div>
+            event.showPublicLeaderboard === false ? null : (
+              <div className="mt-lg" key={`${event.id}-board`}>
+                <LiveLeaderboard eventId={event.id} title={`${event.title} — Standings`} compact />
+              </div>
+            )
           ))}
         </>
       )}

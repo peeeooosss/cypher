@@ -58,6 +58,40 @@ export const ourFileRouter = {
       fileKey: file.key,
       fileUrl: file.ufsUrl,
     })),
+
+  judgePhotoUploader: f({ image: { maxFileSize: "2MB", maxFileCount: 1 } })
+    .middleware(async ({ files }) => {
+      const user = await requireUser();
+      if (user.role !== "ORGANIZER") throw new UploadThingError("Organizer access required");
+      if (!ALLOWED_IMAGE_TYPES.has(files[0]?.type ?? "")) {
+        throw new UploadThingError("Only JPG, PNG, or WebP images are allowed");
+      }
+      if (files[0]?.size > 2 * 1024 * 1024) {
+        throw new UploadThingError("Image is too large. Keep it under 2MB");
+      }
+      return { userId: user.id };
+    })
+    .onUploadComplete(async ({ file, metadata }) => ({
+      userId: metadata.userId,
+      fileKey: file.key,
+      fileUrl: file.ufsUrl,
+    })),
+
+  galleryImageUploader: f({ image: { maxFileSize: "8MB", maxFileCount: 10 } })
+    .middleware(async ({ files }) => {
+      const user = await requireUser();
+      if (user.role !== "ADMIN") throw new UploadThingError("Admin access required");
+      const oversized = files.some((file) => file.size > 5 * 1024 * 1024);
+      if (oversized) {
+        throw new UploadThingError("Images are too large. Keep each under 5MB");
+      }
+      return { userId: user.id };
+    })
+    .onUploadComplete(async ({ file, metadata }) => ({
+      userId: metadata.userId,
+      fileKey: file.key,
+      fileUrl: file.ufsUrl,
+    })),
 } satisfies FileRouter;
 
 export type OurFileRouter = typeof ourFileRouter;

@@ -11,6 +11,7 @@ const LINKS = [
   { href: "/admin/organizers", label: "Organizations" },
   { href: "/admin/artists", label: "Artists" },
   { href: "/admin/analytics", label: "Analytics" },
+  { href: "/admin/gallery", label: "Gallery" },
   { href: "/admin/feedback", label: "Feedback" },
 ];
 

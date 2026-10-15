@@ -108,6 +108,10 @@ export function EventCardLeaderboard({ eventId, slug }: { eventId: string; slug:
     try {
       const res = await fetch(`/api/events/${eventId}/leaderboard`);
       if (!res.ok) {
+        if (res.status === 403) {
+          setError("Results paused by the organizer.");
+          return;
+        }
         setError(await responseError(res, "Unable to load standings"));
         return;
       }
