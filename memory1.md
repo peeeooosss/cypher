@@ -461,7 +461,7 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 - `npx tsc --noEmit` clean, `npm run lint` 0 errors (6 pre-existing `no-img-element` warnings), `npm run build` exit 0 (routes compiled). DB at 21 migrations.
 
 ### Commits
-- (this session) — feat(events): strict leaderboard hiding + Photos section with judge bios & event highlights
+- `ccbd061` — feat(events): strict leaderboard hiding, Photos section & event highlights
 
 ---
 
@@ -635,7 +635,9 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 - **Next.js 16 rule**: event handlers (onClick, onChange) cannot be used in server components — only client components with `"use client"`
 
 ### Git History (Recent)
+- `ccbd061` — feat(events): strict leaderboard hiding, Photos section & event highlights
 - `784deb1` — feat(events): redesign event card with judges, leaderboard toggle & gallery
+- `af824d8` — docs: record session 13 in memory1.md
 - `e61344c` — feat(events): add shareable per-event standings page
 - `c961e58` — fix(tailwind): restore named max-w-* scale broken by spacing collision
 - `46979e1` — feat(mc): read-only MC portal with roster, seeds & brackets; broaden MC layouts
