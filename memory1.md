@@ -422,7 +422,7 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 - Ran production `next start` smoke: event/standings/gallery pages 200, `/api/gallery` 200, judges API 401 unauthenticated, hero + `#results`/`#categories` sections render.
 
 ### Commits
-- `93e71e2` — feat(events): redesign event card with judges, leaderboard toggle & gallery
+- `784deb1` — feat(events): redesign event card with judges, leaderboard toggle & gallery
 
 ---
 
@@ -594,7 +594,7 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 - **Next.js 16 rule**: event handlers (onClick, onChange) cannot be used in server components — only client components with `"use client"`
 
 ### Git History (Recent)
-- `93e71e2` — feat(events): redesign event card with judges, leaderboard toggle & gallery
+- `784deb1` — feat(events): redesign event card with judges, leaderboard toggle & gallery
 - `e61344c` — feat(events): add shareable per-event standings page
 - `c961e58` — fix(tailwind): restore named max-w-* scale broken by spacing collision
 - `46979e1` — feat(mc): read-only MC portal with roster, seeds & brackets; broaden MC layouts
