@@ -14,6 +14,7 @@ import { responseError } from "@/lib/client-error";
 import { AdvancementStudio } from "@/components/advancement-studio";
 import { StaffCodesTab } from "@/components/staff-codes-tab";
 import { EventJudgesManager, type EventJudgeRecord } from "@/components/event-judges-manager";
+import { EventPhotosManager, type EventPhotoRecord } from "@/components/event-photos-manager";
 import { useToast } from "@/components/ui/toast";
 import type { CategoryFormat, EventStatus, RoundType, RegistrationStatus, PaymentStatus } from "@/generated/prisma/enums";
 
@@ -103,6 +104,7 @@ type EventWithRelations = {
   showPublicLeaderboard: boolean;
   categories: Category[];
   judges: EventJudgeRecord[];
+  eventPhotos: EventPhotoRecord[];
   judgeSlots: JudgeSlotWithCategory[];
   scheduleItems: EventScheduleItem[];
   notices: EventNotice[];
@@ -149,7 +151,7 @@ type RegistrationRow = {
   members?: Array<{ id: string; userId: string; role: string; status: string; user: { id: string; name: string | null; username: string | null; whatsappNumber: string | null } }>;
 };
 
-const TABS = ["Overview", "Event Info", "Schedule", "Notices", "Categories", "Judges", "Registrations", "Prizes", "Leaderboard", "MC / Host", "Control Room"] as const;
+const TABS = ["Overview", "Event Info", "Schedule", "Notices", "Categories", "Judges", "Photos", "Registrations", "Prizes", "Leaderboard", "MC / Host", "Control Room"] as const;
 
 const STATUS_OPTIONS: EventStatus[] = ["DRAFT", "PUBLISHED", "LIVE", "COMPLETED"];
 
@@ -289,13 +291,41 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
         <CategoriesTab event={event} refresh={refreshControlRoom} refreshing={refreshing} />
       )}
       {resolvedTab === "Judges" && (
-        <div className="space-y-xl">
-          <EventJudgesManager
-            eventId={event.id}
-            initialJudges={event.judges ?? []}
-            onChanged={() => void refreshControlRoom()}
-          />
-          <JudgesTab event={event} refresh={refreshControlRoom} />
+        <JudgesTab event={event} refresh={refreshControlRoom} />
+      )}
+      {resolvedTab === "Photos" && (
+        <div className="space-y-section">
+          {!isWorkshopType(event.eventType) ? (
+            <section>
+              <div className="mb-lg">
+                <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent">Photos</p>
+                <h3 className="mt-xs font-display text-title-lg uppercase">Judge bio &amp; photo</h3>
+                <p className="mt-xs text-body-sm text-ink-muted">
+                  These judges appear with photo and bio on the public event page.
+                </p>
+              </div>
+              <EventJudgesManager
+                eventId={event.id}
+                initialJudges={event.judges ?? []}
+                onChanged={() => void refreshControlRoom()}
+              />
+            </section>
+          ) : null}
+          <section>
+            <div className="mb-lg">
+              <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent">Photos</p>
+              <h3 className="mt-xs font-display text-title-lg uppercase">Event highlights</h3>
+              <p className="mt-xs text-body-sm text-ink-muted">
+                Up to 6 photos (each under 3.5MB) from your event — shown on the event page and the
+                public gallery.
+              </p>
+            </div>
+            <EventPhotosManager
+              eventId={event.id}
+              initialPhotos={event.eventPhotos ?? []}
+              onChanged={() => void refreshControlRoom()}
+            />
+          </section>
         </div>
       )}
       {resolvedTab === "Registrations" && (

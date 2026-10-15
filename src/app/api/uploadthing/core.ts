@@ -59,15 +59,35 @@ export const ourFileRouter = {
       fileUrl: file.ufsUrl,
     })),
 
-  judgePhotoUploader: f({ image: { maxFileSize: "2MB", maxFileCount: 1 } })
+  judgePhotoUploader: f({ image: { maxFileSize: "4MB", maxFileCount: 1 } })
     .middleware(async ({ files }) => {
       const user = await requireUser();
       if (user.role !== "ORGANIZER") throw new UploadThingError("Organizer access required");
       if (!ALLOWED_IMAGE_TYPES.has(files[0]?.type ?? "")) {
         throw new UploadThingError("Only JPG, PNG, or WebP images are allowed");
       }
-      if (files[0]?.size > 2 * 1024 * 1024) {
-        throw new UploadThingError("Image is too large. Keep it under 2MB");
+      if (files[0]?.size > 3.5 * 1024 * 1024) {
+        throw new UploadThingError("Image is too large. Keep it under 3.5MB");
+      }
+      return { userId: user.id };
+    })
+    .onUploadComplete(async ({ file, metadata }) => ({
+      userId: metadata.userId,
+      fileKey: file.key,
+      fileUrl: file.ufsUrl,
+    })),
+
+  eventPhotoUploader: f({ image: { maxFileSize: "4MB", maxFileCount: 6 } })
+    .middleware(async ({ files }) => {
+      const user = await requireUser();
+      if (user.role !== "ORGANIZER") throw new UploadThingError("Organizer access required");
+      const invalid = files.some((file) => !ALLOWED_IMAGE_TYPES.has(file.type));
+      if (invalid) {
+        throw new UploadThingError("Only JPG, PNG, or WebP images are allowed");
+      }
+      const oversized = files.some((file) => file.size > 3.5 * 1024 * 1024);
+      if (oversized) {
+        throw new UploadThingError("Images are too large. Keep each under 3.5MB");
       }
       return { userId: user.id };
     })

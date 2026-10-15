@@ -306,6 +306,7 @@ model Event {
   staffCodes                  EventStaffCode[]
   judges                      EventJudge[]
   galleryItems                GalleryItem[]
+  eventPhotos                 EventPhoto[]
   showPublicLeaderboard       Boolean                  @default(true)
   createdAt                   DateTime      @default(now())
   updatedAt                   DateTime      @updatedAt
@@ -920,4 +921,19 @@ model GalleryItem {
 
   @@index([isPublished, displayOrder])
   @@index([eventId])
+}
+
+model EventPhoto {
+  id          String   @id @default(cuid())
+  eventId     String
+  caption     String?  @db.Text
+  photoUrl    String
+  photoFileKey String?
+  displayOrder Int     @default(0)
+  isPublic    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId, displayOrder])
 }

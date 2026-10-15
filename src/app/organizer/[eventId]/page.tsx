@@ -29,6 +29,7 @@ export default async function OrganizerEventPage({ params }: PageProps) {
         orderBy: { name: "asc" },
       },
       judges: { orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }] },
+      eventPhotos: { orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }] },
       judgeSlots: {
         select: {
           id: true,

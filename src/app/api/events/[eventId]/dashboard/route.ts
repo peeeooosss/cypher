@@ -31,6 +31,7 @@ export async function GET(_: Request, { params }: DashboardRouteContext) {
           orderBy: { name: "asc" },
         },
         judges: { orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }] },
+        eventPhotos: { orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }] },
         judgeSlots: {
           select: {
             id: true,

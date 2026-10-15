@@ -16,12 +16,36 @@ export default async function GalleryPage({ searchParams }: { searchParams: Sear
   const { type } = await searchParams;
   const filter = type === "VIDEO" ? "VIDEO" : type === "PHOTO" ? "PHOTO" : undefined;
 
-  const items = await prisma.galleryItem.findMany({
-    where: { isPublished: true, ...(filter ? { type: filter } : {}) },
-    include: { event: { select: { id: true, title: true, slug: true } } },
-    orderBy: [{ displayOrder: "asc" }, { createdAt: "desc" }],
-    take: 120,
-  });
+  const [galleryItems, eventPhotos] = await Promise.all([
+    prisma.galleryItem.findMany({
+      where: { isPublished: true, ...(filter ? { type: filter } : {}) },
+      include: { event: { select: { id: true, title: true, slug: true } } },
+      orderBy: [{ displayOrder: "asc" }, { createdAt: "desc" }],
+      take: 120,
+    }),
+    filter === "VIDEO"
+      ? []
+      : prisma.eventPhoto.findMany({
+          where: { isPublic: true },
+          include: { event: { select: { id: true, title: true, slug: true } } },
+          orderBy: { createdAt: "desc" },
+          take: 60,
+        }),
+  ]);
+
+  const items = [
+    ...galleryItems,
+    ...eventPhotos.map((photo) => ({
+      id: photo.id,
+      type: "PHOTO" as const,
+      url: photo.photoUrl,
+      thumbnailUrl: null,
+      sourceLink: null,
+      title: photo.caption,
+      caption: photo.caption,
+      event: photo.event,
+    })),
+  ].slice(0, 180);
 
   const tabs = [
     { label: "All", href: "/gallery", active: !filter },

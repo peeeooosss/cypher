@@ -19,20 +19,57 @@ export async function GET(request: Request) {
     });
     if (!parsed.success) return badRequest("Invalid gallery filters");
 
-    const items = await prisma.galleryItem.findMany({
-      where: {
-        isPublished: true,
-        ...(parsed.data.featured ? { isFeaturedHomepage: true } : {}),
-        ...(parsed.data.type ? { type: parsed.data.type } : {}),
-      },
-      include: {
-        event: { select: { id: true, title: true, slug: true } },
-      },
-      orderBy: [{ displayOrder: "asc" }, { createdAt: "desc" }],
-      take: parsed.data.limit ?? 60,
-    });
+    const take = parsed.data.limit ?? 60;
+    const includeEventPhotos = !parsed.data.featured && parsed.data.type !== "VIDEO";
 
-    return NextResponse.json(items);
+    const [galleryItems, eventPhotos] = await Promise.all([
+      prisma.galleryItem.findMany({
+        where: {
+          isPublished: true,
+          ...(parsed.data.featured ? { isFeaturedHomepage: true } : {}),
+          ...(parsed.data.type ? { type: parsed.data.type } : {}),
+        },
+        include: {
+          event: { select: { id: true, title: true, slug: true } },
+        },
+        orderBy: [{ displayOrder: "asc" }, { createdAt: "desc" }],
+        take,
+      }),
+      includeEventPhotos
+        ? prisma.eventPhoto.findMany({
+            where: { isPublic: true },
+            include: {
+              event: { select: { id: true, title: true, slug: true } },
+            },
+            orderBy: { createdAt: "desc" },
+            take,
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const merged = [
+      ...galleryItems,
+      ...eventPhotos.map((photo) => ({
+        id: photo.id,
+        title: photo.caption,
+        caption: photo.caption,
+        type: "PHOTO" as const,
+        url: photo.photoUrl,
+        fileKey: photo.photoFileKey,
+        thumbnailUrl: null,
+        sourceLink: null,
+        eventId: photo.eventId,
+        isFeaturedHomepage: false,
+        displayOrder: photo.displayOrder,
+        isPublished: photo.isPublic,
+        createdById: null,
+        event: photo.event,
+        createdAt: photo.createdAt,
+        updatedAt: photo.updatedAt,
+      })),
+    ].slice(0, take);
+
+    return NextResponse.json(merged);
   } catch (error) {
     console.error(error);
     return serverError();

@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useUploadThing } from "@/lib/uploadthing";
 
-const MAX_FILE_BYTES = 2 * 1024 * 1024;
+const MAX_FILE_BYTES = 3.5 * 1024 * 1024;
 
 export function JudgePhotoUpload({
   initial,
@@ -28,7 +28,7 @@ export function JudgePhotoUpload({
       return;
     }
     if (file.size > MAX_FILE_BYTES) {
-      setError("Image is too large. Keep it under 2MB.");
+      setError("Image is too large. Keep it under 3.5MB.");
       return;
     }
     setPreview(URL.createObjectURL(file));
@@ -75,7 +75,7 @@ export function JudgePhotoUpload({
       ) : (
         <label className="block cursor-pointer border border-dashed border-line px-md py-lg text-center text-body-sm text-ink-muted transition-colors hover:border-accent">
           <span className="font-mono text-[0.7rem] uppercase tracking-[0.1em]">
-            {uploading ? "Uploading..." : "Upload judge photo"}
+            {uploading ? "Uploading..." : "Upload judge photo (max 3.5MB)"}
           </span>
           <input
             ref={inputRef}

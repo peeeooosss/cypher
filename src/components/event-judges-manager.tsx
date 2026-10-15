@@ -166,13 +166,7 @@ export function EventJudgesManager({
 
   return (
     <div className="border border-line p-lg">
-      <div className="flex flex-wrap items-center justify-between gap-md">
-        <div>
-          <p className="font-display text-title-md uppercase">Event judges — public card</p>
-          <p className="mt-xs text-body-sm text-ink-muted">
-            These judges appear with photo and bio on the public event page.
-          </p>
-        </div>
+      <div className="flex flex-wrap items-center justify-end gap-md">
         <button
           type="button"
           onClick={startNew}

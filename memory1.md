@@ -426,6 +426,45 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 
 ---
 
+## Session 14: Strict Leaderboard Hiding, Photos Dashboard Section, Event Highlights
+
+### User requirements
+- When the organizer hides the leaderboard it must be hidden for **everyone** except the organizer — visitors, signed-in users and registered artists all lose access (competitions sometimes don't want winners shown). Admins keep access for support.
+- Judge **bio & photo** must live in a new dashboard **Photos** section, not in the judge-code-generation (Judges) section.
+- New organizer dashboard section **Photos** with two subsections: **Judge bio & photo** and **Event highlights** — the organizer can upload event photos, each **under 3.5MB**.
+
+### 1. Strict leaderboard hiding (`src/lib/leaderboard-access.ts`)
+- `canViewLeaderboard` rewritten: public while `showPublicLeaderboard`; once hidden only `ADMIN` and the event's own `ORGANIZER` pass. Removed the registered-artist lookup (and the unused `prisma` import). `eventId` kept for signature stability but unused.
+- Call sites unchanged (API, `/live`, `/standings`, homepage skip, 403 `LEADERBOARD_HIDDEN` handling). Event page `canViewBoard` changed from `... || registeredCategoryIds.size > 0` to `... || isOwner || isAdmin`.
+- Artist **own** personal scores are unaffected: they render from the `/artist` server page (`artist-event-card` → `artist-scoreboard`), which never touches the gated aggregate leaderboard route.
+- Verified via prod `next start`: anonymous `/api/events/<id>/leaderboard` → 403 `LEADERBOARD_HIDDEN`; `/standings` + `/live` show "Results paused"; flipping `showPublicLeaderboard` true → 200 with no paused text, then restored.
+
+### 2. Dashboard Photos section
+- `event-dashboard.tsx`: added `"Photos"` to `TABS` (after `"Judges"`). `EventJudgesManager` moved out of the Judges tab into Photos under the subsection **Judge bio & photo**; the Judges tab now holds only `JudgesTab` (codes/slots). Photos is visible for workshop events too, but the judge-bio subsection is hidden for workshops.
+- `EventJudgesManager` internal duplicate heading removed (the Photos subsection provides it).
+- `judgePhotoUploader` limit raised 2MB → **3.5MB** (`core.ts` config `4MB`, middleware 3.5MB; `judge-photo-upload.tsx` client guard + copy updated).
+
+### 3. Event highlights (`EventPhoto`, max 6, ≤3.5MB, event page + global gallery)
+- **Schema**: `model EventPhoto` (`eventId` Cascade, `caption?`, `photoUrl`, `photoFileKey?`, `displayOrder`, `isPublic`, timestamps, `@@index([eventId, displayOrder])`) + `Event.eventPhotos`. Migration `20261016000000_event_highlights` (hand-written SQL + `prisma migrate deploy`, 21 migrations total).
+- **UploadThing**: new `eventPhotoUploader` (ORGANIZER, up to 6 files, config 4MB, middleware enforces 3.5MB + JPG/PNG/WebP).
+- **APIs** (organizer-scoped via `getEventForOwner`, UploadThing-URL enforced, file cleanup on replace/delete): `GET/POST /api/events/[eventId]/photos` (POST 400s past `MAX_EVENT_PHOTOS = 6`) + `PATCH/DELETE /api/events/[eventId]/photos/[photoId]`.
+- **Dashboard**: new `event-photos-manager.tsx` (grid, "N of 6 · X left" hint, add form with optional caption, inline caption edit (blur→PATCH), Show/Hide, Delete). Wired as the **Event highlights** subsection; `EventWithRelations` + dashboard/organizer queries include `eventPhotos`.
+- **Public surfaces**: event page includes public `eventPhotos`, merges them (mapped as `type: "PHOTO"`, caption→title) **ahead of** `galleryItems` into `EventGalleryStrip`; sub-nav Gallery shows when either source is non-empty. `GET /api/gallery` and `/gallery` also return public highlight photos (founder-curated items first, highlights appended by recency; `featured` and `type=VIDEO` filters exclude highlights since they're photos).
+- Verified via prod smoke: `/photos` all four methods 401 anonymous; `/`, `/gallery`, `/api/gallery`, `/events/<slug>` 200.
+
+### Known constraints / notes
+- Founder's admin gallery manager still manages `GalleryItem` only; organizer highlights surface automatically (organizer controls their own visibility via `isPublic`).
+- Homepage featured slider remains founder-curated (`GalleryItem.isFeaturedHomepage`); highlights are not featured there.
+- Playwright still not run locally (needs `E2E_DATABASE_URL`).
+
+### Build / verification
+- `npx tsc --noEmit` clean, `npm run lint` 0 errors (6 pre-existing `no-img-element` warnings), `npm run build` exit 0 (routes compiled). DB at 21 migrations.
+
+### Commits
+- (this session) — feat(events): strict leaderboard hiding + Photos section with judge bios & event highlights
+
+---
+
 ## Key Files Reference (Updated)
 
 ### Schema
@@ -459,11 +498,13 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 - `src/app/page.tsx` — homepage with event cards + gallery slider
 
 ### Event Presentation (Judges + Leaderboard toggle)
-- `src/lib/leaderboard-access.ts` — `canViewLeaderboard`, `LEADERBOARD_HIDDEN_CODE`, `leaderboardHiddenResponse()`
+- `src/lib/leaderboard-access.ts` — `canViewLeaderboard` (public, else only ADMIN + owning organizer), `LEADERBOARD_HIDDEN_CODE`, `leaderboardHiddenResponse()`
 - `src/app/api/events/[eventId]/judges/route.ts` + `.../judges/[judgeId]/route.ts` — judge CRUD (organizer)
+- `src/app/api/events/[eventId]/photos/route.ts` + `.../photos/[photoId]/route.ts` — event highlight photos CRUD (organizer, max 6)
 - `src/components/event-hero.tsx`, `event-countdown.tsx`, `event-sub-nav.tsx`, `section-heading.tsx` — event card chrome
 - `src/components/event-judges.tsx`, `event-categories.tsx`, `event-schedule.tsx`, `event-info-accordion.tsx`, `event-aside.tsx`, `event-gallery-strip.tsx` — event card sections
-- `src/components/event-judges-manager.tsx` + `judge-photo-upload.tsx` — dashboard judges manager
+- `src/components/event-judges-manager.tsx` + `judge-photo-upload.tsx` — dashboard Judges-tab judge manager (now rendered under Photos → Judge bio & photo)
+- `src/components/event-photos-manager.tsx` — dashboard Photos → Event highlights manager
 
 ### Gallery
 - `src/app/gallery/page.tsx` — public gallery (All/Photos/Videos)

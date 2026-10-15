@@ -68,6 +68,10 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
         orderBy: [{ displayOrder: "asc" }, { createdAt: "desc" }],
         take: 8,
       },
+      eventPhotos: {
+        where: { isPublic: true },
+        orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }],
+      },
     },
   });
 
@@ -94,8 +98,8 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
   const isLive = event.status === EventStatus.LIVE;
   const isCompleted = event.status === EventStatus.COMPLETED;
 
-  const canViewBoard =
-    event.showPublicLeaderboard || isOwner || registeredCategoryIds.size > 0;
+  const isAdmin = user?.role === "ADMIN";
+  const canViewBoard = event.showPublicLeaderboard || isOwner || isAdmin;
   const showBoard = (isLive || isCompleted) && !workshop && canViewBoard;
   const boardPaused = (isLive || isCompleted) && !workshop && !canViewBoard;
 
@@ -149,11 +153,28 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
     { id: "judges", label: "Judges", show: judges.length > 0 },
     { id: "categories", label: workshop ? "Sessions" : "Categories", show: true },
     { id: "schedule", label: "Schedule", show: event.scheduleItems.length > 0 },
-    { id: "gallery", label: "Gallery", show: event.galleryItems.length > 0 },
+    { id: "gallery", label: "Gallery", show: event.galleryItems.length > 0 || event.eventPhotos.length > 0 },
     { id: "notices", label: "Notices", show: event.notices.length > 0 },
     { id: "info", label: "Info", show: infoSections.some((s) => s.body && s.body.trim()) },
     { id: "results", label: "Results", show: showBoard || boardPaused },
   ].filter((link) => link.show);
+
+  const galleryStripItems = [
+    ...event.eventPhotos.map((photo) => ({
+      id: photo.id,
+      type: "PHOTO" as const,
+      url: photo.photoUrl,
+      thumbnailUrl: null as string | null,
+      title: photo.caption,
+    })),
+    ...event.galleryItems.map((item) => ({
+      id: item.id,
+      type: item.type,
+      url: item.url,
+      thumbnailUrl: item.thumbnailUrl,
+      title: item.title,
+    })),
+  ];
 
   return (
     <main className="min-h-screen bg-paper pb-24 md:pb-0">
@@ -235,7 +256,7 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
 
             <EventSchedule items={event.scheduleItems} />
 
-            <EventGalleryStrip items={event.galleryItems} />
+            <EventGalleryStrip items={galleryStripItems} />
 
             {event.notices.length > 0 ? (
               <section id="notices" aria-label="Notices" className="scroll-mt-24">
