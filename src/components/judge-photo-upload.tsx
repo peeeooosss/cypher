@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useUploadThing } from "@/lib/uploadthing";
+import { UploadProgress, type UploadStatus } from "@/components/ui/upload-progress";
 
 const MAX_FILE_BYTES = 3.5 * 1024 * 1024;
 
@@ -16,40 +17,60 @@ export function JudgePhotoUpload({
   const [preview, setPreview] = useState<string | null>(initial ?? null);
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [status, setStatus] = useState<UploadStatus>("idle");
+  const [progress, setProgress] = useState(0);
   const { startUpload } = useUploadThing("judgePhotoUploader", {
-    onUploadError: (uploadError) => setError(uploadError.message || "Upload failed."),
+    uploadProgressGranularity: "fine",
+    onUploadBegin: () => {
+      setStatus("uploading");
+      setProgress(0);
+      setError("");
+    },
+    onUploadProgress: (p) => setProgress(p),
+    onUploadError: (uploadError) => {
+      setStatus("error");
+      setError(uploadError.message || "Upload failed.");
+    },
   });
 
   async function handleFile(file: File | undefined) {
     setError("");
     if (!file) return;
     if (!file.type.startsWith("image/")) {
+      setStatus("error");
       setError("Please choose an image file.");
       return;
     }
     if (file.size > MAX_FILE_BYTES) {
+      setStatus("error");
       setError("Image is too large. Keep it under 3.5MB.");
       return;
     }
     setPreview(URL.createObjectURL(file));
     setUploading(true);
+    setStatus("uploading");
+    setProgress(0);
 
     try {
       const uploaded = await startUpload([file]);
       const result = uploaded?.[0];
       if (!result) {
         setPreview(initial ?? null);
+        setStatus("error");
         setError("Upload failed. Please try again.");
         return;
       }
 
       setPreview(result.ufsUrl);
+      setStatus("success");
       onChange(result.ufsUrl, result.key);
     } catch {
       setPreview(initial ?? null);
+      setStatus("error");
       setError("Upload failed. Please try again.");
     } finally {
       setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
     }
   }
 
@@ -66,6 +87,8 @@ export function JudgePhotoUpload({
             onClick={() => {
               setPreview(null);
               onChange(null, null);
+              setStatus("idle");
+              setError("");
               if (inputRef.current) inputRef.current.value = "";
             }}
           >
@@ -87,7 +110,12 @@ export function JudgePhotoUpload({
           />
         </label>
       )}
-      {error ? <p className="text-body-sm text-accent">{error}</p> : null}
+      <UploadProgress
+        status={status}
+        progress={progress}
+        successLabel="Photo uploaded"
+        errorLabel={error || undefined}
+      />
     </div>
   );
 }

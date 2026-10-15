@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useUploadThing } from "@/lib/uploadthing";
 import { responseError } from "@/lib/client-error";
 import { useToast } from "@/components/ui/toast";
+import { UploadProgress, type UploadStatus } from "@/components/ui/upload-progress";
 
 const MAX_EVENT_PHOTOS = 6;
 const MAX_BYTES = 3.5 * 1024 * 1024;
@@ -34,10 +35,22 @@ export function EventPhotosManager({
   const [adding, setAdding] = useState(false);
   const [caption, setCaption] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [status, setStatus] = useState<UploadStatus>("idle");
+  const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const { startUpload } = useUploadThing("eventPhotoUploader", {
-    onUploadError: (e) => toast(e.message || "Upload failed.", "error"),
+    uploadProgressGranularity: "fine",
+    onUploadBegin: () => {
+      setStatus("uploading");
+      setProgress(0);
+      setError("");
+    },
+    onUploadProgress: (p) => setProgress(p),
+    onUploadError: (e) => {
+      setStatus("error");
+      setError(e.message || "Upload failed.");
+    },
   });
 
   const remaining = MAX_EVENT_PHOTOS - photos.length;
@@ -46,27 +59,34 @@ export function EventPhotosManager({
     setError("");
     if (!file) return;
     if (!file.type.startsWith("image/")) {
+      setStatus("error");
       setError("Please choose an image file (JPG, PNG or WebP).");
       return;
     }
     if (file.size > MAX_BYTES) {
+      setStatus("error");
       setError("Image is too large. Keep it under 3.5MB.");
       return;
     }
     if (remaining <= 0) {
+      setStatus("error");
       setError(`Maximum of ${MAX_EVENT_PHOTOS} photos per event. Remove one first.`);
       return;
     }
 
     setUploading(true);
+    setStatus("uploading");
+    setProgress(0);
     try {
       const uploaded = await startUpload([file]);
       const result = uploaded?.[0];
       if (!result) {
+        setStatus("error");
         setError("Upload failed. Please try again.");
         return;
       }
 
+      setStatus("saving");
       const res = await fetch(`/api/events/${eventId}/photos`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -81,10 +101,11 @@ export function EventPhotosManager({
       const photo = (await res.json()) as EventPhotoRecord;
       setPhotos((prev) => [...prev, photo]);
       setCaption("");
-      setAdding(false);
+      setStatus("success");
       toast("Photo added", "success");
       onChanged();
     } catch (err) {
+      setStatus("error");
       setError(err instanceof Error ? err.message : "Failed to add photo");
     } finally {
       setUploading(false);
@@ -130,7 +151,12 @@ export function EventPhotosManager({
         <button
           type="button"
           disabled={remaining <= 0}
-          onClick={() => setAdding((v) => !v)}
+          onClick={() => {
+            setAdding((v) => !v);
+            setStatus("idle");
+            setProgress(0);
+            setError("");
+          }}
           className="border border-accent bg-accent px-md py-sm font-bold uppercase text-paper disabled:opacity-50"
         >
           + Add photo
@@ -141,7 +167,13 @@ export function EventPhotosManager({
         <div className="mt-lg border border-accent bg-paper-soft p-md">
           <label className="block cursor-pointer border border-dashed border-line px-md py-lg text-center text-body-sm text-ink-muted transition-colors hover:border-accent">
             <span className="font-mono text-[0.7rem] uppercase tracking-[0.1em]">
-              {uploading ? "Uploading..." : "Choose photo (max 3.5MB)"}
+              {uploading
+                ? status === "saving"
+                  ? "Saving..."
+                  : "Uploading..."
+                : status === "success"
+                  ? "Add another photo (max 3.5MB)"
+                  : "Choose photo (max 3.5MB)"}
             </span>
             <input
               ref={inputRef}
@@ -152,6 +184,7 @@ export function EventPhotosManager({
               onChange={(e) => void handleFile(e.target.files?.[0])}
             />
           </label>
+          <UploadProgress status={status} progress={progress} errorLabel={error || undefined} />
           <input
             className="mt-sm w-full border border-line bg-paper px-md py-sm text-body-sm"
             value={caption}
@@ -161,17 +194,19 @@ export function EventPhotosManager({
           <div className="mt-sm flex justify-end">
             <button
               type="button"
+              disabled={uploading}
               onClick={() => {
                 setAdding(false);
                 setError("");
                 setCaption("");
+                setStatus("idle");
+                setProgress(0);
               }}
-              className="border border-line px-md py-sm text-button-md font-bold uppercase hover:border-accent"
+              className="border border-line px-md py-sm text-button-md font-bold uppercase hover:border-accent disabled:opacity-50"
             >
               Done
             </button>
           </div>
-          {error ? <p className="mt-sm text-body-sm text-accent">{error}</p> : null}
         </div>
       ) : null}
 
