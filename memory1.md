@@ -510,7 +510,7 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 - Playwright still not run locally (needs `E2E_DATABASE_URL`).
 
 ### Commits
-- (this session) — feat: TRIO format, GROUP min-4, upload progress everywhere, organizer bio, auditions
+- `f9aef62` — feat: TRIO format, GROUP min-4, upload progress everywhere, organizer bio, auditions
 
 ---
 
@@ -684,6 +684,8 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 - **Next.js 16 rule**: event handlers (onClick, onChange) cannot be used in server components — only client components with `"use client"`
 
 ### Git History (Recent)
+- `f9aef62` — feat: TRIO format, GROUP min-4, upload progress everywhere, organizer bio, auditions
+- `62d4bc1` — feat: add upload progress + success/failure status for photos
 - `ccbd061` — feat(events): strict leaderboard hiding, Photos section & event highlights
 - `784deb1` — feat(events): redesign event card with judges, leaderboard toggle & gallery
 - `af824d8` — docs: record session 13 in memory1.md
