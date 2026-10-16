@@ -595,7 +595,7 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 - Non-audition event register page keeps existing redirect behavior (no regression).
 
 ### Commits
-- (to be committed and pushed after this entry is written)
+- `6071aa6` — feat(born-to-dance): register page video guide + public view for anonymous visitors
 
 ---
 
@@ -769,6 +769,8 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 - **Next.js 16 rule**: event handlers (onClick, onChange) cannot be used in server components — only client components with `"use client"`
 
 ### Git History (Recent)
+- `6071aa6` — feat(born-to-dance): register page video guide + public view for anonymous visitors
+- `232029b` — fix(born-to-dance): unified structured WhatsApp message on all cart paths; VERIFY NOW; wa.me digit fix
 - `9e88713` — fix(born-to-dance): unified structured WhatsApp message on all cart paths; VERIFY NOW; wa.me digit fix
 - `11506ca` — feat(admin): events roster with phone numbers, copy buttons + XLSX export
 - `f71e22c` — feat(born-to-dance): structured multi-line WhatsApp verification message
