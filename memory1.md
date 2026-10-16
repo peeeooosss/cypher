@@ -538,7 +538,7 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 - Prod smoke: `/`, event pages, register page, `/api/gallery` 200; dormant audition APIs 401; `born-to-dance` page has no generic auditions section; no `Auditions` tab/dashboard references remain in `src` outside dormant APIs + custom flow.
 
 ### Commits
-- (this session) — feat(born-to-dance): custom offline/online audition register flow; remove generic auditions tab
+- `5e8b747` — feat(born-to-dance): custom offline/online audition register flow; remove generic auditions tab
 
 ---
 
@@ -712,6 +712,7 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 - **Next.js 16 rule**: event handlers (onClick, onChange) cannot be used in server components — only client components with `"use client"`
 
 ### Git History (Recent)
+- `5e8b747` — feat(born-to-dance): custom offline/online audition register flow; remove generic auditions tab
 - `f9aef62` — feat: TRIO format, GROUP min-4, upload progress everywhere, organizer bio, auditions
 - `62d4bc1` — feat: add upload progress + success/failure status for photos
 - `ccbd061` — feat(events): strict leaderboard hiding, Photos section & event highlights
