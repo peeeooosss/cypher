@@ -635,6 +635,35 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 
 ---
 
+## Session 20: Born-to-Dance Participant Address (All Categories)
+
+### User requirements
+- Add an **Address** field for **all categories** (SOLO/DUO/TRIO/GROUP) in the born-to-dance flow.
+
+### Decisions
+- Scope: born-to-dance only, **required** (mirrors the Choreographer field). Stored on `Registration`, surfaced in the organizer Registrations tab + admin XLSX.
+
+### Changes
+- **Schema/migration**: `Registration.address String?`; new `prisma/migrations/20261018000001_registration_address/migration.sql` (`ALTER TABLE "Registration" ADD COLUMN "address" TEXT;`). Applied via `prisma migrate deploy` (25 migrations) + `prisma generate`.
+- **`src/app/api/registrations/route.ts`**: `registrationSchema` gains `address` (max 240); requires it for born-to-dance; stored on create.
+- **`src/components/registration-form.tsx`**: `address` state + input in the Entry-details block (all formats); validates + pushes `addr` to the cart.
+- **`src/components/cart-submit.tsx`**: `address` prop → POST body.
+- **`src/app/cart/page.tsx`**: `addr` search param → `CartSubmit`, summary card ("Address: …"), and both structured WhatsApp messages; included in the `CartCategoryList` mapping.
+- **`src/components/cart-claim.tsx`**: `CartRegistration.address?` forwarded to the structured message.
+- **`src/lib/audition-events.ts`**: `buildStructuredVerifyMessage` accepts optional `address` and emits an `Address: <value>` line.
+- **`src/components/event-dashboard.tsx`**: `RegistrationRow.address`; new **Address** column; search index includes it.
+- **`src/lib/admin.ts` + `src/components/admin-event-roster.tsx`**: `AdminRosterRow.address`; table + XLSX add an **ADDRESS** column (XLSX order: NAME/PHONE/CATEGORY/TEAM/CHOREOGRAPHER/ADDRESS/PAYMENT/STATUS).
+- **`src/components/audition-registration-guide.tsx`**: SOLO + DUO/TRIO/GROUP steps mention the address.
+
+### Build / verification
+- `tsc` clean; `lint` 0 errors (6 pre-existing warnings); `next build` exit 0.
+- DB check: `Registration.address` column present.
+
+### Commits
+- `ebe5c77` — feat(born-to-dance): collect participant address for all categories
+
+---
+
 ## Key Files Reference (Updated)
 
 ### Schema
@@ -805,6 +834,7 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 - **Next.js 16 rule**: event handlers (onClick, onChange) cannot be used in server components — only client components with `"use client"`
 
 ### Git History (Recent)
+- `ebe5c77` — feat(born-to-dance): collect participant address for all categories
 - `8165f78` — feat(born-to-dance): captain-only crew entries with choreographer + callable phone
 - `6071aa6` — feat(born-to-dance): register page video guide + public view for anonymous visitors
 - `232029b` — fix(born-to-dance): unified structured WhatsApp message on all cart paths; VERIFY NOW; wa.me digit fix
