@@ -3,9 +3,10 @@ import Link from "next/link";
 import { ArtistIdentityBox } from "@/components/artist-identity-box";
 import { AuditionRegisterFlow } from "@/components/audition-register-flow";
 import { RegistrationForm } from "@/components/registration-form";
+import { AuditionRegistrationGuide } from "@/components/audition-registration-guide";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/rbac";
-import { isCustomAuditionEvent } from "@/lib/audition-events";
+import { CUSTOM_AUDITION_EVENT_SLUG, isCustomAuditionEvent } from "@/lib/audition-events";
 import { EventStatus } from "@/generated/prisma/enums";
 
 export const dynamic = "force-dynamic";
@@ -15,14 +16,6 @@ type RegisterPageContext = { params: Promise<{ slug: string }> };
 export default async function RegisterPage({ params }: RegisterPageContext) {
   const { slug } = await params;
   const user = await getCurrentUser();
-
-  if (!user) {
-    redirect(`/login?callbackUrl=${encodeURIComponent(`/events/${slug}/register`)}`);
-  }
-
-  if (user.role !== "ARTIST") {
-    redirect("/");
-  }
 
   const event = await prisma.event.findUnique({
     where: { slug },
@@ -48,6 +41,74 @@ export default async function RegisterPage({ params }: RegisterPageContext) {
 
   if (!event) {
     notFound();
+  }
+
+  const useAuditionFlow = isCustomAuditionEvent(event.slug);
+  const isAuditionEvent = event.slug === CUSTOM_AUDITION_EVENT_SLUG;
+
+  if (!user) {
+    if (isAuditionEvent) {
+      const isOpen = event.status === EventStatus.PUBLISHED || event.status === EventStatus.LIVE;
+      const loginCallback = `/events/${slug}/register`;
+
+      return (
+        <main className="min-h-screen bg-paper">
+          <div className="mx-auto max-w-4xl px-md py-section md:px-xl">
+            <Link
+              href={`/events/${event.slug}`}
+              className="font-mono text-body-sm uppercase text-ink-muted hover:text-accent"
+            >
+              &larr; Back to event
+            </Link>
+            <p className="mt-lg font-mono text-body-sm uppercase tracking-[0.18em] text-accent">
+              Register
+            </p>
+            <h1 className="mt-sm font-display text-display-xl uppercase leading-tight tracking-[-0.03em]">
+              {event.title}
+            </h1>
+            <p className="mt-md text-body-sm text-ink-muted">
+              Pick the categories you want to enter, then pay the organizer to confirm your spot.
+            </p>
+            <AuditionRegistrationGuide contactDetails={event.contactDetails} />
+            <div className="mt-section border border-line bg-paper-soft p-lg">
+              <p className="font-display text-title-sm uppercase">Sign in to continue</p>
+              <p className="mt-xs text-body-sm text-ink-muted">
+                You’ll need a CYPHR artist account to register for Born to Dance. Sign in if you already have one, or create a new account.
+              </p>
+              <div className="mt-md flex flex-wrap gap-sm">
+                <Link
+                  href={`/login?callbackUrl=${encodeURIComponent(loginCallback)}`}
+                  className="border border-accent bg-accent px-md py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper transition-opacity hover:opacity-80"
+                >
+                  Sign in
+                </Link>
+                <Link
+                  href="/signup"
+                  className="border border-line px-md py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-ink-muted transition-colors hover:border-accent hover:text-accent"
+                >
+                  Create account
+                </Link>
+              </div>
+            </div>
+            {!isOpen && (
+              <div className="mt-lg border border-line p-lg">
+                <p className="font-display text-title-md uppercase text-ink-muted">
+                  Registration closed
+                </p>
+                <p className="mt-sm text-body-sm text-ink-muted">
+                  Registrations are not open for this event right now.
+                </p>
+              </div>
+            )}
+          </div>
+        </main>
+      );
+    }
+    redirect(`/login?callbackUrl=${encodeURIComponent(`/events/${slug}/register`)}`);
+  }
+
+  if (user.role !== "ARTIST") {
+    redirect("/");
   }
 
   const isOpen = event.status === EventStatus.PUBLISHED || event.status === EventStatus.LIVE;
@@ -86,7 +147,6 @@ export default async function RegisterPage({ params }: RegisterPageContext) {
 
   const needsName = !profileUser?.name;
   const needsPhone = !profileUser?.phone;
-  const useAuditionFlow = isCustomAuditionEvent(event.slug);
 
   const formProps = {
     eventId: event.id,
@@ -129,6 +189,9 @@ export default async function RegisterPage({ params }: RegisterPageContext) {
         <p className="mt-md text-body-sm text-ink-muted">
           Pick the categories you want to enter, then pay the organizer to confirm your spot.
         </p>
+        {useAuditionFlow && (
+          <AuditionRegistrationGuide contactDetails={event.contactDetails} />
+        )}
         <div className="mt-lg border border-line bg-cream p-md">
           <div className="grid grid-cols-1 gap-sm sm:grid-cols-2">
             {event.startsAt && (

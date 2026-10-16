@@ -570,6 +570,35 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 
 ---
 
+## Session 18: Born-to-Dance Register Page — Video Guide + Public View
+
+### User requirements
+- On `/events/born-to-dance/register`, show **two clickable video cards** at the top:
+  1. **SOLO participations** → Google Drive `https://drive.google.com/file/d/1DDx12p8vPhTEMh5FibGaQYhE0RGCmUYp/view?usp=drivesdk`
+  2. **DUO TRIO GROUP PARTICIPATIONS** → Google Drive `https://drive.google.com/file/d/1Vk8ngRU_NRRZHWUlSgxm78jYIFK46OT0/view?usp=drivesdk`
+- Add **step-by-step text instructions**: how to create a CYPHR account, register for SOLO, register for DUO/TRIO/GROUP (including searching team members by username), and that online-audition videos are shared directly to the organizer's WhatsApp (no website upload).
+- Make the page render for **unauthenticated visitors** (previously redirected straight to `/login`), showing the guide + Sign in / Create account CTAs — so the steps are visible before signing up.
+
+### Changes
+- **New `src/components/audition-registration-guide.tsx`** (client component):
+  - `AuditionRegistrationGuide({ contactDetails })` — bordered section with header, two `GuideVideoCard`s (16:9 dark play-icon box + title + subtitle + "Watch on Google Drive →", opening in new tab), optional organizer contact line, and an ordered step-by-step `<ol>` covering: (1) create account & complete artist profile via `/signup` or `/login`, (2) SOLO registration flow, (3) DUO/TRIO/GROUP registration flow (team search, roster minimums), (4) after-register notes (online video → WhatsApp, cart verification).
+- **`src/app/events/[slug]/register/page.tsx`**:
+  - Moved the event fetch + `notFound()` to the top (before the `user` check) so the event is available even for anonymous visitors.
+  - Added `CUSTOM_AUDITION_EVENT_SLUG` import and `isAuditionEvent`/`useAuditionFlow` flags at the top.
+  - **Anonymous + `born-to-dance` only**: renders a public read-only view (back link, title, intro, `AuditionRegistrationGuide`, Sign in + Create account CTAs with `callbackUrl`, optional "Registration closed" box if event not open) instead of `redirect(/login)`. Non-audition events keep the original hard redirect.
+  - **Logged-in artists**: inserted `{useAuditionFlow && <AuditionRegistrationGuide contactDetails={event.contactDetails} />}` right after the intro paragraph (above the event info box), so the two video cards are the first content visible before the flow (`!isOpen`/`needsName`/`needsPhone`/`AuditionRegisterFlow`/`RegistrationForm`).
+  - Role guard unchanged: non-ARTISTs still `redirect("/")`.
+
+### Build / verification
+- `tsc` clean (after removing duplicate `event`/`useAuditionFlow` declarations left by the top-fetch refactor), `lint` 0 errors (6 pre-existing warnings), `next build` exit 0.
+- Prod smoke: `GET /events/born-to-dance/register` (anon) → 200, both Drive links present, step-by-step present, `/signup` + `/login?callbackUrl=` CTAs present.
+- Non-audition event register page keeps existing redirect behavior (no regression).
+
+### Commits
+- (to be committed and pushed after this entry is written)
+
+---
+
 ## Key Files Reference (Updated)
 
 ### Schema
