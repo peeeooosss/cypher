@@ -5,6 +5,7 @@ import Link from "next/link";
 import { formatFee } from "@/lib/format";
 import { formatInr } from "@/lib/money";
 import { whatsappLink, BILL_WHATSAPP_NUMBER } from "@/lib/payment";
+import { buildStructuredVerifyMessage, isCustomAuditionEvent, type CustomAuditionMode } from "@/lib/audition-events";
 
 export type CartRegistration = {
   id: string;
@@ -19,7 +20,7 @@ export type CartRegistration = {
   paidClaimedAt: string | null;
 };
 
-export function CartCategoryList({ registrations, eventTitle, total, organizerWhatsapp, organizerName, sender }: { registrations: CartRegistration[]; eventTitle?: string; total?: number; organizerWhatsapp?: string | null; organizerName?: string | null; sender?: string | null }) {
+export function CartCategoryList({ registrations, eventTitle, total, organizerWhatsapp, organizerName, organizerStudioName, eventSlug, audMode, audCity, sender }: { registrations: CartRegistration[]; eventTitle?: string; total?: number; organizerWhatsapp?: string | null; organizerName?: string | null; organizerStudioName?: string | null; eventSlug?: string | null; audMode?: CustomAuditionMode | null; audCity?: string | null; sender?: string | null }) {
   const [claimedIds, setClaimedIds] = useState<Set<string>>(
     () => new Set(registrations.filter((r) => r.paidClaimedAt).map((r) => r.id)),
   );
@@ -54,6 +55,22 @@ export function CartCategoryList({ registrations, eventTitle, total, organizerWh
       <ul className="divide-y divide-line">
       {registrations.map((registration) => {
         const isClaimed = claimedIds.has(registration.id);
+        // Same structured text as the checkout button on the custom audition
+        // event; other events keep the legacy one-line message.
+        const verifyHref = whatsappLink(
+          organizerWhatsapp ?? BILL_WHATSAPP_NUMBER,
+          isCustomAuditionEvent(eventSlug)
+            ? buildStructuredVerifyMessage({
+                studio: organizerStudioName ?? organizerName ?? "Organizer",
+                sender: sender ?? "a participant",
+                team: registration.teamName,
+                categories: registration.name,
+                payment: formatFee(registration.entryFee, registration.entryCurrency),
+                audMode,
+                audCity,
+              })
+            : `Hi ${organizerName ?? "Organizer"}, I'm ${sender ?? "a participant"}. I've paid for ${eventTitle ?? "my event registration"}. Total: ${formatInr(total ?? 0)}. Attaching the payment screenshot for verification.`,
+        );
         return (
           <li
             key={registration.id}
@@ -75,25 +92,27 @@ export function CartCategoryList({ registrations, eventTitle, total, organizerWh
                   : "Wait for verification"}
               </p>
             </div>
-            <div className="flex items-center gap-md">
+            <div className="flex shrink-0 flex-col items-end gap-sm">
               <span className="font-mono text-body-sm uppercase text-accent">
                 {formatFee(registration.entryFee, registration.entryCurrency)}
               </span>
               {!registration.paid && (
                 <>
                   {isClaimed ? (
-                    <Link
-                      href={whatsappLink(
-                        organizerWhatsapp ?? BILL_WHATSAPP_NUMBER,
-                        `Hi ${organizerName ?? "Organizer"}, I'm ${sender ?? "a participant"}. I've paid for ${eventTitle ?? "my event registration"}. Total: ${formatInr(total ?? 0)}. Attaching the payment screenshot for verification.`,
-                      )}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="border border-accent bg-accent px-sm py-xs font-mono text-[0.7rem] font-bold uppercase text-paper hover:opacity-80"
-                      type="button"
-                    >
-                      Send screenshot
-                    </Link>
+                    <div className="border border-accent bg-accent/10 p-md text-center">
+                      <p className="font-display text-title-md uppercase">Waiting for verification</p>
+                      <p className="mt-xs text-body-sm text-ink-muted">
+                        Send your payment screenshot to get verified faster.
+                      </p>
+                      <Link
+                        href={verifyHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-sm block w-full border border-accent bg-accent px-md py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper hover:opacity-80"
+                      >
+                        Verify now
+                      </Link>
+                    </div>
                   ) : (
                     <button
                       className="border border-accent px-md py-xs text-[0.7rem] font-bold uppercase text-accent hover:bg-accent hover:text-paper disabled:cursor-wait disabled:opacity-60"

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatFee } from "@/lib/format";
+import type { CustomAuditionMode } from "@/lib/audition-events";
 
 export function CartSubmit({
   eventId,
@@ -10,12 +11,16 @@ export function CartSubmit({
   teamName,
   memberIds,
   total,
+  audMode,
+  audCity,
 }: {
   eventId: string;
   categoryIds: string[];
   teamName?: string;
   memberIds: string[];
   total: number;
+  audMode?: CustomAuditionMode | null;
+  audCity?: string | null;
 }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
@@ -41,7 +46,13 @@ export function CartSubmit({
       return;
     }
     const created = body as { id: string }[];
-    router.replace(`/cart?event=${eventId}&ids=${created.map((registration) => registration.id).join(",")}`);
+    const next = new URLSearchParams({
+      event: eventId,
+      ids: created.map((registration) => registration.id).join(","),
+    });
+    if (audMode) next.set("audmode", audMode);
+    if (audMode === "offline" && audCity) next.set("audcity", audCity);
+    router.replace(`/cart?${next.toString()}`);
   }
 
   return (

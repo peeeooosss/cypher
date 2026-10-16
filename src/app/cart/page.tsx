@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/rbac";
 import { formatLabel } from "@/lib/event-types";
 import { whatsappLink, displayName } from "@/lib/payment";
-import { isCustomAuditionCity, isCustomAuditionEvent } from "@/lib/audition-events";
+import { isCustomAuditionCity, isCustomAuditionEvent, buildStructuredVerifyMessage } from "@/lib/audition-events";
 import { CategoryFormat } from "@/generated/prisma/enums";
 import { CartCategoryList } from "@/components/cart-claim";
 import { CartSubmit } from "@/components/cart-submit";
@@ -218,17 +218,15 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
     // Structured multi-line verification message, only for the custom audition event.
     const senderName = displayName(captain?.name, captain?.username) ?? "a participant";
     const customMessage = isCustomAuditionEvent(event.slug)
-      ? [
-          `Hi, ${organizer.studioName ?? organizer.name ?? "Organizer"}`,
-          `Name: ${senderName}`,
-          ...(teamName ? [`Team: ${teamName}`] : []),
-          `Category: ${event.categories.map((c) => c.name).join(", ")}`,
-          `Payment: ${formatFee(total, "INR")}`,
-          ...(audMode
-            ? [`Audition Type: ${audMode === "offline" ? "Offline" : "Online"}${audCity ? ` (${audCity})` : ""}`]
-            : []),
-          "Sharing my payment screenshot for verification.",
-        ].join("\n")
+      ? buildStructuredVerifyMessage({
+          studio: organizer.studioName ?? organizer.name ?? "Organizer",
+          sender: senderName,
+          team: teamName || null,
+          categories: event.categories.map((c) => c.name).join(", "),
+          payment: formatFee(total, "INR"),
+          audMode,
+          audCity,
+        })
       : null;
 
     return (
@@ -335,6 +333,8 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
                   teamName={teamName ?? undefined}
                   memberIds={memberUsers.map((member) => member.id)}
                   total={total}
+                  audMode={audMode}
+                  audCity={audCity}
                 />
               ),
             })}
@@ -401,6 +401,26 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
   });
   const sender = displayName(me?.name, me?.username);
 
+  // Same audition context as the fresh-checkout branch, re-validated here so
+  // forged values are ignored and other events keep today's message.
+  const idsAudMode =
+    isCustomAuditionEvent(event.slug) && (params.audmode === "offline" || params.audmode === "online")
+      ? params.audmode
+      : null;
+  const idsAudCity =
+    idsAudMode === "offline" && isCustomAuditionCity(params.audcity) ? params.audcity!.trim() : null;
+  const idsCustomMessage = isCustomAuditionEvent(event.slug)
+    ? buildStructuredVerifyMessage({
+        studio: organizer.studioName ?? organizer.name ?? "Organizer",
+        sender: sender ?? "a participant",
+        team: registrations.map((r) => r.teamName).find(Boolean) ?? null,
+        categories: [...new Set(registrations.map((r) => r.category.name))].join(", "),
+        payment: formatFee(total, "INR"),
+        audMode: idsAudMode,
+        audCity: idsAudCity,
+      })
+    : null;
+
   return (
     <main className="min-h-screen bg-paper">
       <div className="mx-auto max-w-5xl px-md py-section md:px-xl">
@@ -435,6 +455,10 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
               total={total}
               organizerWhatsapp={organizer.whatsappNumber}
               organizerName={organizer.name}
+              organizerStudioName={organizer.studioName}
+              eventSlug={event.slug}
+              audMode={idsAudMode}
+              audCity={idsAudCity}
               sender={sender}
             />
             <div className="flex items-center justify-between gap-sm border-t border-line bg-paper-soft px-lg py-md">
@@ -455,6 +479,7 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
             eventTitle: event.title,
             total,
             sender,
+            customMessage: idsCustomMessage,
             note: rosterPending
               ? "Wait for every invited team member to accept before reporting payment."
               : "Pay the exact amount above, tap I have paid for each category, then send your payment screenshot to the organizer. The organizer approves your entry.",

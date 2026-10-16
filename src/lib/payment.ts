@@ -3,7 +3,9 @@ export const PAYMENT_NAME = process.env.NEXT_PUBLIC_PAYMENT_NAME ?? "CYPHR";
 export const BILL_WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_BILL_WHATSAPP_NUMBER ?? "919864854481";
 
 export function whatsappLink(number: string, text: string) {
-  return `https://wa.me/${number}?text=${encodeURIComponent(text)}`;
+  // wa.me requires bare digits — stored numbers may carry "+", spaces or dashes.
+  const digits = number.replace(/\D/g, "");
+  return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
 }
 
 export function displayName(name: string | null | undefined, username: string | null | undefined): string | null {
