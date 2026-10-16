@@ -565,7 +565,7 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 - Real admin click-through (table + download) needs an admin login — user to confirm.
 
 ### Commits
-- (this session) — feat(admin): events roster with phone numbers, copy buttons + XLSX export
+- `11506ca` — feat(admin): events roster with phone numbers, copy buttons + XLSX export
 
 ---
 
@@ -739,6 +739,7 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 - **Next.js 16 rule**: event handlers (onClick, onChange) cannot be used in server components — only client components with `"use client"`
 
 ### Git History (Recent)
+- `11506ca` — feat(admin): events roster with phone numbers, copy buttons + XLSX export
 - `f71e22c` — feat(born-to-dance): structured multi-line WhatsApp verification message
 - `5e8b747` — feat(born-to-dance): custom offline/online audition register flow; remove generic auditions tab
 - `f9aef62` — feat: TRIO format, GROUP min-4, upload progress everywhere, organizer bio, auditions
