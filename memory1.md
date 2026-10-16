@@ -465,6 +465,55 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 
 ---
 
+## Session 15: TRIO Format, GROUP Min-4, Upload Progress Everywhere, Organizer Bio, Auditions
+
+### User requirements
+- Upload progress bar must show in **all** upload spots (Overview/Event Info poster, Photos, studio logo, artist avatar/cover/works, admin gallery) — not just event highlights + judge photo.
+- New team type **TRIO**; DUO/TRIO/GROUP keep artist-username search + optional team name (already generic — no flow change needed).
+- **GROUP minimum 4 artists** enforced end to end.
+- Event card gets an **Organizer bio section** (below Judges), edited by organizers in the organizer dashboard.
+- New event **BORN TO DANCE CHAMPIONSHIP** (Sizzler Dance Academy): auditions = city (offline) + online. New **Audition Detail** section on the event card: Offline → city dropdown → details or "announced later" note; Online → pick category → pay fee → WhatsApp redirect with payment + category + audition details. **Auditions optional per event** via organizer dashboard enable/disable; when off, plain registration + existing WhatsApp flow.
+
+### 1. TRIO (`CategoryFormat`, migration `20261017000000_trio_format`, 22 migrations total)
+- Schema enum += `TRIO`; hand-written `ALTER TYPE … ADD VALUE 'TRIO'` + `migrate deploy` + `prisma generate` (generated client committed, verified `TRIO` in `enums.ts`).
+- `event-types.ts`: `TRIO: "Trio"` label, added to `COMPETITION_FORMATS`, `defaultRosterSize` → `{min:3,max:3}`.
+- Category POST/PATCH competition error strings now "Solo, Duo, Trio, or Group".
+- Pickers (`event-form.tsx`, dashboard), `registration-form.tsx` roster builder, `/api/registrations` (teamName required, roster check, invites), cart, leaderboard all pick TRIO up via `isTeamFormat`/`min/max` — no changes.
+- DB proof: created + deleted a TRIO category on `kinetic-vol1` via script; roster helper returns `{3,3}`.
+
+### 2. GROUP min 4
+- Server floor already 4 via `defaultRosterSize(GROUP)={4,12}` + `/api/registrations` `max(roster.min, category.minMembers)` — but category create/PATCH exempted GROUP, so organizers could save `minMembers: 2` and the form displayed it (then the API rejected).
+- Fixed: both category routes now 400 `"Group entries need at least 4 members"` when `format === GROUP && minMembers < 4`.
+- `registration-form.tsx`: effective min = `max(category.minMembers, defaultRosterSize(format).min)` for validation AND the per-category label, so UI can never promise fewer than the API accepts.
+- No existing GROUP categories in DB to backfill (checked).
+
+### 3. Upload progress everywhere (`UploadProgress` shared component)
+- Already existed from session 14 follow-up (`62d4bc1`) for event highlights + judge photo.
+- Added to: `poster-upload.tsx` (Event Info poster), `organizer-profile-form.tsx` (studio logo — state already had `success`), `artist-profile-form.tsx` (avatar + cover — unions extended with `success`, shared hook mirrors progress into both, only active one renders), `artist-works.tsx` (thumbnail), `gallery-manager.tsx` (batch bar with `saving` phase for the per-file POSTs).
+- All 7 `useUploadThing` call sites now show bar + status text. `NextSSRPlugin` confirmed optional (runtime `useRouteConfig` fetch) — not mounted, not needed.
+
+### 4. Organizer bio section (reuses `User.bio`, no migration)
+- `PATCH/GET /api/users/me/profile`: `bio` (trim, max 1000, nullish) persisted/returned.
+- `OrganizerProfileForm` += bio textarea (1000-char counter, copy notes it shows below Judges); `/organizer` page selects + passes `bio`.
+- New `event-organizer.tsx` (logo/initial avatar, studio name + est. year, bio prose) rendered **below `<EventJudges/>`** + `organizer` sub-nav link; both hidden when bio empty.
+
+### 5. Auditions (generic, optional; migration `20261017000001_auditions`, 23 migrations total)
+- **Schema**: `Event.auditionsEnabled Boolean @default(false)` + `model Audition` (`eventId` Cascade, `mode: AuditionMode` OFFLINE/ONLINE, `city?`, `categoryId?` SetNull, `details?` Text, `announcementText?` Text, `whatsappNumber?`, `displayOrder`, `isPublished`, `@@index([eventId, displayOrder])`) + `Category.auditions` back-relation.
+- **APIs**: `PATCH /api/events/[eventId]` accepts `auditionsEnabled`; owner-guarded `GET/POST /api/events/[eventId]/auditions` (OFFLINE requires city; categoryId must belong to event) + `PATCH/DELETE …/[auditionId]`.
+- **Dashboard**: new `Auditions` tab (after Categories) with `event-auditions-manager.tsx` — Enable/Disable toggle (PATCH + refresh, mirrors leaderboard toggle) + entry CRUD (mode/city/linked category/details/announcement/WhatsApp override, Show/Hide, Delete). Includes added to dashboard API + organizer page queries.
+- **Event card**: new `event-auditions.tsx` (Offline/Online toggle, city `<select>`, details or "Details dropping soon" + announcement + WhatsApp updates button; online entries with fee + Register & pay link) rendered after Categories + `auditions` sub-nav link; shown only when `auditionsEnabled && published.length > 0`.
+- **Registration flow**: `register/page.tsx` accepts `?audition=` (validated: this event + published + flag on) → banner + `auditionId` → `registration-form.tsx` appends to cart URL → `cart/page.tsx` loads audition, shows context banner, appends `Audition: Online (City) — Category. details…` to the organizer WhatsApp message. Flag OFF = today's flow byte-identical.
+
+### Build / verification
+- `tsc` clean, `lint` 0 errors (6 pre-existing warnings), `next build` exit 0.
+- Prod smoke (`next start -p 3101`): `/`, event page, register page, `/gallery`, `/api/gallery`, `/login` 200; all 4 audition methods + photos GET + event PATCH 401 anonymous; profile POST 405 (correct); event page has no auditions/organizer sections when flag off / bio empty (correct).
+- Playwright still not run locally (needs `E2E_DATABASE_URL`).
+
+### Commits
+- (this session) — feat: TRIO format, GROUP min-4, upload progress everywhere, organizer bio, auditions
+
+---
+
 ## Key Files Reference (Updated)
 
 ### Schema

@@ -8,10 +8,14 @@ import { EventStatus } from "@/generated/prisma/enums";
 
 export const dynamic = "force-dynamic";
 
-type RegisterPageContext = { params: Promise<{ slug: string }> };
+type RegisterPageContext = {
+  params: Promise<{ slug: string }>;
+  searchParams?: Promise<{ audition?: string }>;
+};
 
-export default async function RegisterPage({ params }: RegisterPageContext) {
+export default async function RegisterPage({ params, searchParams }: RegisterPageContext) {
   const { slug } = await params;
+  const auditionParam = (await searchParams)?.audition?.trim() || null;
   const user = await getCurrentUser();
 
   if (!user) {
@@ -24,7 +28,20 @@ export default async function RegisterPage({ params }: RegisterPageContext) {
 
   const event = await prisma.event.findUnique({
     where: { slug },
-    include: {
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+      status: true,
+      startsAt: true,
+      venue: true,
+      city: true,
+      state: true,
+      eventDetails: true,
+      registrationInstructions: true,
+      contactDetails: true,
+      lastRegistrationAt: true,
+      auditionsEnabled: true,
       categories: {
         include: { _count: { select: { registrations: true } } },
         orderBy: { name: "asc" },
@@ -35,6 +52,13 @@ export default async function RegisterPage({ params }: RegisterPageContext) {
   if (!event) {
     notFound();
   }
+
+  const audition = auditionParam && event.auditionsEnabled
+    ? await prisma.audition.findFirst({
+        where: { id: auditionParam, eventId: event.id, isPublished: true },
+        include: { category: { select: { id: true, name: true } } },
+      })
+    : null;
 
   const isOpen = event.status === EventStatus.PUBLISHED || event.status === EventStatus.LIVE;
 
@@ -168,8 +192,22 @@ export default async function RegisterPage({ params }: RegisterPageContext) {
         ) : needsName || needsPhone ? (
           <ArtistIdentityBox needsName={needsName} needsPhone={needsPhone} />
         ) : (
-          <RegistrationForm
+          <>
+            {audition ? (
+              <div className="mt-lg border border-accent bg-paper-soft p-md">
+                <p className="font-mono text-[0.65rem] uppercase tracking-[0.15em] text-accent">
+                  {audition.mode === "OFFLINE" ? "Offline audition" : "Online audition"}
+                  {audition.city ? ` — ${audition.city}` : ""}
+                </p>
+                <p className="mt-xs text-body-sm text-ink-muted">
+                  Registering via audition{audition.category ? ` · ${audition.category.name}` : ""}. Your
+                  audition details travel with this entry to WhatsApp after payment.
+                </p>
+              </div>
+            ) : null}
+            <RegistrationForm
             eventId={event.id}
+            auditionId={audition?.id ?? null}
             categories={event.categories.map((category) => ({
               id: category.id,
               name: category.name,
@@ -190,6 +228,7 @@ export default async function RegisterPage({ params }: RegisterPageContext) {
               username: profileUser?.username ?? null,
             }}
           />
+          </>
         )}
       </div>
     </main>

@@ -68,7 +68,7 @@ export async function POST(request: Request, { params }: CategoryRouteContext) {
 
     const format = categoryData.format ?? (isBattleType(event?.eventType) ? CategoryFormat.BATTLE_1V1 : CategoryFormat.SOLO);
     if (isCompetitionType(event?.eventType) && !COMPETITION_FORMATS.includes(format)) {
-      return badRequest("Competition categories use Solo, Duo, or Group formats");
+      return badRequest("Competition categories use Solo, Duo, Trio, or Group formats");
     }
     if (isBattleType(event?.eventType) && !BATTLE_FORMATS.includes(format)) {
       return badRequest("Underground battle categories use 1v1, 2v2, 3v3, or Crew vs crew formats");
@@ -82,6 +82,9 @@ export async function POST(request: Request, { params }: CategoryRouteContext) {
 
     if (minMembers > maxMembers) {
       return badRequest("Minimum members cannot exceed maximum members");
+    }
+    if (format === CategoryFormat.GROUP && minMembers < 4) {
+      return badRequest("Group entries need at least 4 members");
     }
     if (format !== CategoryFormat.GROUP && format !== CategoryFormat.CREW_VS_CREW && (minMembers !== roster.min || maxMembers !== roster.max)) {
       return badRequest(`${format} entries require exactly ${roster.min} member${roster.min === 1 ? "" : "s"}`);

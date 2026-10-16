@@ -4,10 +4,12 @@ import { useState, useRef, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { responseError } from "@/lib/client-error";
 import { useUploadThing } from "@/lib/uploadthing";
+import { UploadProgress } from "@/components/ui/upload-progress";
 
 type Profile = {
   studioName: string | null;
   studioFoundedAt: Date | null;
+  bio: string | null;
 };
 
 type LogoUploadState = "idle" | "uploading" | "success" | "error";
@@ -18,14 +20,26 @@ export function OrganizerProfileForm({ initialProfile }: { initialProfile: Profi
   const [studioFoundedAt, setStudioFoundedAt] = useState(
     initialProfile.studioFoundedAt ? new Date(initialProfile.studioFoundedAt).getFullYear().toString() : "",
   );
+  const [bio, setBio] = useState(initialProfile.bio ?? "");
   const [logoUrl, setLogoUrl] = useState<string | null>(initialProfile.studioLogoUrl);
   const [logoState, setLogoState] = useState<LogoUploadState>("idle");
+  const [logoProgress, setLogoProgress] = useState(0);
   const [logoError, setLogoError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { startUpload } = useUploadThing("studioLogoUploader", {
-    onUploadError: (uploadError) => setLogoError(uploadError.message || "Upload failed."),
+    uploadProgressGranularity: "fine",
+    onUploadBegin: () => {
+      setLogoState("uploading");
+      setLogoProgress(0);
+      setLogoError(null);
+    },
+    onUploadProgress: (p) => setLogoProgress(p),
+    onUploadError: (uploadError) => {
+      setLogoState("error");
+      setLogoError(uploadError.message || "Upload failed.");
+    },
   });
 
   async function handleLogoUpload(e: ChangeEvent<HTMLInputElement>) {
@@ -33,6 +47,7 @@ export function OrganizerProfileForm({ initialProfile }: { initialProfile: Profi
     if (!file) return;
 
     setLogoState("uploading");
+    setLogoProgress(0);
     setLogoError(null);
 
     try {
@@ -104,6 +119,7 @@ export function OrganizerProfileForm({ initialProfile }: { initialProfile: Profi
         body: JSON.stringify({
           studioName: studioName.trim() || null,
           studioFoundedAt: foundedDate,
+          bio: bio.trim() || null,
         }),
       });
 
@@ -158,6 +174,24 @@ export function OrganizerProfileForm({ initialProfile }: { initialProfile: Profi
 
         <div>
           <label className="font-mono text-[0.65rem] uppercase tracking-[0.15em] text-ink-muted">
+            Studio bio
+          </label>
+          <p className="mt-xs text-body-sm text-ink-muted">
+            Shown on your event pages below the judges section.
+          </p>
+          <textarea
+            placeholder="Tell dancers who you are — your crew, your city, your story."
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+            rows={4}
+            maxLength={1000}
+            className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-md text-ink focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+          <p className="mt-xs font-mono text-[0.65rem] uppercase text-ink-muted">{bio.trim().length}/1000</p>
+        </div>
+
+        <div>
+          <label className="font-mono text-[0.65rem] uppercase tracking-[0.15em] text-ink-muted">
             Studio logo
           </label>
           <input
@@ -203,6 +237,12 @@ export function OrganizerProfileForm({ initialProfile }: { initialProfile: Profi
           )}
 
           {logoError && <p className="mt-xs text-body-sm text-red-500">{logoError}</p>}
+          <UploadProgress
+            status={logoState}
+            progress={logoProgress}
+            successLabel="Logo uploaded"
+            errorLabel={logoError ?? undefined}
+          />
         </div>
       </div>
 

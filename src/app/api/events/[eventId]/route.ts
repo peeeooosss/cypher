@@ -38,6 +38,7 @@ const updateEventSchema = z.object({
   checkInInstructions: z.string().trim().max(5000).nullable().optional(),
   lastRegistrationAt: z.coerce.date().nullable().optional(),
   showPublicLeaderboard: z.boolean().optional(),
+  auditionsEnabled: z.boolean().optional(),
 }).superRefine((data, ctx) => {
   if (data.posterFileKey && (!data.posterUrl || !isUploadThingUrl(data.posterUrl))) {
     ctx.addIssue({ code: "custom", message: "Poster must be uploaded through UploadThing", path: ["posterUrl"] });

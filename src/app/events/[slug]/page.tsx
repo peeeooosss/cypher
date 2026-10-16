@@ -6,7 +6,9 @@ import { EventHero } from "@/components/event-hero";
 import { EventSubNav } from "@/components/event-sub-nav";
 import { SectionHeading } from "@/components/section-heading";
 import { EventJudges } from "@/components/event-judges";
+import { EventOrganizer } from "@/components/event-organizer";
 import { EventCategories } from "@/components/event-categories";
+import { EventAuditions } from "@/components/event-auditions";
 import { EventSchedule } from "@/components/event-schedule";
 import { EventInfoAccordion } from "@/components/event-info-accordion";
 import { EventAside } from "@/components/event-aside";
@@ -46,7 +48,7 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
   const event = await prisma.event.findUnique({
     where: { slug },
     include: {
-      organizer: { select: { name: true, studioName: true, studioLogoUrl: true, studioFoundedAt: true } },
+      organizer: { select: { name: true, studioName: true, studioLogoUrl: true, studioFoundedAt: true, bio: true, whatsappNumber: true } },
       categories: {
         include: { prizePool: true, _count: { select: { registrations: true, matches: true } } },
         orderBy: { name: "asc" },
@@ -70,6 +72,13 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
       },
       eventPhotos: {
         where: { isPublic: true },
+        orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }],
+      },
+      auditions: {
+        where: { isPublished: true },
+        include: {
+          category: { select: { id: true, name: true, entryFee: true, entryCurrency: true } },
+        },
         orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }],
       },
     },
@@ -148,10 +157,14 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
     { id: "contact", label: "Contact", body: event.contactDetails },
   ];
 
+  const showAuditions = event.auditionsEnabled && event.auditions.length > 0;
+
   const subNav = [
     { id: "about", label: "About", show: Boolean(event.description ?? event.eventDetails) },
     { id: "judges", label: "Judges", show: judges.length > 0 },
+    { id: "organizer", label: "Organizer", show: Boolean(event.organizer.bio?.trim()) },
     { id: "categories", label: workshop ? "Sessions" : "Categories", show: true },
+    { id: "auditions", label: "Auditions", show: showAuditions },
     { id: "schedule", label: "Schedule", show: event.scheduleItems.length > 0 },
     { id: "gallery", label: "Gallery", show: event.galleryItems.length > 0 || event.eventPhotos.length > 0 },
     { id: "notices", label: "Notices", show: event.notices.length > 0 },
@@ -247,12 +260,48 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
 
             <EventJudges judges={judges} />
 
+            <EventOrganizer
+              organizer={{
+                name: event.organizer.name,
+                studioName: event.organizer.studioName,
+                studioLogoUrl: event.organizer.studioLogoUrl,
+                studioSince: event.organizer.studioFoundedAt
+                  ? String(new Date(event.organizer.studioFoundedAt).getFullYear())
+                  : null,
+                bio: event.organizer.bio,
+              }}
+            />
+
             <EventCategories
               categories={categories}
               isWorkshop={workshop}
               registerHref={registerHref}
               totalPrize={totalPrizePool}
             />
+
+            {showAuditions ? (
+              <EventAuditions
+                auditions={event.auditions.map((audition) => ({
+                  id: audition.id,
+                  mode: audition.mode,
+                  city: audition.city,
+                  details: audition.details,
+                  announcementText: audition.announcementText,
+                  whatsappNumber: audition.whatsappNumber,
+                  category: audition.category
+                    ? {
+                        id: audition.category.id,
+                        name: audition.category.name,
+                        entryFee: audition.category.entryFee,
+                        entryCurrency: audition.category.entryCurrency,
+                      }
+                    : null,
+                }))}
+                registerBase={registerHref}
+                organizerWhatsapp={event.organizer.whatsappNumber}
+                organizerName={event.organizer.studioName ?? event.organizer.name}
+              />
+            ) : null}
 
             <EventSchedule items={event.scheduleItems} />
 

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useUploadThing } from "@/lib/uploadthing";
 import { responseError } from "@/lib/client-error";
 import { useToast } from "@/components/ui/toast";
+import { UploadProgress, type UploadStatus } from "@/components/ui/upload-progress";
 
 type GalleryRecord = {
   id: string;
@@ -27,11 +28,22 @@ export function GalleryManager() {
   const [items, setItems] = useState<GalleryRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<UploadStatus>("idle");
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [videoUrl, setVideoUrl] = useState("");
   const [videoTitle, setVideoTitle] = useState("");
   const [savingVideo, setSavingVideo] = useState(false);
   const { startUpload } = useUploadThing("galleryImageUploader", {
-    onUploadError: (e) => toast(e.message || "Upload failed.", "error"),
+    uploadProgressGranularity: "fine",
+    onUploadBegin: () => {
+      setUploadStatus("uploading");
+      setUploadProgress(0);
+    },
+    onUploadProgress: (p) => setUploadProgress(p),
+    onUploadError: (e) => {
+      setUploadStatus("error");
+      toast(e.message || "Upload failed.", "error");
+    },
   });
 
   async function load() {
@@ -73,12 +85,16 @@ export function GalleryManager() {
       return;
     }
     setUploading(true);
+    setUploadStatus("uploading");
+    setUploadProgress(0);
     try {
       const uploaded = await startUpload(list);
       if (!uploaded || uploaded.length === 0) {
+        setUploadStatus("error");
         toast("Upload failed. Please try again.", "error");
         return;
       }
+      setUploadStatus("saving");
       for (const file of uploaded) {
         await fetch("/api/admin/gallery", {
           method: "POST",
@@ -86,9 +102,11 @@ export function GalleryManager() {
           body: JSON.stringify({ type: "PHOTO", url: file.ufsUrl, fileKey: file.key }),
         });
       }
+      setUploadStatus("success");
       toast(`${uploaded.length} photo${uploaded.length === 1 ? "" : "s"} added`, "success");
       await load();
     } catch (err) {
+      setUploadStatus("error");
       toast(err instanceof Error ? err.message : "Upload failed.", "error");
     } finally {
       setUploading(false);
@@ -175,6 +193,11 @@ export function GalleryManager() {
               onChange={(e) => void handleFiles(e.target.files)}
             />
           </label>
+          <UploadProgress
+            status={uploadStatus}
+            progress={uploadProgress}
+            successLabel="Photos uploaded"
+          />
         </div>
 
         <form className="border border-line p-lg" onSubmit={(e) => void handleAddVideo(e)}>

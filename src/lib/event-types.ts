@@ -14,6 +14,7 @@ export const SINGLE_POINT_ROUND_TYPES = ["CYPHER", "QUALIFIER"] as const;
 export const CATEGORY_FORMAT_LABELS: Record<CategoryFormat, string> = {
   SOLO: "Solo",
   DUO: "Duo",
+  TRIO: "Trio",
   GROUP: "Group",
   BATTLE_1V1: "1v1",
   BATTLE_2V2: "2v2",
@@ -31,6 +32,7 @@ export const BATTLE_FORMATS: CategoryFormat[] = [
 export const COMPETITION_FORMATS: CategoryFormat[] = [
   CategoryFormat.SOLO,
   CategoryFormat.DUO,
+  CategoryFormat.TRIO,
   CategoryFormat.GROUP,
 ];
 
@@ -45,6 +47,7 @@ export function defaultRosterSize(format: CategoryFormat | string | null | undef
     case CategoryFormat.DUO:
     case CategoryFormat.BATTLE_2V2:
       return { min: 2, max: 2 };
+    case CategoryFormat.TRIO:
     case CategoryFormat.BATTLE_3V3:
       return { min: 3, max: 3 };
     case CategoryFormat.GROUP:

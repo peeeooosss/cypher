@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 const patchSchema = z.object({
   studioName: z.string().trim().min(1).max(100).nullish(),
   studioFoundedAt: z.coerce.date().optional().nullable(),
+  bio: z.string().trim().max(1000).nullish(),
 });
 
 export async function GET() {
@@ -16,7 +17,7 @@ export async function GET() {
 
     const profile = await prisma.user.findUnique({
       where: { id: user.id },
-      select: { studioName: true, studioFoundedAt: true },
+      select: { studioName: true, studioFoundedAt: true, bio: true },
     });
 
     return NextResponse.json(profile);
@@ -39,8 +40,9 @@ export async function PATCH(request: Request) {
       data: {
         studioName: parsed.data.studioName,
         studioFoundedAt: parsed.data.studioFoundedAt,
+        ...(parsed.data.bio !== undefined ? { bio: parsed.data.bio || null } : {}),
       },
-      select: { studioName: true, studioFoundedAt: true, studioLogoUrl: true },
+      select: { studioName: true, studioFoundedAt: true, studioLogoUrl: true, bio: true },
     });
 
     return NextResponse.json(updated);

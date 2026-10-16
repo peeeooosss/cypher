@@ -30,6 +30,12 @@ export default async function OrganizerEventPage({ params }: PageProps) {
       },
       judges: { orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }] },
       eventPhotos: { orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }] },
+      auditions: {
+        include: {
+          category: { select: { id: true, name: true, entryFee: true, entryCurrency: true, format: true } },
+        },
+        orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }],
+      },
       judgeSlots: {
         select: {
           id: true,

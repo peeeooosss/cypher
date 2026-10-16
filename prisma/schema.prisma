@@ -130,6 +130,7 @@ enum RoundType {
 enum CategoryFormat {
   SOLO
   DUO
+  TRIO
   GROUP
   BATTLE_1V1
   BATTLE_2V2
@@ -147,6 +148,11 @@ enum RegistrationMemberStatus {
   ACCEPTED
   DECLINED
   REMOVED
+}
+
+enum AuditionMode {
+  OFFLINE
+  ONLINE
 }
 
 model User {
@@ -307,7 +313,9 @@ model Event {
   judges                      EventJudge[]
   galleryItems                GalleryItem[]
   eventPhotos                 EventPhoto[]
+  auditions                   Audition[]
   showPublicLeaderboard       Boolean                  @default(true)
+  auditionsEnabled            Boolean                  @default(false)
   createdAt                   DateTime      @default(now())
   updatedAt                   DateTime      @updatedAt
 
@@ -360,6 +368,7 @@ model Category {
   rounds              RoundFormat[]
   registrations       Registration[]
   registrationMembers RegistrationMember[]
+  auditions           Audition[]
   matches             BattleMatch[]
   judgeSlots          JudgeSlot[]
   prizePool           PrizePool?
@@ -934,6 +943,25 @@ model EventPhoto {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId, displayOrder])
+}
+
+model Audition {
+  id               String       @id @default(cuid())
+  eventId          String
+  mode             AuditionMode
+  city             String?
+  categoryId       String?
+  details          String?      @db.Text
+  announcementText String?      @db.Text
+  whatsappNumber   String?
+  displayOrder     Int          @default(0)
+  isPublished      Boolean      @default(true)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  event            Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  category         Category?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
   @@index([eventId, displayOrder])
 }

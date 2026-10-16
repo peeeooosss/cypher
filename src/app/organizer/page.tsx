@@ -19,6 +19,7 @@ export default async function OrganizerPage() {
       studioName: true,
       studioLogoUrl: true,
       studioFoundedAt: true,
+      bio: true,
     },
   });
   const events = await prisma.event.findMany({
@@ -63,6 +64,7 @@ export default async function OrganizerPage() {
               studioName: currentUser?.studioName ?? null,
               studioFoundedAt: currentUser?.studioFoundedAt ?? null,
               studioLogoUrl: currentUser?.studioLogoUrl ?? null,
+              bio: currentUser?.bio ?? null,
             }}
           />
         </div>

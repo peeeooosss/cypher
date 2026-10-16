@@ -57,12 +57,15 @@ export async function PATCH(request: Request, { params }: CategoryRouteContext) 
   if (minMembers > maxMembers) {
     return badRequest("Minimum members cannot exceed maximum members");
   }
+  if (nextFormat === CategoryFormat.GROUP && minMembers < 4) {
+    return badRequest("Group entries need at least 4 members");
+  }
   if (nextFormat && !["GROUP", "CREW_VS_CREW"].includes(nextFormat) && (minMembers !== roster.min || maxMembers !== roster.max)) {
     return badRequest(`${nextFormat} entries require exactly ${roster.min} member${roster.min === 1 ? "" : "s"}`);
   }
 
   if (parsed.data.format && isCompetitionType(category.event.eventType) && !COMPETITION_FORMATS.includes(parsed.data.format)) {
-    return badRequest("Competition categories use Solo, Duo, or Group formats");
+    return badRequest("Competition categories use Solo, Duo, Trio, or Group formats");
   }
   if (parsed.data.format && isBattleType(category.event.eventType) && !BATTLE_FORMATS.includes(parsed.data.format)) {
     return badRequest("Underground battle categories use 1v1, 2v2, 3v3, or Crew vs crew formats");

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { VideoModal } from "@/components/video-modal";
 import { useUploadThing } from "@/lib/uploadthing";
+import { UploadProgress } from "@/components/ui/upload-progress";
 
 export interface Work {
   id: string;
@@ -62,11 +63,22 @@ export function ArtistWorks() {
   const [modalDescription, setModalDescription] = useState("");
   const [modalThumbnail, setModalThumbnail] = useState<string | null>(null);
   const [modalError, setModalError] = useState("");
-  const [thumbnailState, setThumbnailState] = useState<"idle" | "uploading" | "error">("idle");
+  const [thumbnailState, setThumbnailState] = useState<"idle" | "uploading" | "success" | "error">("idle");
   const [thumbnailError, setThumbnailError] = useState("");
+  const [thumbnailProgress, setThumbnailProgress] = useState(0);
 
   const { startUpload } = useUploadThing("avatarUploader", {
-    onUploadError: (e) => setThumbnailError(e.message || "Failed to upload thumbnail"),
+    uploadProgressGranularity: "fine",
+    onUploadBegin: () => {
+      setThumbnailState("uploading");
+      setThumbnailProgress(0);
+      setThumbnailError("");
+    },
+    onUploadProgress: (p) => setThumbnailProgress(p),
+    onUploadError: (e) => {
+      setThumbnailState("error");
+      setThumbnailError(e.message || "Failed to upload thumbnail");
+    },
   });
 
   useEffect(() => {
@@ -111,12 +123,13 @@ export function ArtistWorks() {
     }
 
     setThumbnailState("uploading");
+    setThumbnailProgress(0);
     try {
       const uploaded = await startUpload([file]);
       const result = uploaded?.[0];
       if (!result) throw new Error("Failed to upload");
       setModalThumbnail(result.ufsUrl);
-      setThumbnailState("idle");
+      setThumbnailState("success");
     } catch {
       setThumbnailState("error");
       setThumbnailError("Network error. Please try again.");
@@ -425,9 +438,14 @@ export function ArtistWorks() {
                       onChange={(e) => handleThumbnailUpload(e.target.files?.[0])}
                     />
                   </label>
-                  {thumbnailState === "error" && (
-                    <p className="font-mono text-[0.65rem] uppercase text-red-600">{thumbnailError}</p>
-                  )}
+                  {thumbnailState === "error" || thumbnailState === "success" || thumbnailState === "uploading" ? (
+                    <UploadProgress
+                      status={thumbnailState}
+                      progress={thumbnailProgress}
+                      successLabel="Thumbnail uploaded"
+                      errorLabel={thumbnailError || undefined}
+                    />
+                  ) : null}
                 </div>
               </div>
 

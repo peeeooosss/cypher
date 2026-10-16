@@ -6,6 +6,7 @@ import { SKILLS, SKILL_LABELS } from "@/lib/skills";
 import { DANCE_STYLES, EXPERIENCE_OPTIONS, isDanceStyle } from "@/lib/styles";
 import { responseError } from "@/lib/client-error";
 import { useUploadThing } from "@/lib/uploadthing";
+import { UploadProgress } from "@/components/ui/upload-progress";
 
 export type ArtistProfile = {
   name: string | null;
@@ -54,14 +55,23 @@ export function ArtistProfileForm({ profile }: { profile: ArtistProfile }) {
   const [isProfilePublic, setIsProfilePublic] = useState(profile.isProfilePublic ?? true);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(profile.avatarUrl ?? null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const [avatarState, setAvatarState] = useState<"idle" | "uploading" | "error">("idle");
+  const [avatarState, setAvatarState] = useState<"idle" | "uploading" | "success" | "error">("idle");
   const [avatarError, setAvatarError] = useState("");
+  const [avatarProgress, setAvatarProgress] = useState(0);
   const [coverUrl, setCoverUrl] = useState<string | null>(profile.coverUrl ?? null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
-  const [coverState, setCoverState] = useState<"idle" | "uploading" | "error">("idle");
+  const [coverState, setCoverState] = useState<"idle" | "uploading" | "success" | "error">("idle");
   const [coverError, setCoverError] = useState("");
+  const [coverProgress, setCoverProgress] = useState(0);
   const [profileError, setProfileError] = useState("");
   const { startUpload } = useUploadThing("avatarUploader", {
+    uploadProgressGranularity: "fine",
+    // One hook serves both avatar and cover uploads; mirror progress into both —
+    // only the active one renders since the other stays idle.
+    onUploadProgress: (p) => {
+      setAvatarProgress(p);
+      setCoverProgress(p);
+    },
     onUploadError: (uploadError) => setAvatarError(uploadError.message || "Failed to upload photo."),
   });
 
@@ -89,6 +99,7 @@ export function ArtistProfileForm({ profile }: { profile: ArtistProfile }) {
     setAvatarPreview(URL.createObjectURL(file));
 
     setAvatarState("uploading");
+    setAvatarProgress(0);
 
     try {
       const uploaded = await startUpload([file]);
@@ -113,7 +124,7 @@ export function ArtistProfileForm({ profile }: { profile: ArtistProfile }) {
       const data = await res.json();
       setAvatarUrl(data.avatarUrl);
       setAvatarPreview(null);
-      setAvatarState("idle");
+      setAvatarState("success");
       router.refresh();
     } catch {
       setAvatarError("Network error. Please try again.");
@@ -162,6 +173,7 @@ export function ArtistProfileForm({ profile }: { profile: ArtistProfile }) {
 
     setCoverPreview(URL.createObjectURL(file));
     setCoverState("uploading");
+    setCoverProgress(0);
 
     try {
       const uploaded = await startUpload([file]);
@@ -186,7 +198,7 @@ export function ArtistProfileForm({ profile }: { profile: ArtistProfile }) {
       const data = await res.json();
       setCoverUrl(data.coverUrl);
       setCoverPreview(null);
-      setCoverState("idle");
+      setCoverState("success");
       router.refresh();
     } catch {
       setCoverError("Network error. Please try again.");
@@ -352,11 +364,14 @@ export function ArtistProfileForm({ profile }: { profile: ArtistProfile }) {
               Remove photo
             </button>
           ) : null}
-{avatarState === "error" ? (
-              <p className="font-mono text-[0.65rem] uppercase text-red-600">
-                {avatarError || "Only JPG, PNG, or WebP up to 5MB"}
-              </p>
-           ) : null}
+{avatarState === "error" || avatarState === "success" || avatarState === "uploading" ? (
+              <UploadProgress
+                status={avatarState}
+                progress={avatarProgress}
+                successLabel="Photo uploaded"
+                errorLabel={avatarError || undefined}
+              />
+            ) : null}
         </div>
       </div>
 
@@ -400,11 +415,14 @@ export function ArtistProfileForm({ profile }: { profile: ArtistProfile }) {
                 Remove cover
               </button>
             ) : null}
-            {coverState === "error" && (
-              <p className="font-mono text-[0.65rem] uppercase text-red-600">
-                {coverError || "Only JPG, PNG, or WebP up to 5MB"}
-              </p>
-            )}
+            {coverState === "error" || coverState === "success" || coverState === "uploading" ? (
+              <UploadProgress
+                status={coverState}
+                progress={coverProgress}
+                successLabel="Cover uploaded"
+                errorLabel={coverError || undefined}
+              />
+            ) : null}
           </div>
         </div>
       </div>

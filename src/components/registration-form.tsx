@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatFee } from "@/lib/format";
-import { formatLabel, isTeamFormat } from "@/lib/event-types";
+import { defaultRosterSize, formatLabel, isTeamFormat } from "@/lib/event-types";
 
 type CategoryOption = {
   id: string;
@@ -28,6 +28,7 @@ type ArtistResult = {
 
 export function RegistrationForm({
   eventId,
+  auditionId,
   categories,
   registeredCategoryIds,
   paidCategoryIds,
@@ -36,6 +37,7 @@ export function RegistrationForm({
   currentUser,
 }: {
   eventId: string;
+  auditionId?: string | null;
   categories: CategoryOption[];
   registeredCategoryIds: Set<string>;
   paidCategoryIds: Set<string>;
@@ -55,7 +57,10 @@ export function RegistrationForm({
   const selectedCategories = categories.filter((category) => selected.has(category.id));
   const selectedCategory = selectedCategories[0];
   const isTeam = selectedCategory ? isTeamFormat(selectedCategory.format) : false;
-  const requiredMin = selectedCategory?.minMembers ?? 1;
+  // The server enforces max(format floor, category min) — mirror it so the UI
+  // never promises a smaller roster than the API accepts (e.g. Group min 4).
+  const formatFloor = selectedCategory ? defaultRosterSize(selectedCategory.format).min : 1;
+  const requiredMin = Math.max(selectedCategory?.minMembers ?? 1, formatFloor);
   const requiredMax = selectedCategory?.maxMembers ?? 1;
   const rosterCount = members.length + 1;
   const rosterFull = members.length + 1 >= requiredMax;
@@ -103,6 +108,7 @@ export function RegistrationForm({
     const trimmedTeamName = teamName.trim();
     if (trimmedTeamName) params.set("team", trimmedTeamName);
     if (members.length > 0) params.set("members", members.map((member) => member.id).join(","));
+    if (auditionId) params.set("audition", auditionId);
     router.push(`/cart?${params.toString()}`);
   }
 
@@ -119,13 +125,14 @@ export function RegistrationForm({
             const isRegistered = registeredCategoryIds.has(category.id);
             const isPaid = paidCategoryIds.has(category.id);
             const isFull = category.maxCompetitors != null && category.registeredCount >= category.maxCompetitors;
+            const effMin = Math.max(category.minMembers, defaultRosterSize(category.format).min);
             return (
               <li key={category.id} className="flex items-center gap-md px-lg py-md">
                 <input type="checkbox" checked={selected.has(category.id)} disabled={disabled} onChange={() => toggleCategory(category.id)} className="h-4 w-4 shrink-0 border border-line bg-paper accent-current" />
                 <div className="min-w-0 flex-1">
                   <p className="font-display text-title-md uppercase">{category.name}</p>
                   <p className="mt-xs font-mono text-[0.65rem] uppercase tracking-[0.1em] text-accent">
-                    {formatLabel(category.format)} · {category.minMembers === category.maxMembers ? category.minMembers : `${category.minMembers}–${category.maxMembers}`} members
+                    {formatLabel(category.format)} · {effMin === category.maxMembers ? effMin : `${effMin}–${category.maxMembers}`} members
                   </p>
                   <p className="mt-xs font-mono text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">
                     {category.registeredCount} entries{category.maxCompetitors != null ? ` / max ${category.maxCompetitors}` : ""}
