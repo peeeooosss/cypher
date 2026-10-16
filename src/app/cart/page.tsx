@@ -40,6 +40,7 @@ async function PaymentAside({
   note,
   sender,
   messageExtra,
+  customMessage,
   children,
 }: {
   organizerName: string | null;
@@ -51,6 +52,7 @@ async function PaymentAside({
   note: string;
   sender?: string | null;
   messageExtra?: string | null;
+  customMessage?: string | null;
   children?: ReactNode;
 }) {
   let qrDataUrl: string | null = null;
@@ -105,7 +107,8 @@ async function PaymentAside({
             <Link
               href={whatsappLink(
                 organizerWhatsapp,
-                `Hi ${organizerName ?? "Organizer"}, I'm ${sender ?? "a participant"}. I've paid ${formatFee(total, "INR")} for ${eventTitle} entry.${messageExtra ? ` ${messageExtra}` : ""} Sharing my payment screenshot for verification.`,
+                customMessage ??
+                  `Hi ${organizerName ?? "Organizer"}, I'm ${sender ?? "a participant"}. I've paid ${formatFee(total, "INR")} for ${eventTitle} entry.${messageExtra ? ` ${messageExtra}` : ""} Sharing my payment screenshot for verification.`,
               )}
               target="_blank"
               rel="noopener noreferrer"
@@ -161,7 +164,7 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
           slug: true,
           title: true,
           eventType: true,
-          organizer: { select: { name: true, email: true, upiId: true, whatsappNumber: true } },
+          organizer: { select: { name: true, studioName: true, email: true, upiId: true, whatsappNumber: true } },
           categories: {
             where: { id: { in: draftCategoryIds } },
             select: {
@@ -211,6 +214,22 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
     ]
       .filter(Boolean)
       .join(" ");
+
+    // Structured multi-line verification message, only for the custom audition event.
+    const senderName = displayName(captain?.name, captain?.username) ?? "a participant";
+    const customMessage = isCustomAuditionEvent(event.slug)
+      ? [
+          `Hi, ${organizer.studioName ?? organizer.name ?? "Organizer"}`,
+          `Name: ${senderName}`,
+          ...(teamName ? [`Team: ${teamName}`] : []),
+          `Category: ${event.categories.map((c) => c.name).join(", ")}`,
+          `Payment: ${formatFee(total, "INR")}`,
+          ...(audMode
+            ? [`Audition Type: ${audMode === "offline" ? "Offline" : "Online"}${audCity ? ` (${audCity})` : ""}`]
+            : []),
+          "Sharing my payment screenshot for verification.",
+        ].join("\n")
+      : null;
 
     return (
       <main className="min-h-screen bg-paper">
@@ -307,6 +326,7 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
               total,
               sender: displayName(captain?.name, captain?.username),
               messageExtra: messageExtra || null,
+              customMessage,
               note: "Pay the exact amount above, then tap I have paid and send your payment screenshot to the organizer. Invited members will be asked to confirm their spot.",
               children: (
                 <CartSubmit
@@ -341,7 +361,7 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
                     id: true,
                     slug: true,
                     title: true,
-                    organizer: { select: { name: true, email: true, upiId: true, whatsappNumber: true } },
+          organizer: { select: { name: true, studioName: true, email: true, upiId: true, whatsappNumber: true } },
                   },
                 },
               },

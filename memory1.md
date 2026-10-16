@@ -532,6 +532,7 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 - `registration-form.tsx`: optional `auditionMode`/`auditionCity` → `audmode`/`audcity` cart params.
 - `cart/page.tsx`: honors audition params **only** for the gated slug (forged values ignored); context banner; WhatsApp message now `Hi <Studio>, I'm <artist>. I've paid ₹X for <event> entry. Team: <name>. Audition: Offline (Guwahati). Categories: TRIO. Sharing my payment screenshot…` (team + categories were missing from the message before).
 - DB context (read-only check): event PUBLISHED, organizer WhatsApp `+916000303932`, categories SOLO ×2 (₹1000) + DUO/TRIO/GROUP (₹2000), GROUP 4–12, TRIO 3–3. Note: "DUO" category is saved as format SOLO/1-member — organizer data fix, out of scope.
+- **Follow-up**: SEND SCREENSHOT WhatsApp text for `born-to-dance` is now a structured multi-line message (`Hi, <studio>` / `Name:` / `Team:` / `Category:` / `Payment:` / `Audition Type:` / screenshot line) via new `customMessage` prop on `PaymentAside`; other events keep the one-line message.
 
 ### Build / verification
 - `tsc` clean, `lint` 0 errors (6 pre-existing warnings), `next build` exit 0.
