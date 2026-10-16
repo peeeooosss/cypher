@@ -27,6 +27,7 @@ export function buildStructuredVerifyMessage({
   studio,
   sender,
   team,
+  choreographer,
   categories,
   payment,
   audMode,
@@ -35,6 +36,7 @@ export function buildStructuredVerifyMessage({
   studio: string;
   sender: string;
   team?: string | null;
+  choreographer?: string | null;
   categories: string;
   payment: string;
   audMode?: CustomAuditionMode | null;
@@ -44,6 +46,7 @@ export function buildStructuredVerifyMessage({
     `Hi, ${studio}`,
     `Name: ${sender}`,
     ...(team ? [`Team: ${team}`] : []),
+    ...(choreographer ? [`Choreographer: ${choreographer}`] : []),
     `Category: ${categories}`,
     `Payment: ${payment}`,
     ...(audMode ? [`Audition Type: ${auditionTypeLabel(audMode, audMode === "offline" ? (audCity ?? null) : null)}`] : []),

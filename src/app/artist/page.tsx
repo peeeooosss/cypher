@@ -13,6 +13,7 @@ import { ArtistEventCard } from "@/components/artist-event-card";
 import { AccountDetails } from "@/components/account-details";
 import { ShareProfileCard } from "@/components/share-profile-card";
 import { resolveProfileUrl } from "@/lib/profile-url";
+import { isTeamFormat } from "@/lib/event-types";
 import QRCode from "qrcode";
 import type { BattleMatchBreakdown, RosterRound } from "@/components/artist-scoreboard";
 
@@ -157,7 +158,7 @@ export default async function ArtistPage({ searchParams }: PageProps) {
   const requestedPage = Math.max(1, Number(params.page) || 1);
   const currentPage = Math.min(requestedPage, totalPages);
   const pageResults = battleResults.slice((currentPage - 1) * RESULTS_PER_PAGE, currentPage * RESULTS_PER_PAGE);
-  const teamEntries = battleResults.filter((registration) => registration.userId === user.id && registration.members.length > 1);
+  const teamEntries = battleResults.filter((registration) => registration.userId === user.id && isTeamFormat(registration.category.format));
 
   return (
     <main className="min-h-screen bg-paper px-md py-section md:px-xl">

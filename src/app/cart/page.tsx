@@ -20,6 +20,7 @@ type CartSearchParams = Promise<{
   cats?: string;
   event?: string;
   team?: string;
+  choreo?: string;
   members?: string;
   audmode?: string;
   audcity?: string;
@@ -198,6 +199,7 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
     const total = event.categories.reduce((sum, category) => sum + (category.entryFee ?? 0), 0);
     const organizer = event.organizer;
     const teamName = params.team?.trim();
+    const choreographerName = params.choreo?.trim();
 
     // Custom audition params are only honored for the audition event; anything
     // else (or forged values) is ignored so other events keep today's flow.
@@ -222,6 +224,7 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
           studio: organizer.studioName ?? organizer.name ?? "Organizer",
           sender: senderName,
           team: teamName || null,
+          choreographer: choreographerName || null,
           categories: event.categories.map((c) => c.name).join(", "),
           payment: formatFee(total, "INR"),
           audMode,
@@ -256,6 +259,11 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
                 {teamName ? (
                   <p className="mt-xs font-mono text-[0.7rem] uppercase tracking-[0.1em] text-accent">
                     {teamName}
+                  </p>
+                ) : null}
+                {choreographerName ? (
+                  <p className="mt-xs font-mono text-[0.7rem] uppercase tracking-[0.1em] text-ink-muted">
+                    Choreographer: {choreographerName}
                   </p>
                 ) : null}
               </div>
@@ -325,12 +333,15 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
               sender: displayName(captain?.name, captain?.username),
               messageExtra: messageExtra || null,
               customMessage,
-              note: "Pay the exact amount above, then tap I have paid and send your payment screenshot to the organizer. Invited members will be asked to confirm their spot.",
+              note: isCustomAuditionEvent(event.slug)
+                ? "Pay the exact amount above, then tap I have paid and send your payment screenshot to the organizer. Only the captain needs an account — no team invites required."
+                : "Pay the exact amount above, then tap I have paid and send your payment screenshot to the organizer. Invited members will be asked to confirm their spot.",
               children: (
                 <CartSubmit
                   eventId={event.id}
                   categoryIds={event.categories.map((category) => category.id)}
                   teamName={teamName ?? undefined}
+                  choreographerName={choreographerName ?? undefined}
                   memberIds={memberUsers.map((member) => member.id)}
                   total={total}
                   audMode={audMode}
@@ -414,6 +425,7 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
         studio: organizer.studioName ?? organizer.name ?? "Organizer",
         sender: sender ?? "a participant",
         team: registrations.map((r) => r.teamName).find(Boolean) ?? null,
+        choreographer: registrations.map((r) => r.choreographerName).find(Boolean) ?? null,
         categories: [...new Set(registrations.map((r) => r.category.name))].join(", "),
         payment: formatFee(total, "INR"),
         audMode: idsAudMode,
@@ -446,6 +458,7 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
                 entryCurrency: registration.category.entryCurrency,
                 format: registration.category.format,
                 teamName: registration.teamName,
+                choreographerName: registration.choreographerName,
                 members: registration.members.map((member) => ({ name: member.user.name, username: member.user.username, status: member.status })),
                 allMembersAccepted: registration.members.every((member) => member.status === "ACCEPTED"),
                 paid: registration.paid,

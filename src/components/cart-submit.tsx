@@ -9,6 +9,7 @@ export function CartSubmit({
   eventId,
   categoryIds,
   teamName,
+  choreographerName,
   memberIds,
   total,
   audMode,
@@ -17,6 +18,7 @@ export function CartSubmit({
   eventId: string;
   categoryIds: string[];
   teamName?: string;
+  choreographerName?: string;
   memberIds: string[];
   total: number;
   audMode?: CustomAuditionMode | null;
@@ -35,6 +37,7 @@ export function CartSubmit({
       body: JSON.stringify({
         categoryIds,
         teamName: teamName?.trim() || undefined,
+        choreographerName: choreographerName?.trim() || undefined,
         memberIds,
         claim: true,
       }),

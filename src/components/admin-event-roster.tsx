@@ -92,11 +92,12 @@ export function AdminEventRoster({ eventId }: { eventId: string }) {
       PHONE: row.phone ?? "—",
       CATEGORY: row.categoryName,
       TEAM: row.teamName ?? "",
+      CHOREOGRAPHER: row.choreographerName ?? "",
       PAYMENT: paymentLabel(row),
       STATUS: statusLabel(row),
     }));
     const ws = XLSX.utils.json_to_sheet(sheet);
-    ws["!cols"] = [{ wch: 24 }, { wch: 16 }, { wch: 20 }, { wch: 20 }, { wch: 16 }, { wch: 20 }];
+    ws["!cols"] = [{ wch: 24 }, { wch: 16 }, { wch: 20 }, { wch: 20 }, { wch: 24 }, { wch: 16 }, { wch: 20 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Roster");
     XLSX.writeFile(wb, `${data.event.slug}-roster.xlsx`);
@@ -159,6 +160,7 @@ export function AdminEventRoster({ eventId }: { eventId: string }) {
                     <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">Phone</th>
                     <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">Category</th>
                     <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">Team</th>
+                    <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">Choreographer</th>
                     <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">Payment</th>
                     <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">Status</th>
                   </tr>
@@ -190,6 +192,7 @@ export function AdminEventRoster({ eventId }: { eventId: string }) {
                       </td>
                       <td className="px-md py-sm">{row.categoryName}</td>
                       <td className="px-md py-sm">{row.teamName ?? "—"}</td>
+                      <td className="px-md py-sm">{row.choreographerName ?? "—"}</td>
                       <td className="px-md py-sm">
                         {row.paid ? (
                           <span className="font-mono text-[0.7rem] uppercase">{paymentLabel(row)}</span>

@@ -5,11 +5,13 @@ import { badRequest, conflict, forbidden, isUniqueConstraintError, notFound, ser
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { defaultRosterSize, isTeamFormat } from "@/lib/event-types";
+import { isCustomAuditionEvent } from "@/lib/audition-events";
 
 const registrationSchema = z.object({
   categoryId: z.string().cuid().optional(),
   categoryIds: z.array(z.string().cuid()).min(1).optional(),
   teamName: z.string().trim().max(120).optional(),
+  choreographerName: z.string().trim().max(120).optional(),
   memberIds: z.array(z.string().cuid()).max(20).optional(),
   claim: z.literal(true).optional(),
 }).refine((data) => data.categoryId !== undefined || data.categoryIds !== undefined, {
@@ -60,20 +62,15 @@ export async function POST(request: Request) {
 
     const categoryIds = [...new Set(parsed.data.categoryIds ?? (parsed.data.categoryId ? [parsed.data.categoryId] : []))];
     const requestedMemberIds = [...new Set(parsed.data.memberIds ?? [])].filter((id) => id !== user.id);
-    const memberIds = [user.id, ...requestedMemberIds];
 
-    const [categories, profile, members] = await Promise.all([
+    const [categories, profile] = await Promise.all([
       prisma.category.findMany({
         where: { id: { in: categoryIds } },
-        include: { event: { select: { id: true, status: true, eventType: true } } },
+        include: { event: { select: { id: true, slug: true, status: true, eventType: true } } },
       }),
       prisma.user.findUnique({
         where: { id: user.id },
         select: { isSuspended: true, name: true, phone: true, style: true, crew: true, city: true, country: true, experience: true, socialHandle: true, referral: true },
-      }),
-      prisma.user.findMany({
-        where: { id: { in: requestedMemberIds }, role: "ARTIST", isSuspended: false },
-        select: { id: true },
       }),
     ]);
 
@@ -83,7 +80,6 @@ export async function POST(request: Request) {
       return badRequest("Add your artist name and phone number before registering");
     }
     if (categories.length !== categoryIds.length) return notFound("Category");
-    if (members.length !== requestedMemberIds.length) return badRequest("Every team member must be an active artist account");
     if (new Set(categories.map((category) => category.event.id)).size !== 1) {
       return badRequest("Team entries must be created within one event");
     }
@@ -91,24 +87,45 @@ export async function POST(request: Request) {
       return conflict("Registration is closed for this event");
     }
 
+    // Born to Dance is captain-only: one artist registers the whole crew, so the
+    // member search/invite roster is replaced by a crew name + choreographer name.
+    const isCustomAudition = isCustomAuditionEvent(categories[0].event.slug);
+    const memberIds = isCustomAudition ? [user.id] : [user.id, ...requestedMemberIds];
+
+    const members = isCustomAudition
+      ? []
+      : await prisma.user.findMany({
+          where: { id: { in: requestedMemberIds }, role: "ARTIST", isSuspended: false },
+          select: { id: true },
+        });
+
+    if (!isCustomAudition && members.length !== requestedMemberIds.length) {
+      return badRequest("Every team member must be an active artist account");
+    }
+
     const firstFormat = resolvedFormat(categories[0].format, categories[0].event.eventType);
     if (categories.some((category) => resolvedFormat(category.format, category.event.eventType) !== firstFormat)) {
       return badRequest("Select categories with the same entry format");
     }
 
-    const roster = defaultRosterSize(firstFormat);
-    const invalidRosterCategory = categories.find((category) => {
-      const minMembers = Math.max(roster.min, category.minMembers);
-      const maxMembers = Math.min(roster.max, category.maxMembers);
-      return memberIds.length < minMembers || memberIds.length > maxMembers;
-    });
-    if (invalidRosterCategory) {
-      const minMembers = Math.max(roster.min, invalidRosterCategory.minMembers);
-      const maxMembers = Math.min(roster.max, invalidRosterCategory.maxMembers);
-      return badRequest(`${invalidRosterCategory.name} requires ${minMembers === maxMembers ? minMembers : `${minMembers}–${maxMembers}`} members`);
+    if (!isCustomAudition) {
+      const roster = defaultRosterSize(firstFormat);
+      const invalidRosterCategory = categories.find((category) => {
+        const minMembers = Math.max(roster.min, category.minMembers);
+        const maxMembers = Math.min(roster.max, category.maxMembers);
+        return memberIds.length < minMembers || memberIds.length > maxMembers;
+      });
+      if (invalidRosterCategory) {
+        const minMembers = Math.max(roster.min, invalidRosterCategory.minMembers);
+        const maxMembers = Math.min(roster.max, invalidRosterCategory.maxMembers);
+        return badRequest(`${invalidRosterCategory.name} requires ${minMembers === maxMembers ? minMembers : `${minMembers}–${maxMembers}`} members`);
+      }
     }
     if (isTeamFormat(firstFormat) && !parsed.data.teamName) {
       return badRequest("Team or crew name is required");
+    }
+    if (isCustomAudition && !parsed.data.choreographerName) {
+      return badRequest("Choreographer name is required");
     }
 
     const activeStatuses = { notIn: [RegistrationStatus.WITHDRAWN] };
@@ -144,6 +161,7 @@ export async function POST(request: Request) {
             categoryId: category.id,
             format: firstFormat,
             teamName: parsed.data.teamName ?? null,
+            choreographerName: parsed.data.choreographerName ?? null,
             entryFee: category.entryFee,
             entryCurrency: category.entryCurrency,
             style: profile?.style ?? null,

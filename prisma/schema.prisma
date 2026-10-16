@@ -417,6 +417,7 @@ model Registration {
   seed           Int?
   style          String?
   crew           String?
+  choreographerName String?
   city           String?
   country        String?
   experience     String?

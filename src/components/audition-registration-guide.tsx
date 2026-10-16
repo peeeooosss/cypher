@@ -68,7 +68,8 @@ export function AuditionRegistrationGuide({
             <p className="font-bold uppercase">2. Register for SOLO</p>
             <ul className="mt-xs list-disc space-y-xs pl-5 text-ink-muted">
               <li>Select your audition type: Offline (Guwahati / Dibrugarh / Tezpur) or Online.</li>
-              <li>Pick the SOLO category from the list and continue.</li>
+              <li>Pick the SOLO category from the list.</li>
+              <li>Enter your Choreographer name (no crew name needed for solo) and continue.</li>
               <li>You’ll reach the cart — pay the entry fee. After payment, tap “I have paid” and send the payment screenshot to the organizer on WhatsApp for verification.</li>
             </ul>
           </li>
@@ -76,10 +77,10 @@ export function AuditionRegistrationGuide({
             <p className="font-bold uppercase">3. Register for DUO / TRIO / GROUP</p>
             <ul className="mt-xs list-disc space-y-xs pl-5 text-ink-muted">
               <li>Select your audition type (Offline by city, or Online).</li>
-              <li>Pick the DUO / TRIO / GROUP category. Enter a Team/Crew name.</li>
-              <li>Use the username search to add team members (they must already have CYPHR artist accounts). Roster: DUO = 2, TRIO = 3, GROUP = 4+ as shown.</li>
-              <li>Continue to cart, pay as captain. Team members must accept their invites in their Artist space.</li>
-              <li>After payment, send the payment screenshot to the organizer on WhatsApp for verification.</li>
+              <li>Pick the DUO / TRIO / GROUP category.</li>
+              <li>Enter your <span className="text-ink">Crew name</span> and <span className="text-ink">Choreographer name</span>. Only the captain creates an account and registers the whole crew — there is no member search or invite step.</li>
+              <li>Continue to cart and pay as captain.</li>
+              <li>After payment, tap “I have paid” and send the payment screenshot to the organizer on WhatsApp for verification.</li>
             </ul>
           </li>
           <li>

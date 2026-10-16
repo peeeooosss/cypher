@@ -466,6 +466,7 @@ export type AdminRosterRow = {
   username: string | null;
   phone: string | null;
   teamName: string | null;
+  choreographerName: string | null;
   memberStatus: string | null;
   paid: boolean;
   entryFee: number | null;
@@ -485,6 +486,7 @@ export async function getAdminEventRoster(eventId: string) {
         id: true,
         userId: true,
         teamName: true,
+        choreographerName: true,
         paid: true,
         entryFee: true,
         entryCurrency: true,
@@ -519,6 +521,7 @@ export async function getAdminEventRoster(eventId: string) {
       username: reg.user.username,
       phone: reg.user.phone,
       teamName: reg.teamName,
+      choreographerName: reg.choreographerName,
       memberStatus: "ACCEPTED",
       paid: reg.paid,
       entryFee: reg.entryFee,
@@ -536,6 +539,7 @@ export async function getAdminEventRoster(eventId: string) {
         username: m.user.username,
         phone: m.user.phone,
         teamName: reg.teamName,
+        choreographerName: reg.choreographerName,
         memberStatus: m.status,
         paid: reg.paid,
         entryFee: reg.entryFee,

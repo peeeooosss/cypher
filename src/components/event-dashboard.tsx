@@ -147,6 +147,7 @@ type RegistrationRow = {
   paidClaimedAt: Date | null;
   user: { name: string | null; email: string | null; phone: string | null; whatsappNumber: string | null };
   teamName?: string | null;
+  choreographerName?: string | null;
   format?: CategoryFormat | null;
   members?: Array<{ id: string; userId: string; role: string; status: string; user: { id: string; name: string | null; username: string | null; whatsappNumber: string | null } }>;
 };
@@ -2772,6 +2773,7 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
       reg.user.email,
       reg.user.phone,
       reg.teamName,
+      reg.choreographerName,
       reg.crew,
       memberNames,
     ]
@@ -2947,6 +2949,12 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
                   Crew
                 </th>
                 <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
+                  Choreographer
+                </th>
+                <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
+                  Phone
+                </th>
+                <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
                   Style
                 </th>
                 <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
@@ -3031,6 +3039,9 @@ function RegistrationRow({
   const [customMessage, setCustomMessage] = useState("");
 
   const captainPhone = registration.user.whatsappNumber ?? registration.members?.find((m) => m.role === "CAPTAIN")?.user.whatsappNumber ?? null;
+  const contactPhone = registration.user.phone ?? registration.user.whatsappNumber ?? captainPhone;
+  const callHref = contactPhone ? `tel:${contactPhone.replace(/[^0-9+]/g, "")}` : null;
+  const waHref = captainPhone ? `https://wa.me/${captainPhone.replace(/[^0-9]/g, "")}` : null;
 
   function handleTemplateChange(templateId: string) {
     setSelectedTemplateId(templateId);
@@ -3125,6 +3136,28 @@ function RegistrationRow({
           ) : <p className="mt-xs text-[0.7rem] text-ink-muted">{registration.user.email ?? registration.user.phone ?? ""}</p>}
         </td>
        <td className="px-md py-sm">{registration.crew ?? "—"}</td>
+       <td className="px-md py-sm">{registration.choreographerName ?? "—"}</td>
+       <td className="px-md py-sm">
+         {contactPhone ? (
+           <div className="flex flex-col gap-xs">
+             <a className="font-mono text-[0.7rem] text-accent hover:underline" href={callHref ?? "#"}>
+               {contactPhone}
+             </a>
+             {waHref ? (
+               <a
+                 className="font-mono text-[0.6rem] uppercase text-ink-muted hover:text-accent"
+                 href={waHref}
+                 target="_blank"
+                 rel="noopener noreferrer"
+               >
+                 WhatsApp
+               </a>
+             ) : null}
+           </div>
+         ) : (
+           "—"
+         )}
+       </td>
        <td className="px-md py-sm">{registration.style ?? "—"}</td>
        <td className="px-md py-sm">{registration.experience ?? "—"}</td>
        <td className="px-md py-sm font-mono text-[0.7rem] uppercase">
