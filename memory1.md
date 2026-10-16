@@ -540,6 +540,32 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 
 ### Commits
 - `5e8b747` — feat(born-to-dance): custom offline/online audition register flow; remove generic auditions tab
+- `f71e22c` — feat(born-to-dance): structured multi-line WhatsApp verification message
+
+---
+
+## Session 17: Admin Events Roster + XLSX Export
+
+### User requirements
+- Admin panel **Events** section: per-category artists with phone numbers + **XLSX download** (NAME, PHONE, Category, Payment). Phone numbers visible + copyable for external message automation (paid extra feature; backend auto-sending out of scope).
+
+### Changes
+- **Dep**: `xlsx@^0.18.5` (SheetJS community) — client-side workbook build, no binary route.
+- **`admin/layout.tsx`**: Events nav link (after Dashboard).
+- **`lib/admin.ts`**: `getAdminEvents()` (list w/ organizer + counts) + `getAdminEventRoster(eventId)` returning `{event, rows}` — flat `AdminRosterRow[]` = captain row per entry + one row per invited member (captain's own member row skipped via `userId` compare), ordered by category name.
+- **New `admin/events/page.tsx`**: event table (status, starts, organizer, categories, entries) → detail links.
+- **New `admin/events/[eventId]/page.tsx`**: title/meta + `<AdminEventRoster>`.
+- **New `GET /api/admin/events/[eventId]/registrations`**: admin-guarded JSON roster (same helper).
+- **New `admin-event-roster.tsx`**: per-category tables (NAME, click-to-copy PHONE, CATEGORY, TEAM, PAYMENT `Paid ₹X`/`Unpaid`, STATUS), per-category **Copy all numbers**, top-level **Download XLSX** (`<slug>-roster.xlsx`, single "Roster" sheet, cols NAME/PHONE/CATEGORY/TEAM/PAYMENT/STATUS). Clipboard with textarea fallback.
+
+### Build / verification
+- `tsc` clean, `lint` 0 errors (6 pre-existing warnings), `next build` exit 0.
+- Prod smoke: `/admin/events` → login redirect chain, anon API → 401.
+- XLSX path proven in node: `json_to_sheet` → valid workbook, headers NAME,PHONE,CATEGORY,TEAM,PAYMENT,STATUS.
+- Real admin click-through (table + download) needs an admin login — user to confirm.
+
+### Commits
+- (this session) — feat(admin): events roster with phone numbers, copy buttons + XLSX export
 
 ---
 

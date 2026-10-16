@@ -440,3 +440,110 @@ export async function getAdminAnalytics() {
     })),
   };
 }
+
+export async function getAdminEvents() {
+  return prisma.event.findMany({
+    select: {
+      id: true,
+      title: true,
+      slug: true,
+      status: true,
+      startsAt: true,
+      organizer: { select: { name: true, studioName: true } },
+      _count: { select: { categories: true } },
+      categories: { select: { _count: { select: { registrations: true } } } },
+    },
+    orderBy: { startsAt: "desc" },
+  });
+}
+
+export type AdminRosterRow = {
+  registrationId: string;
+  categoryId: string;
+  categoryName: string;
+  role: "CAPTAIN" | "MEMBER";
+  name: string | null;
+  username: string | null;
+  phone: string | null;
+  teamName: string | null;
+  memberStatus: string | null;
+  paid: boolean;
+  entryFee: number | null;
+  entryCurrency: string | null;
+  entryStatus: string;
+};
+
+export async function getAdminEventRoster(eventId: string) {
+  const [event, registrations] = await Promise.all([
+    prisma.event.findUnique({
+      where: { id: eventId },
+      select: { id: true, title: true, slug: true, status: true, startsAt: true },
+    }),
+    prisma.registration.findMany({
+      where: { category: { eventId } },
+      select: {
+        id: true,
+        userId: true,
+        teamName: true,
+        paid: true,
+        entryFee: true,
+        entryCurrency: true,
+        status: true,
+        createdAt: true,
+        category: { select: { id: true, name: true } },
+        user: { select: { id: true, name: true, username: true, phone: true } },
+        members: {
+          select: {
+            userId: true,
+            role: true,
+            status: true,
+            user: { select: { id: true, name: true, username: true, phone: true } },
+          },
+          orderBy: { invitedAt: "asc" },
+        },
+      },
+      orderBy: [{ category: { name: "asc" } }, { createdAt: "asc" }],
+    }),
+  ]);
+
+  if (!event) return null;
+
+  const rows: AdminRosterRow[] = [];
+  for (const reg of registrations) {
+    rows.push({
+      registrationId: reg.id,
+      categoryId: reg.category.id,
+      categoryName: reg.category.name,
+      role: "CAPTAIN",
+      name: reg.user.name,
+      username: reg.user.username,
+      phone: reg.user.phone,
+      teamName: reg.teamName,
+      memberStatus: "ACCEPTED",
+      paid: reg.paid,
+      entryFee: reg.entryFee,
+      entryCurrency: reg.entryCurrency,
+      entryStatus: reg.status,
+    });
+    for (const m of reg.members) {
+      if (m.userId === reg.userId) continue;
+      rows.push({
+        registrationId: reg.id,
+        categoryId: reg.category.id,
+        categoryName: reg.category.name,
+        role: "MEMBER",
+        name: m.user.name,
+        username: m.user.username,
+        phone: m.user.phone,
+        teamName: reg.teamName,
+        memberStatus: m.status,
+        paid: reg.paid,
+        entryFee: reg.entryFee,
+        entryCurrency: reg.entryCurrency,
+        entryStatus: reg.status,
+      });
+    }
+  }
+
+  return { event, rows };
+}
