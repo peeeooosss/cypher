@@ -418,6 +418,7 @@ model Registration {
   style          String?
   crew           String?
   choreographerName String?
+  address        String?
   city           String?
   country        String?
   experience     String?

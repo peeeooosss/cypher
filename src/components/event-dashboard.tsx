@@ -148,6 +148,7 @@ type RegistrationRow = {
   user: { name: string | null; email: string | null; phone: string | null; whatsappNumber: string | null };
   teamName?: string | null;
   choreographerName?: string | null;
+  address?: string | null;
   format?: CategoryFormat | null;
   members?: Array<{ id: string; userId: string; role: string; status: string; user: { id: string; name: string | null; username: string | null; whatsappNumber: string | null } }>;
 };
@@ -2774,6 +2775,7 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
       reg.user.phone,
       reg.teamName,
       reg.choreographerName,
+      reg.address,
       reg.crew,
       memberNames,
     ]
@@ -2950,6 +2952,9 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
                 </th>
                 <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
                   Choreographer
+                </th>
+                <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
+                  Address
                 </th>
                 <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
                   Phone
@@ -3137,6 +3142,7 @@ function RegistrationRow({
         </td>
        <td className="px-md py-sm">{registration.crew ?? "—"}</td>
        <td className="px-md py-sm">{registration.choreographerName ?? "—"}</td>
+       <td className="px-md py-sm">{registration.address ?? "—"}</td>
        <td className="px-md py-sm">
          {contactPhone ? (
            <div className="flex flex-col gap-xs">

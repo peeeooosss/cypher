@@ -10,6 +10,7 @@ export function CartSubmit({
   categoryIds,
   teamName,
   choreographerName,
+  address,
   memberIds,
   total,
   audMode,
@@ -19,6 +20,7 @@ export function CartSubmit({
   categoryIds: string[];
   teamName?: string;
   choreographerName?: string;
+  address?: string;
   memberIds: string[];
   total: number;
   audMode?: CustomAuditionMode | null;
@@ -38,6 +40,7 @@ export function CartSubmit({
         categoryIds,
         teamName: teamName?.trim() || undefined,
         choreographerName: choreographerName?.trim() || undefined,
+        address: address?.trim() || undefined,
         memberIds,
         claim: true,
       }),

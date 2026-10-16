@@ -13,6 +13,7 @@ export type CartRegistration = {
   format: string | null;
   teamName: string | null;
   choreographerName?: string | null;
+  address?: string | null;
   members: Array<{ name: string | null; username: string | null; status: string }>;
   allMembersAccepted: boolean;
   entryFee: number | null;
@@ -66,6 +67,7 @@ export function CartCategoryList({ registrations, eventTitle, total, organizerWh
                 sender: sender ?? "a participant",
                 team: registration.teamName,
                 choreographer: registration.choreographerName,
+                address: registration.address,
                 categories: registration.name,
                 payment: formatFee(registration.entryFee, registration.entryCurrency),
                 audMode,

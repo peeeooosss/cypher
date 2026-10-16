@@ -21,6 +21,7 @@ type CartSearchParams = Promise<{
   event?: string;
   team?: string;
   choreo?: string;
+  addr?: string;
   members?: string;
   audmode?: string;
   audcity?: string;
@@ -200,6 +201,7 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
     const organizer = event.organizer;
     const teamName = params.team?.trim();
     const choreographerName = params.choreo?.trim();
+    const address = params.addr?.trim();
 
     // Custom audition params are only honored for the audition event; anything
     // else (or forged values) is ignored so other events keep today's flow.
@@ -225,6 +227,7 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
           sender: senderName,
           team: teamName || null,
           choreographer: choreographerName || null,
+          address: address || null,
           categories: event.categories.map((c) => c.name).join(", "),
           payment: formatFee(total, "INR"),
           audMode,
@@ -264,6 +267,11 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
                 {choreographerName ? (
                   <p className="mt-xs font-mono text-[0.7rem] uppercase tracking-[0.1em] text-ink-muted">
                     Choreographer: {choreographerName}
+                  </p>
+                ) : null}
+                {address ? (
+                  <p className="mt-xs font-mono text-[0.7rem] uppercase tracking-[0.1em] text-ink-muted">
+                    Address: {address}
                   </p>
                 ) : null}
               </div>
@@ -342,6 +350,7 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
                   categoryIds={event.categories.map((category) => category.id)}
                   teamName={teamName ?? undefined}
                   choreographerName={choreographerName ?? undefined}
+                  address={address ?? undefined}
                   memberIds={memberUsers.map((member) => member.id)}
                   total={total}
                   audMode={audMode}
@@ -426,6 +435,7 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
         sender: sender ?? "a participant",
         team: registrations.map((r) => r.teamName).find(Boolean) ?? null,
         choreographer: registrations.map((r) => r.choreographerName).find(Boolean) ?? null,
+        address: registrations.map((r) => r.address).find(Boolean) ?? null,
         categories: [...new Set(registrations.map((r) => r.category.name))].join(", "),
         payment: formatFee(total, "INR"),
         audMode: idsAudMode,
@@ -459,6 +469,7 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
                 format: registration.category.format,
                 teamName: registration.teamName,
                 choreographerName: registration.choreographerName,
+                address: registration.address,
                 members: registration.members.map((member) => ({ name: member.user.name, username: member.user.username, status: member.status })),
                 allMembersAccepted: registration.members.every((member) => member.status === "ACCEPTED"),
                 paid: registration.paid,

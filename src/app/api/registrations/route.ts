@@ -12,6 +12,7 @@ const registrationSchema = z.object({
   categoryIds: z.array(z.string().cuid()).min(1).optional(),
   teamName: z.string().trim().max(120).optional(),
   choreographerName: z.string().trim().max(120).optional(),
+  address: z.string().trim().max(240).optional(),
   memberIds: z.array(z.string().cuid()).max(20).optional(),
   claim: z.literal(true).optional(),
 }).refine((data) => data.categoryId !== undefined || data.categoryIds !== undefined, {
@@ -127,6 +128,9 @@ export async function POST(request: Request) {
     if (isCustomAudition && !parsed.data.choreographerName) {
       return badRequest("Choreographer name is required");
     }
+    if (isCustomAudition && !parsed.data.address) {
+      return badRequest("Address is required");
+    }
 
     const activeStatuses = { notIn: [RegistrationStatus.WITHDRAWN] };
     const registrations = await prisma.$transaction(async (transaction) => {
@@ -162,6 +166,7 @@ export async function POST(request: Request) {
             format: firstFormat,
             teamName: parsed.data.teamName ?? null,
             choreographerName: parsed.data.choreographerName ?? null,
+            address: parsed.data.address ?? null,
             entryFee: category.entryFee,
             entryCurrency: category.entryCurrency,
             style: profile?.style ?? null,

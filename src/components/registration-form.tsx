@@ -52,6 +52,7 @@ export function RegistrationForm({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [teamName, setTeamName] = useState("");
   const [choreographerName, setChoreographerName] = useState("");
+  const [address, setAddress] = useState("");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<ArtistResult[]>([]);
   const [members, setMembers] = useState<ArtistResult[]>([]);
@@ -112,10 +113,15 @@ export function RegistrationForm({
         setError("Add the choreographer name.");
         return;
       }
+      if (!address.trim()) {
+        setError("Add your address.");
+        return;
+      }
 
       const params = new URLSearchParams({ event: eventId, cats: [...selected].join(",") });
       if (isTeam && teamName.trim()) params.set("team", teamName.trim());
       params.set("choreo", choreographerName.trim());
+      params.set("addr", address.trim());
       if (auditionMode) params.set("audmode", auditionMode);
       if (auditionMode === "offline" && auditionCity) params.set("audcity", auditionCity);
       router.push(`/cart?${params.toString()}`);
@@ -200,8 +206,8 @@ export function RegistrationForm({
               <p className="font-display text-title-md uppercase">Entry details</p>
               <p className="mt-xs text-body-sm text-ink-muted">
                 {isTeam
-                  ? "Only you register — you are entering on behalf of the whole crew. Add your crew name and choreographer."
-                  : "Add your choreographer name to complete the entry."}
+                  ? "Only you register — you are entering on behalf of the whole crew. Add your crew name, choreographer and address."
+                  : "Add your choreographer name and address to complete the entry."}
               </p>
             </div>
             <div className="space-y-md p-lg">
@@ -219,6 +225,10 @@ export function RegistrationForm({
               <label className="block">
                 <span className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">Choreographer name</span>
                 <input className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm" value={choreographerName} onChange={(e) => setChoreographerName(e.target.value)} placeholder="Choreographer name" />
+              </label>
+              <label className="block">
+                <span className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">Address</span>
+                <input className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Your address" />
               </label>
             </div>
           </div>
