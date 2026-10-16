@@ -599,6 +599,42 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 
 ---
 
+## Session 19: Born-to-Dance Captain-Only Crew Entries + Choreographer + Callable Phone
+
+### User requirements
+- For **born-to-dance only**, remove the username member search from DUO/TRIO/GROUP.
+- **Only the captain** creates an account and registers the whole entry.
+- Add a **Crew Name** (team formats only) and a **Choreographer Name** (all formats).
+- Show **all registration info (with callable phone numbers)** in the organizer Registrations section.
+- Solo participants: **no Crew Name** required.
+
+### Decisions
+- Scope limited to `born-to-dance` (`isCustomAuditionEvent`); other events keep the linked-account member roster.
+- `teamName` = Crew Name (required for DUO/TRIO/GROUP). New `Registration.choreographerName` (name only, no phone) required for every born-to-dance format.
+- Roster exposure: organizer Registrations tab **and** admin XLSX export.
+
+### Changes
+- **Schema/migration**: `prisma/schema.prisma` → `Registration.choreographerName String?`; new `prisma/migrations/20261018000000_choreographer/migration.sql` (`ALTER TABLE "Registration" ADD COLUMN "choreographerName" TEXT;`). Applied via `prisma migrate deploy` (24 migrations) + `prisma generate` (Prisma Client 7.9.1).
+- **`src/app/api/registrations/route.ts`**: `registrationSchema` gains `choreographerName` (max 120); event select gains `slug`; POST computes `isCustomAudition` from `categories[0].event.slug` → forces `memberIds=[user.id]`, skips member fetch + roster min/max validation; requires `teamName` for team formats and `choreographerName` for custom audition; stores `choreographerName`. Non-custom path unchanged.
+- **`src/components/registration-form.tsx`**: `choreographerName` state; `isCustomAudition = Boolean(auditionMode)`; `handleSubmit` branches — custom audition pushes `team`/`choreo`/`audmode`/`audcity` (no `members`) and validates crew (team only) + choreographer; JSX shows an "Entry details" block (crew for team, choreographer for all) instead of the member-search roster.
+- **`src/components/cart-submit.tsx`**: added `choreographerName` prop, included in POST body.
+- **`src/app/cart/page.tsx`**: new `choreo` search param → threaded into `CartSubmit`, shown in the summary card ("Choreographer: …"), and used to make the claim note captain-only for born-to-dance; choreographer added to both structured WhatsApp messages (draft + ids branches) and to the `CartCategoryList` mapping.
+- **`src/components/cart-claim.tsx`**: `CartRegistration` gains `choreographerName?`; structured message forwards it.
+- **`src/lib/audition-events.ts`**: `buildStructuredVerifyMessage` accepts optional `choreographer` and emits a `Choreographer: <name>` line.
+- **`src/components/event-dashboard.tsx`**: `RegistrationRow` gains `choreographerName`; added **Choreographer** column and a **Phone** column with `tel:` click-to-call + WhatsApp link (from `user.phone`/`user.whatsappNumber`/captain phone); search index includes choreographer.
+- **`src/lib/admin.ts` + `src/components/admin-event-roster.tsx`**: `AdminRosterRow.choreographerName`; roster query selects it; table adds a **Choreographer** column; XLSX columns now NAME/PHONE/CATEGORY/TEAM/CHOREOGRAPHER/PAYMENT/STATUS.
+- **`src/app/artist/page.tsx`**: `teamEntries` now classified by `isTeamFormat(registration.category.format)` instead of `members.length > 1` (captain-only team entries have 1 member).
+- **`src/components/audition-registration-guide.tsx`**: SOLO + DUO/TRIO/GROUP steps rewritten — no username search/invites; crew + choreographer entry; captain-only copy.
+
+### Build / verification
+- `tsc` clean; `lint` 0 errors (6 pre-existing `no-img-element` warnings); `next build` exit 0.
+- DB check: `Registration.choreographerName` column present; born-to-dance categories = SOLO SENIOR, SOLO JUNIOR, DUO, TRIO, GROUP.
+
+### Commits
+- `8165f78` — feat(born-to-dance): captain-only crew entries with choreographer + callable phone
+
+---
+
 ## Key Files Reference (Updated)
 
 ### Schema
@@ -769,6 +805,7 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 - **Next.js 16 rule**: event handlers (onClick, onChange) cannot be used in server components — only client components with `"use client"`
 
 ### Git History (Recent)
+- `8165f78` — feat(born-to-dance): captain-only crew entries with choreographer + callable phone
 - `6071aa6` — feat(born-to-dance): register page video guide + public view for anonymous visitors
 - `232029b` — fix(born-to-dance): unified structured WhatsApp message on all cart paths; VERIFY NOW; wa.me digit fix
 - `9e88713` — fix(born-to-dance): unified structured WhatsApp message on all cart paths; VERIFY NOW; wa.me digit fix
