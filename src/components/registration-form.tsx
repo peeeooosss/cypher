@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatFee } from "@/lib/format";
 import { defaultRosterSize, formatLabel, isTeamFormat } from "@/lib/event-types";
+import type { CustomAuditionMode } from "@/lib/audition-events";
 
 type CategoryOption = {
   id: string;
@@ -28,7 +29,8 @@ type ArtistResult = {
 
 export function RegistrationForm({
   eventId,
-  auditionId,
+  auditionMode,
+  auditionCity,
   categories,
   registeredCategoryIds,
   paidCategoryIds,
@@ -37,7 +39,8 @@ export function RegistrationForm({
   currentUser,
 }: {
   eventId: string;
-  auditionId?: string | null;
+  auditionMode?: CustomAuditionMode | null;
+  auditionCity?: string | null;
   categories: CategoryOption[];
   registeredCategoryIds: Set<string>;
   paidCategoryIds: Set<string>;
@@ -108,7 +111,8 @@ export function RegistrationForm({
     const trimmedTeamName = teamName.trim();
     if (trimmedTeamName) params.set("team", trimmedTeamName);
     if (members.length > 0) params.set("members", members.map((member) => member.id).join(","));
-    if (auditionId) params.set("audition", auditionId);
+    if (auditionMode) params.set("audmode", auditionMode);
+    if (auditionMode === "offline" && auditionCity) params.set("audcity", auditionCity);
     router.push(`/cart?${params.toString()}`);
   }
 

@@ -1,21 +1,19 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ArtistIdentityBox } from "@/components/artist-identity-box";
+import { AuditionRegisterFlow } from "@/components/audition-register-flow";
 import { RegistrationForm } from "@/components/registration-form";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/rbac";
+import { isCustomAuditionEvent } from "@/lib/audition-events";
 import { EventStatus } from "@/generated/prisma/enums";
 
 export const dynamic = "force-dynamic";
 
-type RegisterPageContext = {
-  params: Promise<{ slug: string }>;
-  searchParams?: Promise<{ audition?: string }>;
-};
+type RegisterPageContext = { params: Promise<{ slug: string }> };
 
-export default async function RegisterPage({ params, searchParams }: RegisterPageContext) {
+export default async function RegisterPage({ params }: RegisterPageContext) {
   const { slug } = await params;
-  const auditionParam = (await searchParams)?.audition?.trim() || null;
   const user = await getCurrentUser();
 
   if (!user) {
@@ -41,7 +39,6 @@ export default async function RegisterPage({ params, searchParams }: RegisterPag
       registrationInstructions: true,
       contactDetails: true,
       lastRegistrationAt: true,
-      auditionsEnabled: true,
       categories: {
         include: { _count: { select: { registrations: true } } },
         orderBy: { name: "asc" },
@@ -52,13 +49,6 @@ export default async function RegisterPage({ params, searchParams }: RegisterPag
   if (!event) {
     notFound();
   }
-
-  const audition = auditionParam && event.auditionsEnabled
-    ? await prisma.audition.findFirst({
-        where: { id: auditionParam, eventId: event.id, isPublished: true },
-        include: { category: { select: { id: true, name: true } } },
-      })
-    : null;
 
   const isOpen = event.status === EventStatus.PUBLISHED || event.status === EventStatus.LIVE;
 
@@ -96,6 +86,30 @@ export default async function RegisterPage({ params, searchParams }: RegisterPag
 
   const needsName = !profileUser?.name;
   const needsPhone = !profileUser?.phone;
+  const useAuditionFlow = isCustomAuditionEvent(event.slug);
+
+  const formProps = {
+    eventId: event.id,
+    categories: event.categories.map((category) => ({
+      id: category.id,
+      name: category.name,
+      entryFee: category.entryFee,
+      entryCurrency: category.entryCurrency,
+      maxCompetitors: category.maxCompetitors,
+      registeredCount: category._count.registrations,
+      format: category.format,
+      minMembers: category.minMembers,
+      maxMembers: category.maxMembers,
+    })),
+    registeredCategoryIds,
+    paidCategoryIds,
+    claimedCategoryIds,
+    pendingRegistrationIds,
+    currentUser: {
+      name: profileUser?.name ?? null,
+      username: profileUser?.username ?? null,
+    },
+  };
 
   return (
     <main className="min-h-screen bg-paper">
@@ -191,44 +205,10 @@ export default async function RegisterPage({ params, searchParams }: RegisterPag
           </div>
         ) : needsName || needsPhone ? (
           <ArtistIdentityBox needsName={needsName} needsPhone={needsPhone} />
+        ) : useAuditionFlow ? (
+          <AuditionRegisterFlow {...formProps} />
         ) : (
-          <>
-            {audition ? (
-              <div className="mt-lg border border-accent bg-paper-soft p-md">
-                <p className="font-mono text-[0.65rem] uppercase tracking-[0.15em] text-accent">
-                  {audition.mode === "OFFLINE" ? "Offline audition" : "Online audition"}
-                  {audition.city ? ` — ${audition.city}` : ""}
-                </p>
-                <p className="mt-xs text-body-sm text-ink-muted">
-                  Registering via audition{audition.category ? ` · ${audition.category.name}` : ""}. Your
-                  audition details travel with this entry to WhatsApp after payment.
-                </p>
-              </div>
-            ) : null}
-            <RegistrationForm
-            eventId={event.id}
-            auditionId={audition?.id ?? null}
-            categories={event.categories.map((category) => ({
-              id: category.id,
-              name: category.name,
-              entryFee: category.entryFee,
-              entryCurrency: category.entryCurrency,
-              maxCompetitors: category.maxCompetitors,
-              registeredCount: category._count.registrations,
-              format: category.format,
-              minMembers: category.minMembers,
-              maxMembers: category.maxMembers,
-            }))}
-            registeredCategoryIds={registeredCategoryIds}
-            paidCategoryIds={paidCategoryIds}
-            claimedCategoryIds={claimedCategoryIds}
-            pendingRegistrationIds={pendingRegistrationIds}
-            currentUser={{
-              name: profileUser?.name ?? null,
-              username: profileUser?.username ?? null,
-            }}
-          />
-          </>
+          <RegistrationForm {...formProps} />
         )}
       </div>
     </main>

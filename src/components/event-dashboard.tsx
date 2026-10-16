@@ -15,7 +15,6 @@ import { AdvancementStudio } from "@/components/advancement-studio";
 import { StaffCodesTab } from "@/components/staff-codes-tab";
 import { EventJudgesManager, type EventJudgeRecord } from "@/components/event-judges-manager";
 import { EventPhotosManager, type EventPhotoRecord } from "@/components/event-photos-manager";
-import { EventAuditionsManager, type AuditionRecord } from "@/components/event-auditions-manager";
 import { useToast } from "@/components/ui/toast";
 import type { CategoryFormat, EventStatus, RoundType, RegistrationStatus, PaymentStatus } from "@/generated/prisma/enums";
 
@@ -103,8 +102,6 @@ type EventWithRelations = {
   lastRegistrationAt: Date | string | null;
   checkInInstructions: string | null;
   showPublicLeaderboard: boolean;
-  auditionsEnabled: boolean;
-  auditions: AuditionRecord[];
   categories: Category[];
   judges: EventJudgeRecord[];
   eventPhotos: EventPhotoRecord[];
@@ -154,7 +151,7 @@ type RegistrationRow = {
   members?: Array<{ id: string; userId: string; role: string; status: string; user: { id: string; name: string | null; username: string | null; whatsappNumber: string | null } }>;
 };
 
-const TABS = ["Overview", "Event Info", "Schedule", "Notices", "Categories", "Auditions", "Judges", "Photos", "Registrations", "Prizes", "Leaderboard", "MC / Host", "Control Room"] as const;
+const TABS = ["Overview", "Event Info", "Schedule", "Notices", "Categories", "Judges", "Photos", "Registrations", "Prizes", "Leaderboard", "MC / Host", "Control Room"] as const;
 
 const STATUS_OPTIONS: EventStatus[] = ["DRAFT", "PUBLISHED", "LIVE", "COMPLETED"];
 
@@ -292,40 +289,6 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
       )}
       {resolvedTab === "Categories" && (
         <CategoriesTab event={event} refresh={refreshControlRoom} refreshing={refreshing} />
-      )}
-      {resolvedTab === "Auditions" && (
-        <div className="space-y-section">
-          <section>
-            <div className="mb-lg">
-              <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent">Auditions</p>
-              <h3 className="mt-xs font-display text-title-lg uppercase">City &amp; online auditions</h3>
-              <p className="mt-xs text-body-sm text-ink-muted">
-                Enable auditions to show an Auditions section on the event page. Offline entries let
-                artists pick a city; online entries link a category fee and redirect to WhatsApp after payment.
-              </p>
-            </div>
-            <EventAuditionsManager
-              eventId={event.id}
-              enabled={event.auditionsEnabled}
-              initialAuditions={event.auditions ?? []}
-              categories={event.categories.map((c) => ({
-                id: c.id,
-                name: c.name,
-                entryFee: c.entryFee ?? null,
-                entryCurrency: c.entryCurrency ?? "INR",
-              }))}
-              onChanged={() => void refreshControlRoom()}
-              onToggleEnabled={async () => {
-                const res = await fetch(`/api/events/${event.id}`, {
-                  method: "PATCH",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ auditionsEnabled: !event.auditionsEnabled }),
-                });
-                if (!res.ok) throw new Error(await responseError(res, "Failed to update auditions"));
-              }}
-            />
-          </section>
-        </div>
       )}
       {resolvedTab === "Judges" && (
         <JudgesTab event={event} refresh={refreshControlRoom} />

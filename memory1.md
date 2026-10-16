@@ -514,6 +514,34 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 
 ---
 
+## Session 16: Custom Audition Flow for born-to-dance (Generic Tab Removed)
+
+### User pivot
+- Drop the generic dashboard **Auditions tab**; build a custom flow for **BORN TO DANCE CHAMPIONSHIP** (`born-to-dance`, Sizzler Dance Studio) only.
+- Register click → must pick **Offline / Online**. Offline → city dropdown (**Guwahati, Dibrugarh, Tezpur**) → category → pay → WhatsApp. Online → category → pay → WhatsApp.
+- WhatsApp verification message carries: category, artist or group name, audition type, city.
+
+### Removal (tab UI only — no migration revert, live-DB safe)
+- Deleted `event-auditions-manager.tsx` + `event-auditions.tsx`; dropped `"Auditions"` from dashboard TABS + tab block; removed generic `<EventAuditions>` section, `auditions` sub-nav/include, and the `audition`-id threading (register/registration-form/cart).
+- Dormant but kept: `Audition` model, `auditionsEnabled` flag + PATCH support, `/api/events/[eventId]/auditions*` CRUD (still owner-guarded, 401 anonymous).
+
+### Custom flow (slug-gated, offline-city fixed)
+- New `src/lib/audition-events.ts`: `CUSTOM_AUDITION_EVENT_SLUG = "born-to-dance"`, `CUSTOM_AUDITION_CITIES = [Guwahati, Dibrugarh, Tezpur]`, `isCustomAuditionEvent` / `isCustomAuditionCity` guards.
+- New `audition-type-step.tsx` (Offline/Online cards; offline requires city + Continue) + `audition-register-flow.tsx` (gates `RegistrationForm` behind the step, with a Change reset).
+- `register/page.tsx`: builds shared `formProps`, renders `AuditionRegisterFlow` only for this slug, plain `RegistrationForm` otherwise.
+- `registration-form.tsx`: optional `auditionMode`/`auditionCity` → `audmode`/`audcity` cart params.
+- `cart/page.tsx`: honors audition params **only** for the gated slug (forged values ignored); context banner; WhatsApp message now `Hi <Studio>, I'm <artist>. I've paid ₹X for <event> entry. Team: <name>. Audition: Offline (Guwahati). Categories: TRIO. Sharing my payment screenshot…` (team + categories were missing from the message before).
+- DB context (read-only check): event PUBLISHED, organizer WhatsApp `+916000303932`, categories SOLO ×2 (₹1000) + DUO/TRIO/GROUP (₹2000), GROUP 4–12, TRIO 3–3. Note: "DUO" category is saved as format SOLO/1-member — organizer data fix, out of scope.
+
+### Build / verification
+- `tsc` clean, `lint` 0 errors (6 pre-existing warnings), `next build` exit 0.
+- Prod smoke: `/`, event pages, register page, `/api/gallery` 200; dormant audition APIs 401; `born-to-dance` page has no generic auditions section; no `Auditions` tab/dashboard references remain in `src` outside dormant APIs + custom flow.
+
+### Commits
+- (this session) — feat(born-to-dance): custom offline/online audition register flow; remove generic auditions tab
+
+---
+
 ## Key Files Reference (Updated)
 
 ### Schema

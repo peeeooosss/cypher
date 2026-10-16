@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/rbac";
 import { formatLabel } from "@/lib/event-types";
 import { whatsappLink, displayName } from "@/lib/payment";
+import { isCustomAuditionCity, isCustomAuditionEvent } from "@/lib/audition-events";
 import { CategoryFormat } from "@/generated/prisma/enums";
 import { CartCategoryList } from "@/components/cart-claim";
 import { CartSubmit } from "@/components/cart-submit";
@@ -20,7 +21,8 @@ type CartSearchParams = Promise<{
   event?: string;
   team?: string;
   members?: string;
-  audition?: string;
+  audmode?: string;
+  audcity?: string;
 }>;
 
 function resolveFormat(format: CategoryFormat | string | null, eventType: string | null) {
@@ -37,7 +39,7 @@ async function PaymentAside({
   total,
   note,
   sender,
-  auditionNote,
+  messageExtra,
   children,
 }: {
   organizerName: string | null;
@@ -48,7 +50,7 @@ async function PaymentAside({
   total: number;
   note: string;
   sender?: string | null;
-  auditionNote?: string | null;
+  messageExtra?: string | null;
   children?: ReactNode;
 }) {
   let qrDataUrl: string | null = null;
@@ -103,7 +105,7 @@ async function PaymentAside({
             <Link
               href={whatsappLink(
                 organizerWhatsapp,
-                `Hi ${organizerName ?? "Organizer"}, I'm ${sender ?? "a participant"}. I've paid ${formatFee(total, "INR")} for ${eventTitle} entry.${auditionNote ? ` ${auditionNote}` : ""} Sharing my payment screenshot for verification.`,
+                `Hi ${organizerName ?? "Organizer"}, I'm ${sender ?? "a participant"}. I've paid ${formatFee(total, "INR")} for ${eventTitle} entry.${messageExtra ? ` ${messageExtra}` : ""} Sharing my payment screenshot for verification.`,
               )}
               target="_blank"
               rel="noopener noreferrer"
@@ -159,7 +161,6 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
           slug: true,
           title: true,
           eventType: true,
-          auditionsEnabled: true,
           organizer: { select: { name: true, email: true, upiId: true, whatsappNumber: true } },
           categories: {
             where: { id: { in: draftCategoryIds } },
@@ -191,20 +192,25 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
       redirect("/events");
     }
 
-    const audition =
-      params.audition && event.auditionsEnabled
-        ? await prisma.audition.findFirst({
-            where: { id: params.audition, eventId: event.id, isPublished: true },
-            include: { category: { select: { id: true, name: true } } },
-          })
-        : null;
-    const auditionNote = audition
-      ? `Audition: ${audition.mode === "OFFLINE" ? "Offline" : "Online"}${audition.city ? ` (${audition.city})` : ""}${audition.category ? ` — ${audition.category.name}` : ""}${audition.details?.trim() ? `. ${audition.details.trim().slice(0, 200)}` : ""}`
-      : null;
-
     const total = event.categories.reduce((sum, category) => sum + (category.entryFee ?? 0), 0);
     const organizer = event.organizer;
     const teamName = params.team?.trim();
+
+    // Custom audition params are only honored for the audition event; anything
+    // else (or forged values) is ignored so other events keep today's flow.
+    const audMode =
+      isCustomAuditionEvent(event.slug) && (params.audmode === "offline" || params.audmode === "online")
+        ? params.audmode
+        : null;
+    const audCity = audMode === "offline" && isCustomAuditionCity(params.audcity) ? params.audcity!.trim() : null;
+    const messageExtra = [
+      teamName ? `Team: ${teamName}.` : null,
+      audMode
+        ? `Audition: ${audMode === "offline" ? "Offline" : "Online"}${audCity ? ` (${audCity})` : ""}. Categories: ${event.categories.map((c) => c.name).join(", ")}.`
+        : null,
+    ]
+      .filter(Boolean)
+      .join(" ");
 
     return (
       <main className="min-h-screen bg-paper">
@@ -217,12 +223,11 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
           </Link>
           <p className="mt-lg font-mono text-body-sm uppercase tracking-[0.18em] text-accent">Checkout</p>
           <h1 className="mt-sm font-display text-display-xl uppercase">Pay your entry</h1>
-          {audition ? (
+          {audMode ? (
             <div className="mt-md border border-accent bg-paper-soft p-md">
               <p className="font-mono text-[0.65rem] uppercase tracking-[0.15em] text-accent">
-                {audition.mode === "OFFLINE" ? "Offline audition" : "Online audition"}
-                {audition.city ? ` — ${audition.city}` : ""}
-                {audition.category ? ` · ${audition.category.name}` : ""}
+                {audMode === "offline" ? "Offline audition" : "Online audition"}
+                {audCity ? ` — ${audCity}` : ""}
               </p>
             </div>
           ) : null}
@@ -301,7 +306,7 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
               eventTitle: event.title,
               total,
               sender: displayName(captain?.name, captain?.username),
-              auditionNote,
+              messageExtra: messageExtra || null,
               note: "Pay the exact amount above, then tap I have paid and send your payment screenshot to the organizer. Invited members will be asked to confirm their spot.",
               children: (
                 <CartSubmit
