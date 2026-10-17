@@ -15,6 +15,7 @@ import { AdvancementStudio } from "@/components/advancement-studio";
 import { StaffCodesTab } from "@/components/staff-codes-tab";
 import { EventJudgesManager, type EventJudgeRecord } from "@/components/event-judges-manager";
 import { EventPhotosManager, type EventPhotoRecord } from "@/components/event-photos-manager";
+import { EventOrganizerInfoManager } from "@/components/event-organizer-info-manager";
 import { useToast } from "@/components/ui/toast";
 import type { CategoryFormat, EventStatus, RoundType, RegistrationStatus, PaymentStatus } from "@/generated/prisma/enums";
 
@@ -83,6 +84,9 @@ type EventWithRelations = {
   googleMapsUrl: string | null;
   city: string | null;
   state: string | null;
+  organizerPhotoUrl: string | null;
+  organizerPhotoFileKey: string | null;
+  organizerBio: string | null;
   flatFee: number | null;
   flatFeePaid: boolean;
   flatFeePaymentStatus: PaymentStatus | null;
@@ -325,6 +329,22 @@ export function EventDashboard({ event: initialEvent }: { event: EventWithRelati
             <EventPhotosManager
               eventId={event.id}
               initialPhotos={event.eventPhotos ?? []}
+              onChanged={() => void refreshControlRoom()}
+            />
+          </section>
+          <section>
+            <div className="mb-lg">
+              <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-accent">Photos</p>
+              <h3 className="mt-xs font-display text-title-lg uppercase">Organizer photo &amp; bio</h3>
+              <p className="mt-xs text-body-sm text-ink-muted">
+                Display organizer/studio photo and bio on the public event page.
+              </p>
+            </div>
+            <EventOrganizerInfoManager
+              eventId={event.id}
+              initialPhotoUrl={event.organizerPhotoUrl}
+              initialPhotoFileKey={event.organizerPhotoFileKey}
+              initialBio={event.organizerBio}
               onChanged={() => void refreshControlRoom()}
             />
           </section>

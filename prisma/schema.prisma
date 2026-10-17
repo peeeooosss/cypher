@@ -284,6 +284,9 @@ model Event {
   posterFileKey               String?
   venue                       String?
   googleMapsUrl               String?
+  organizerPhotoUrl           String?  @db.Text
+  organizerPhotoFileKey       String?
+  organizerBio                String?  @db.Text
   city                        String?
   state                       String?
   startsAt                    DateTime
