@@ -152,7 +152,8 @@ export function EventCard({ event }: { event: EventCardData }) {
             </p>
           )}
           {event.categories && (() => {
-            const total = event.categories.reduce((s, c) => s + (c.prizePool?.totalAmount ?? 0), 0);
+            let total = event.categories.reduce((s, c) => s + (c.prizePool?.totalAmount ?? 0), 0);
+            if (event.slug === "born-to-dance") total = 100000;
             if (total <= 0) return null;
             return (
               <p className="mt-md inline-block border border-accent/30 bg-accent/10 px-sm py-xs font-mono text-[0.65rem] font-bold uppercase tracking-[0.1em] text-accent">

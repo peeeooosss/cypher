@@ -28,13 +28,22 @@ export function EventAside({ event }: { event: EventAsideData }) {
           <p className="font-mono text-[0.65rem] uppercase tracking-[0.2em] text-ink-muted">Status</p>
           <StatusBadge status={event.status} />
         </div>
-        {event.totalPrize > 0 ? (
+        {event.totalPrize > 0 && event.slug !== "born-to-dance" ? (
           <div className="mt-md border-t border-line pt-md">
             <p className="font-mono text-[0.65rem] uppercase tracking-[0.2em] text-ink-muted">
               Total prize pool
             </p>
             <p className="mt-xs font-display text-display-md tabular-nums text-accent">
               ₹{event.totalPrize.toLocaleString("en-IN")}
+            </p>
+          </div>
+        ) : event.slug === "born-to-dance" ? (
+          <div className="mt-md border-t border-line pt-md">
+            <p className="font-mono text-[0.65rem] uppercase tracking-[0.2em] text-ink-muted">
+              Total prize pool
+            </p>
+            <p className="mt-xs font-display text-display-md tabular-nums text-accent">
+              ₹1,00,000
             </p>
           </div>
         ) : null}

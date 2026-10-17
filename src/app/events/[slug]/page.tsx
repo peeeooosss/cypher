@@ -109,10 +109,13 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
   const liveHref = isLive ? `/events/${event.slug}/live` : null;
   const standingsHref = showBoard ? `/events/${event.slug}/standings` : null;
 
-  const totalPrizePool = event.categories.reduce(
+  let totalPrizePool = event.categories.reduce(
     (sum, c) => sum + (c.prizePool?.totalAmount ?? 0),
     0,
   );
+  if (event.slug === "born-to-dance") {
+    totalPrizePool = 100000;
+  }
 
   const categories = event.categories.map((category) => ({
     id: category.id,
@@ -266,6 +269,7 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
               isWorkshop={workshop}
               registerHref={registerHref}
               totalPrize={totalPrizePool}
+              slug={event.slug}
             />
 
             <EventSchedule items={event.scheduleItems} />
@@ -329,7 +333,7 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
               city: event.city,
               registrationDeadline: event.lastRegistrationAt,
               categoryCount: event.categories.length,
-              totalPrize: totalPrizePool,
+              totalPrize: event.slug === "born-to-dance" ? 100000 : totalPrizePool,
               registeredText:
                 registeredCategoryIds.size > 0
                   ? `You're in${paidCategoryIds.size > 0 ? " (paid)" : ""} — ${registeredCategoryIds.size} ${registeredCategoryIds.size === 1 ? "category" : "categories"}`

@@ -9,8 +9,8 @@ export function AuditionRegistrationGuide({
   contactDetails?: string | null;
 }) {
   const driveLinks = {
-    solo: "https://drive.google.com/file/d/1DDx12p8vPhTEMh5FibGaQYhE0RGCmUYp/view?usp=drivesdk",
-    team: "https://drive.google.com/file/d/1Vk8ngRU_NRRZHWUlSgxm78jYIFK46OT0/view?usp=drivesdk",
+    solo: "https://drive.google.com/file/d/1sWl897-hjmwHrgfKUNCb5deGHa6uf9Lx/view?usp=drivesdk",
+    team: "https://drive.google.com/file/d/1sWl897-hjmwHrgfKUNCb5deGHa6uf9Lx/view?usp=drivesdk",
   };
 
   const hasContact = Boolean(contactDetails?.trim());
@@ -20,19 +20,14 @@ export function AuditionRegistrationGuide({
       <div className="border-b border-line px-lg py-md">
         <p className="font-display text-title-md uppercase">Audition registration guide</p>
         <p className="mt-xs text-body-sm text-ink-muted">
-          Watch these short videos before you start. For online auditions, share your audition video directly to the organizer’s WhatsApp number (see Contact below).
+          Watch this short video before you start. For online auditions, share your audition video directly to the organizer’s WhatsApp number (see Contact below).
         </p>
       </div>
-      <div className="grid gap-md p-lg sm:grid-cols-2">
+      <div className="gap-md p-lg">
         <GuideVideoCard
-          title="SOLO PARTICIPATIONS"
-          subtitle="How to register for SOLO — online & offline auditions"
+          title="REGISTRATION GUIDE"
+          subtitle="How to register — SOLO, DUO, TRIO & GROUP (online & offline auditions)"
           href={driveLinks.solo}
-        />
-        <GuideVideoCard
-          title="DUO TRIO GROUP PARTICIPATIONS"
-          subtitle="How to register for DUO / TRIO / GROUP — online & offline auditions"
-          href={driveLinks.team}
         />
       </div>
       {hasContact && (

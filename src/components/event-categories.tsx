@@ -28,11 +28,13 @@ export function EventCategories({
   isWorkshop,
   registerHref,
   totalPrize,
+  slug,
 }: {
   categories: PublicCategory[];
   isWorkshop: boolean;
   registerHref: string | null;
   totalPrize: number;
+  slug?: string | null;
 }) {
   return (
     <section id="categories" aria-label={isWorkshop ? "Sessions" : "Categories"} className="scroll-mt-24">
@@ -46,14 +48,14 @@ export function EventCategories({
         }
       />
 
-      {totalPrize > 0 ? (
+      {(slug === "born-to-dance" || totalPrize > 0) ? (
         <div className="mb-lg flex flex-wrap items-center justify-between gap-md rounded-lg border border-accent/40 bg-accent/10 px-lg py-md">
           <div>
             <p className="font-mono text-[0.65rem] uppercase tracking-[0.2em] text-accent">
               Total prize pool
             </p>
             <p className="mt-xs font-display text-display-md tabular-nums text-accent">
-              ₹{totalPrize.toLocaleString("en-IN")}
+              ₹{slug === "born-to-dance" ? "1,00,000" : totalPrize.toLocaleString("en-IN")}
             </p>
           </div>
           {registerHref ? (
@@ -116,7 +118,7 @@ export function EventCategories({
                   <span className="font-display text-title-md tabular-nums text-accent">
                     {formatFee(category.entryFee, category.entryCurrency)}
                   </span>
-                  {category.prizeTotal > 0 ? (
+                  {category.prizeTotal > 0 && slug !== "born-to-dance" ? (
                     <span className="border border-accent/30 bg-accent/10 px-sm py-xs font-mono text-[0.65rem] font-bold uppercase tracking-[0.1em] text-accent">
                       ₹{category.prizeTotal.toLocaleString("en-IN")} prize
                     </span>

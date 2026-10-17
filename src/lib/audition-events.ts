@@ -45,7 +45,7 @@ export function buildStructuredVerifyMessage({
   audCity?: string | null;
 }): string {
   return [
-    `Hi, ${studio}`,
+    `Hi, Akash Deep Borboruah`,
     `Name: ${sender}`,
     ...(team ? [`Team: ${team}`] : []),
     ...(choreographer ? [`Choreographer: ${choreographer}`] : []),
