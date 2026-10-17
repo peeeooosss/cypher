@@ -12,6 +12,7 @@ import { EventSchedule } from "@/components/event-schedule";
 import { EventInfoAccordion } from "@/components/event-info-accordion";
 import { EventAside } from "@/components/event-aside";
 import { EventGalleryStrip } from "@/components/event-gallery-strip";
+import { EventOrganizerProfile } from "@/components/event-organizer-profile";
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { EventStatus } from "@/generated/prisma/enums";
@@ -159,6 +160,7 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
     { id: "categories", label: workshop ? "Sessions" : "Categories", show: true },
     { id: "schedule", label: "Schedule", show: event.scheduleItems.length > 0 },
     { id: "gallery", label: "Gallery", show: event.galleryItems.length > 0 || event.eventPhotos.length > 0 },
+    { id: "host", label: "Our host", show: Boolean(event.organizerPhotoUrl || event.organizerBio?.trim()) },
     { id: "notices", label: "Notices", show: event.notices.length > 0 },
     { id: "info", label: "Info", show: infoSections.some((s) => s.body && s.body.trim()) },
     { id: "results", label: "Results", show: showBoard || boardPaused },
@@ -275,6 +277,15 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
             <EventSchedule items={event.scheduleItems} />
 
             <EventGalleryStrip items={galleryStripItems} />
+
+            <EventOrganizerProfile
+              organizer={{
+                name: event.organizer.name,
+                studioName: event.organizer.studioName,
+                photoUrl: event.organizerPhotoUrl,
+                bio: event.organizerBio,
+              }}
+            />
 
             {event.notices.length > 0 ? (
               <section id="notices" aria-label="Notices" className="scroll-mt-24">
