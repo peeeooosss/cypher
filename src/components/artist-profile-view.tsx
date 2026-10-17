@@ -226,17 +226,11 @@ function BattlesSection({
                             {opponent ?? "TBD"}
                           </span>
                         </p>
-                        <span
-                          className={`shrink-0 px-sm py-xs font-mono text-[0.6rem] font-bold uppercase tracking-[0.1em] ${
-                            isComplete
-                              ? won
-                                ? "bg-accent/10 text-accent"
-                                : "bg-paper text-ink-muted"
-                              : "bg-paper text-ink-muted"
-                          }`}
-                        >
-                          {isComplete ? (won ? "WIN" : "LOSS") : "UPCOMING"}
-                        </span>
+                        {!isComplete ? (
+                          <span className="shrink-0 bg-paper px-sm py-xs font-mono text-[0.6rem] font-bold uppercase tracking-[0.1em] text-ink-muted">
+                            UPCOMING
+                          </span>
+                        ) : null}
                       </div>
                     );
                   })

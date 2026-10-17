@@ -8,7 +8,7 @@ import { LiveLeaderboard } from "@/components/live-leaderboard";
 import { PosterUpload } from "@/components/poster-upload";
 import { usePricing } from "@/components/pricing-provider";
 import { formatInr, isEventFlatFeePaid } from "@/lib/money";
-import { BATTLE_FORMATS, CATEGORY_FORMAT_LABELS, COMPETITION_FORMATS, EVENT_TYPE_LABELS, EVENT_TYPE_LIST, defaultRosterSize, formatLabel, isCompetitionType, isWorkshopType, SINGLE_POINT_ROUND_TYPES } from "@/lib/event-types";
+import { BATTLE_FORMATS, CATEGORY_FORMAT_LABELS, COMPETITION_FORMATS, EVENT_TYPE_LABELS, EVENT_TYPE_LIST, defaultRosterSize, formatLabel, isCompetitionType, isWorkshopType } from "@/lib/event-types";
 import { INDIAN_STATES } from "@/lib/states";
 import { responseError } from "@/lib/client-error";
 import { AdvancementStudio } from "@/components/advancement-studio";
@@ -161,16 +161,49 @@ const TABS = ["Overview", "Event Info", "Schedule", "Notices", "Categories", "Ju
 
 const STATUS_OPTIONS: EventStatus[] = ["DRAFT", "PUBLISHED", "LIVE", "COMPLETED"];
 
-const ROUND_TYPES: RoundType[] = [
-  "CYPHER",
-  "QUALIFIER",
-  "BATTLE_1V1",
-  "BATTLE_2V2",
-  "BATTLE_3V3",
-  "BATTLE_4V4",
-  "CREW_VS_CREW",
-  "FINAL",
-];
+type PhaseType = "1v1" | "3 way" | "Cypher" | "Competition score";
+
+const BATTLE_PHASE_TYPE_OPTIONS: PhaseType[] = ["1v1", "3 way", "Cypher", "Competition score"];
+const SCORE_PHASE_TYPE_OPTIONS: PhaseType[] = ["Cypher", "Competition score"];
+
+function phaseTypeOptionsFor(eventType: string | null): PhaseType[] {
+  return isCompetitionType(eventType) ? SCORE_PHASE_TYPE_OPTIONS : BATTLE_PHASE_TYPE_OPTIONS;
+}
+
+function phaseTypeOfRound(round: { type: RoundType; matchSize?: number | null }): PhaseType {
+  if (round.type === "CYPHER") return "Cypher";
+  if (round.type === "QUALIFIER") return "Competition score";
+  return (round.matchSize ?? 2) === 3 ? "3 way" : "1v1";
+}
+
+function battleRoundTypeFor(format: CategoryFormat | null | undefined): RoundType {
+  switch (format) {
+    case "BATTLE_2V2":
+      return "BATTLE_2V2";
+    case "BATTLE_3V3":
+      return "BATTLE_3V3";
+    case "CREW_VS_CREW":
+      return "CREW_VS_CREW";
+    default:
+      return "BATTLE_1V1";
+  }
+}
+
+function roundShapeForPhaseType(
+  phaseType: PhaseType,
+  format: CategoryFormat | null | undefined,
+): { type: RoundType; matchSize: number } {
+  switch (phaseType) {
+    case "1v1":
+      return { type: battleRoundTypeFor(format), matchSize: 2 };
+    case "3 way":
+      return { type: battleRoundTypeFor(format), matchSize: 3 };
+    case "Cypher":
+      return { type: "CYPHER", matchSize: 2 };
+    case "Competition score":
+      return { type: "QUALIFIER", matchSize: 2 };
+  }
+}
 
 export function EventDashboard({ event: initialEvent }: { event: EventWithRelations }) {
   const router = useRouter();
@@ -1598,6 +1631,7 @@ function CategoriesTab({
                       key={round.id}
                       categoryId={category.id}
                       eventType={event.eventType}
+                      format={category.format}
                       round={round}
                       refresh={refresh}
                     />
@@ -1606,7 +1640,7 @@ function CategoriesTab({
             </div>
           )}
 
-          <AddRoundForm categoryId={category.id} eventType={event.eventType} refresh={refresh} />
+          <AddRoundForm categoryId={category.id} eventType={event.eventType} format={category.format} refresh={refresh} />
         </div>
       ))}
 
@@ -1729,31 +1763,31 @@ function CategoryFeeEditor({
 function RoundEditor({
   categoryId,
   eventType,
+  format,
   round,
   refresh,
 }: {
   categoryId: string;
   eventType: string | null;
+  format: CategoryFormat | null;
   round: Round;
   refresh: () => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const [type, setType] = useState<RoundType>(round.type);
+  const [phaseType, setPhaseType] = useState<PhaseType>(phaseTypeOfRound(round));
   const [label, setLabel] = useState(round.label ?? "");
   const [roundCount, setRoundCount] = useState(String(round.roundCount));
   const [roundDuration, setRoundDuration] = useState(round.roundDuration?.toString() ?? "");
   const [advanceCount, setAdvanceCount] = useState(round.advanceCount?.toString() ?? "");
-  const [matchSize, setMatchSize] = useState(round.matchSize === 3 ? "3" : "2");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   function openEditor() {
-    setType(round.type);
+    setPhaseType(phaseTypeOfRound(round));
     setLabel(round.label ?? "");
     setRoundCount(String(round.roundCount));
     setRoundDuration(round.roundDuration?.toString() ?? "");
     setAdvanceCount(round.advanceCount?.toString() ?? "");
-    setMatchSize(round.matchSize === 3 ? "3" : "2");
     setError("");
     setEditing(true);
   }
@@ -1762,16 +1796,17 @@ function RoundEditor({
     setSaving(true);
     setError("");
     try {
+      const shape = roundShapeForPhaseType(phaseType, format);
       const res = await fetch(`/api/categories/${categoryId}/rounds/${round.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          type,
+          type: shape.type,
           label: label.trim() || null,
           roundCount: Number(roundCount) || 1,
           roundDuration: roundDuration ? Number(roundDuration) : null,
           advanceCount: advanceCount ? Number(advanceCount) : null,
-          matchSize: Number(matchSize) === 3 ? 3 : 2,
+          matchSize: shape.matchSize,
         }),
       });
 
@@ -1793,13 +1828,12 @@ function RoundEditor({
     return (
       <div className="flex flex-wrap items-center justify-between gap-sm border border-line bg-paper-soft px-md py-sm">
         <div className="text-body-sm">
-          <span className="font-mono uppercase text-accent">{round.type}</span>{" "}
+          <span className="font-mono uppercase text-accent">{phaseTypeOfRound(round)}</span>{" "}
           {round.label && <span className="text-ink-muted">&mdash; {round.label}</span>}
           <span className="ml-sm text-ink-muted">
             ({round.roundCount} round{round.roundCount > 1 ? "s" : ""}
             {round.roundDuration ? `, ${round.roundDuration}s` : ""}
-            {round.advanceCount != null ? `, advance ${round.advanceCount}` : ""}
-            {round.matchSize === 3 ? ", 3-way" : ""})
+            {round.advanceCount != null ? `, advance ${round.advanceCount}` : ""})
           </span>
           {round.phaseStatus && round.phaseStatus !== "PENDING" && (
             <span className="ml-sm font-mono text-[0.6rem] uppercase text-ink-muted">[{round.phaseStatus}]</span>
@@ -1819,20 +1853,23 @@ function RoundEditor({
     );
   }
 
-  const phaseTypes = isCompetitionType(eventType) ? SINGLE_POINT_ROUND_TYPES : ROUND_TYPES;
+  const phaseTypeOptions = phaseTypeOptionsFor(eventType);
 
   return (
     <div className="border border-accent bg-paper-soft p-md">
       <div className="grid gap-sm sm:grid-cols-2">
-        <select
-          className="border border-line bg-paper px-md py-sm text-body-sm"
-          value={type}
-          onChange={(event) => setType(event.target.value as RoundType)}
-        >
-          {phaseTypes.map((phaseType) => (
-            <option key={phaseType} value={phaseType}>{phaseType}</option>
-          ))}
-        </select>
+        <label className="block">
+          <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Phase type</span>
+          <select
+            className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm"
+            value={phaseType}
+            onChange={(event) => setPhaseType(event.target.value as PhaseType)}
+          >
+            {phaseTypeOptions.map((option) => (
+              <option key={option} value={option}>{option}</option>
+            ))}
+          </select>
+        </label>
         <input
           className="border border-line bg-paper px-md py-sm text-body-sm"
           value={label}
@@ -1855,17 +1892,6 @@ function RoundEditor({
           onChange={(event) => setRoundDuration(event.target.value)}
           placeholder="Duration (seconds)"
         />
-        <label className="block">
-          <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Match size</span>
-          <select
-            className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm"
-            value={matchSize}
-            onChange={(event) => setMatchSize(event.target.value)}
-          >
-            <option value="2">1v1 — classic</option>
-            <option value="3">3-way — 1v1v1</option>
-          </select>
-        </label>
         <input
           className="border border-line bg-paper px-md py-sm text-body-sm sm:col-span-2"
           type="number"
@@ -1944,27 +1970,33 @@ function DeleteRoundButton({
 function AddRoundForm({
   categoryId,
   eventType,
+  format,
   refresh,
 }: {
   categoryId: string;
   eventType: string | null;
+  format: CategoryFormat | null;
   refresh: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const phaseTypeOptions = phaseTypeOptionsFor(eventType);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
     setSubmitting(true);
     const form = new FormData(e.currentTarget);
+    const phaseType = (form.get("phaseType") as PhaseType) || phaseTypeOptions[0];
+    const shape = roundShapeForPhaseType(phaseType, format);
     try {
       const res = await fetch(`/api/categories/${categoryId}/rounds`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          type: form.get("type"),
+          type: shape.type,
+          matchSize: shape.matchSize,
           label: form.get("label") || undefined,
           roundCount: Number(form.get("roundCount")) || 1,
           roundDuration: form.get("roundDuration")
@@ -2003,18 +2035,21 @@ function AddRoundForm({
   return (
     <form className="mt-md border border-line bg-paper-soft p-md" onSubmit={handleSubmit}>
       <div className="grid gap-sm sm:grid-cols-2">
-        <select
-          className="border border-line bg-paper px-md py-sm text-body-sm"
-          name="type"
-          required
-        >
-          <option value="">Select round type</option>
-          {(isCompetitionType(eventType) ? SINGLE_POINT_ROUND_TYPES : ROUND_TYPES).map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
+        <label className="block">
+          <span className="font-mono text-[0.7rem] uppercase text-ink-muted">Phase type</span>
+          <select
+            className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm"
+            name="phaseType"
+            defaultValue={phaseTypeOptions[0]}
+            required
+          >
+            {phaseTypeOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </label>
         <input
           className="border border-line bg-paper px-md py-sm text-body-sm"
           name="label"
