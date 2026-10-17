@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import type { ScoringConfig } from "@/generated/prisma/client";
 
 export type ScoringCriterion = {
   key: string;
@@ -21,6 +22,13 @@ export type ScoringConfigType = {
   categoryId?: string | null;
   roundFormatId?: string | null;
 };
+
+function toConfig(row: ScoringConfig): ScoringConfigType {
+  return {
+    ...row,
+    criteria: Array.isArray(row.criteria) ? (row.criteria as unknown as ScoringCriterion[]) : [],
+  };
+}
 
 export const DEFAULT_SCORING_CRITERIA: ScoringCriterion[] = [
   { key: "musicality", label: "Musicality", max: 5, order: 1 },
@@ -62,43 +70,43 @@ export async function findEffectiveScoringConfig({
   if (roundFormatId) {
     const rf = await prisma.roundFormat.findUnique({ where: { id: roundFormatId }, include: { scoringConfig: true } });
     if (rf?.scoringConfig && rf.scoringConfig.isActive) {
-      return { ...rf.scoringConfig, criteria: rf.scoringConfig.criteria as any } as ScoringConfigType;
+      return toConfig(rf.scoringConfig);
     }
     const c = await prisma.scoringConfig.findFirst({
       where: { isActive: true, appliesTo: "ROUND_FORMAT", OR: [{ appliesToValue: roundFormatId }, { roundFormats: { some: { id: roundFormatId } } }] },
       orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
     });
-    if (c) return { ...c, criteria: c.criteria as any } as ScoringConfigType;
+    if (c) return toConfig(c);
   }
 
   if (categoryId) {
     const cat = await prisma.category.findUnique({ where: { id: categoryId }, include: { scoringConfig: true } });
     if (cat?.scoringConfig && cat.scoringConfig.isActive) {
-      return { ...cat.scoringConfig, criteria: cat.scoringConfig.criteria as any } as ScoringConfigType;
+      return toConfig(cat.scoringConfig);
     }
     const c = await prisma.scoringConfig.findFirst({
       where: { isActive: true, appliesTo: "CATEGORY", OR: [{ appliesToValue: categoryId }, { categories: { some: { id: categoryId } } }] },
       orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
     });
-    if (c) return { ...c, criteria: c.criteria as any } as ScoringConfigType;
+    if (c) return toConfig(c);
   }
 
   if (eventId) {
     const ev = await prisma.event.findUnique({ where: { id: eventId }, include: { scoringConfig: true } });
     if (ev?.scoringConfig && ev.scoringConfig.isActive) {
-      return { ...ev.scoringConfig, criteria: ev.scoringConfig.criteria as any } as ScoringConfigType;
+      return toConfig(ev.scoringConfig);
     }
     const c = await prisma.scoringConfig.findFirst({
       where: { isActive: true, appliesTo: "EVENT", OR: [{ appliesToValue: eventId }, { events: { some: { id: eventId } } }] },
       orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
     });
-    if (c) return { ...c, criteria: c.criteria as any } as ScoringConfigType;
+    if (c) return toConfig(c);
     if (eventType) {
       const c2 = await prisma.scoringConfig.findFirst({
         where: { isActive: true, appliesTo: "EVENT_TYPE", appliesToValue: eventType },
         orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
       });
-      if (c2) return { ...c2, criteria: c2.criteria as any } as ScoringConfigType;
+      if (c2) return toConfig(c2);
     }
   }
 
@@ -107,7 +115,7 @@ export async function findEffectiveScoringConfig({
       where: { isActive: true, appliesTo: "ROUND_TYPE", appliesToValue: roundType },
       orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
     });
-    if (c) return { ...c, criteria: c.criteria as any } as ScoringConfigType;
+    if (c) return toConfig(c);
   }
 
   if (eventType) {
@@ -115,13 +123,13 @@ export async function findEffectiveScoringConfig({
       where: { isActive: true, appliesTo: "EVENT_TYPE", appliesToValue: eventType },
       orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
     });
-    if (c) return { ...c, criteria: c.criteria as any } as ScoringConfigType;
+    if (c) return toConfig(c);
   }
 
   const d = await prisma.scoringConfig.findFirst({
     where: { isActive: true, isDefault: true },
     orderBy: { createdAt: "desc" },
   });
-  if (d) return { ...d, criteria: d.criteria as any } as ScoringConfigType;
+  if (d) return toConfig(d);
   return null;
 }

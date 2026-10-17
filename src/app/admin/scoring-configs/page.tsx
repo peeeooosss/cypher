@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin";
+import type { ScoringCriterion } from "@/lib/scoring-config";
 
 export const dynamic = "force-dynamic";
 
@@ -47,8 +48,8 @@ export default async function ScoringConfigsPage() {
             </thead>
             <tbody>
               {configs.map((config) => {
-                const criteria = config.criteria as any[];
-                const criteriaText = criteria?.map((c: any) => c.label).join(", ") || "—";
+                const criteria = Array.isArray(config.criteria) ? (config.criteria as unknown as ScoringCriterion[]) : [];
+                const criteriaText = criteria.map((c) => c.label).join(", ") || "—";
                 return (
                   <tr key={config.id} className="border-b border-line">
                     <td className="px-md py-sm">

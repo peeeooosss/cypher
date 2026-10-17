@@ -71,16 +71,18 @@ export default async function ArtistPage({ searchParams }: PageProps) {
         },
         matchesAsA: {
           include: {
-            competitorB: { include: { user: { select: { name: true } } } },
-             winner: { select: { id: true, userId: true } },
+            competitorA: { select: { id: true, teamName: true, user: { select: { name: true } } } },
+            competitorB: { select: { id: true, teamName: true, user: { select: { name: true } } } },
+            winner: { select: { id: true, userId: true, teamName: true, user: { select: { name: true } } } },
             scores: { select: { feedback: true, feedbackRed: true, feedbackBlue: true, scoreA: true, scoreB: true, winnerCorner: true, scoreAMusicality: true, scoreAFoundation: true, scoreAPresentation: true, scoreAExecution: true, scoreBMusicality: true, scoreBFoundation: true, scoreBPresentation: true, scoreBExecution: true, judgeSlot: { select: { name: true, code: true } } } },
           },
           orderBy: { round: "asc" },
         },
         matchesAsB: {
           include: {
-            competitorA: { include: { user: { select: { name: true } } } },
-             winner: { select: { id: true, userId: true } },
+            competitorA: { select: { id: true, teamName: true, user: { select: { name: true } } } },
+            competitorB: { select: { id: true, teamName: true, user: { select: { name: true } } } },
+            winner: { select: { id: true, userId: true, teamName: true, user: { select: { name: true } } } },
             scores: { select: { feedback: true, feedbackRed: true, feedbackBlue: true, scoreA: true, scoreB: true, winnerCorner: true, scoreAMusicality: true, scoreAFoundation: true, scoreAPresentation: true, scoreAExecution: true, scoreBMusicality: true, scoreBFoundation: true, scoreBPresentation: true, scoreBExecution: true, judgeSlot: { select: { name: true, code: true } } } },
           },
           orderBy: { round: "asc" },
@@ -245,8 +247,12 @@ export default async function ArtistPage({ searchParams }: PageProps) {
           <div className="mt-lg grid gap-md lg:grid-cols-2">
             {pageResults.map((reg) => {
               const allMatches = [...reg.matchesAsA, ...reg.matchesAsB].sort((a, b) => a.round - b.round || a.position - b.position);
-              const wins = allMatches.filter((m) => m.winner?.userId === user.id).length;
+              const wins = allMatches.filter((m) => m.winner?.id === reg.id).length;
               const isLive = reg.category.event.status === "LIVE";
+
+              const displayName = (
+                competitor: { teamName: string | null; user: { name: string | null } } | null,
+              ) => competitor?.teamName ?? competitor?.user?.name ?? "TBD";
 
               const rosterRounds: RosterRound[] = [];
               for (const ds of reg.dancerScores) {
@@ -319,7 +325,6 @@ export default async function ArtistPage({ searchParams }: PageProps) {
                   paid={reg.paid}
                   paidClaimedAt={reg.paidClaimedAt}
                   isOwner={reg.userId === user.id}
-                  userId={user.id}
                   regId={reg.id}
                   eventId={reg.category.event.id}
                   eventAccommodation={reg.category.event.accommodationAvailable ?? false}
@@ -328,28 +333,18 @@ export default async function ArtistPage({ searchParams }: PageProps) {
                   eventNotices={reg.category.event.notices ?? []}
                   eventScheduleCount={reg.category.event._count?.scheduleItems ?? 0}
                   memberCount={reg.members.length}
-                  matches={allMatches.map((m) => {
-                    const match = m as unknown as {
-                      id: string; round: number; position: number; status: string;
-                      scoreA: number; scoreB: number;
-                      competitorA: { user: { name: string | null } } | null;
-                      competitorB: { user: { name: string | null } } | null;
-                      winner: { id: string; userId: string } | null;
-                      scores: { feedback: string | null; feedbackRed: string | null; feedbackBlue: string | null; scoreA: number; scoreB: number; winnerCorner: string | null; judgeSlot: { name: string | null; code: string } }[];
-                    };
-                    return {
-                      id: match.id,
-                      round: match.round,
-                      position: match.position,
-                      status: match.status,
-                      scoreA: match.scoreA,
-                      scoreB: match.scoreB,
-                      competitorA: match.competitorA,
-                      competitorB: match.competitorB,
-                      winner: match.winner,
-                      scores: match.scores,
-                    };
-                  })}
+                  matches={allMatches.map((m) => ({
+                    id: m.id,
+                    round: m.round,
+                    position: m.position,
+                    status: m.status,
+                    redName: displayName(m.competitorA),
+                    blueName: displayName(m.competitorB),
+                    winnerName: m.winner
+                      ? m.winner.teamName ?? m.winner.user?.name ?? null
+                      : null,
+                    iAmRed: reg.matchesAsA.some((a) => a.id === m.id),
+                  }))}
                   rosterRounds={rosterRounds}
                   battleMatches={battleMatches}
                   wins={wins}

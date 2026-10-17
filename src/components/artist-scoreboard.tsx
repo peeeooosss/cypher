@@ -46,7 +46,7 @@ export function ArtistScoreboard({
   matches: BattleMatchBreakdown[];
 }) {
   const hasRoster = rosterRounds.some((r) => r.scores.length > 0);
-  const hasMatches = matches.some((m) => m.scores.length > 0);
+  const hasMatches = matches.length > 0;
 
   if (!hasRoster && !hasMatches) return null;
 
@@ -100,12 +100,16 @@ export function ArtistScoreboard({
           <p className="font-mono text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">
             Battle rounds
           </p>
-          {matches.map((match) =>
-            match.scores.length === 0 ? null : (
-              <div key={match.id} className="mt-sm border border-line bg-paper p-md">
-                <p className="font-bold uppercase text-body-sm">
-                  Round {match.round} vs {match.opponentName}
+          {matches.map((match) => (
+            <div key={match.id} className="mt-sm border border-line bg-paper p-md">
+              <p className="font-bold uppercase text-body-sm">
+                Round {match.round} vs {match.opponentName}
+              </p>
+              {match.scores.length === 0 ? (
+                <p className="mt-sm font-mono text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">
+                  {match.status === "COMPLETE" ? "Result recorded — no judge vote breakdown" : "No judge votes recorded yet"}
                 </p>
+              ) : (
                 <div className="mt-sm space-y-xs">
                   {match.scores.map((s, i) => {
                     const myFeedback = match.iAmRed ? s.feedbackRed ?? (s.winnerCorner === "BLUE" ? s.feedback : null) : s.feedbackBlue ?? (s.winnerCorner === "RED" ? s.feedback : null);
@@ -133,9 +137,9 @@ export function ArtistScoreboard({
                     );
                   })}
                 </div>
-              </div>
-            ),
-          )}
+              )}
+            </div>
+          ))}
         </div>
       ) : null}
     </div>

@@ -13,12 +13,10 @@ type MatchSummary = {
   round: number;
   position: number;
   status: string;
-  scoreA: number;
-  scoreB: number;
-  competitorA: { user: { name: string | null } } | null;
-  competitorB: { user: { name: string | null } } | null;
-  winner: { userId: string } | null;
-  scores: { feedback: string | null; feedbackRed: string | null; feedbackBlue: string | null; scoreA: number; scoreB: number; winnerCorner: string | null }[];
+  redName: string;
+  blueName: string;
+  winnerName: string | null;
+  iAmRed: boolean;
 };
 
 export function ArtistEventCard({
@@ -32,7 +30,6 @@ export function ArtistEventCard({
   paid,
   paidClaimedAt,
   isOwner,
-  userId,
   regId,
   eventId,
   eventAccommodation,
@@ -57,7 +54,6 @@ export function ArtistEventCard({
   paid: boolean;
   paidClaimedAt: Date | null;
   isOwner: boolean;
-  userId: string;
   regId: string;
   eventId: string;
   eventAccommodation: boolean;
@@ -158,23 +154,39 @@ export function ArtistEventCard({
           {matches.length > 0 && (
             <div className="space-y-sm">
               {matches.map((match) => {
-                const isA = match.competitorA && match.competitorB
-                  ? true
-                  : match.competitorB !== null;
-                const opponent = isA ? match.competitorB : match.competitorA;
-                const myScore = isA ? match.scoreA : match.scoreB;
-                const theirScore = isA ? match.scoreB : match.scoreA;
-                const won = match.winner?.userId === userId;
+                const decided = match.winnerName != null;
+                const winnerIsRed = decided && match.winnerName === match.redName;
+                const won = decided && (match.iAmRed ? winnerIsRed : !winnerIsRed);
                 return (
-                  <div className="flex items-start justify-between gap-sm text-body-sm" key={match.id}>
-                    <div>
-                      <p className="font-bold uppercase">
-                        Round {match.round} vs {opponent?.user.name ?? "TBD"}
-                      </p>
-                      <p className="text-ink-muted">
-                        Score: {myScore} — {theirScore} {match.status === "COMPLETE" ? (won ? "W" : "L") : ""}
-                      </p>
+                  <div key={match.id} className="border-b border-line py-sm last:border-b-0">
+                    <div className="flex items-center justify-between gap-sm">
+                      <span className="font-mono text-[0.6rem] uppercase tracking-[0.1em] text-ink-muted">
+                        Round {match.round}
+                      </span>
+                      {decided ? (
+                        <span className="border border-accent px-sm py-xs font-mono text-[0.6rem] font-bold uppercase tracking-[0.1em] text-accent">
+                          Winner: {match.winnerName}
+                        </span>
+                      ) : (
+                        <span className="font-mono text-[0.6rem] uppercase text-ink-muted">
+                          {match.status.toLowerCase()}
+                        </span>
+                      )}
                     </div>
+                    <p className="mt-xs text-body-sm uppercase leading-tight">
+                      <span className={`break-words ${winnerIsRed ? "font-bold text-accent" : "text-ink"}`}>
+                        {match.redName}
+                      </span>
+                      <span className="mx-xs text-ink-muted">vs</span>
+                      <span className={`break-words ${decided && !winnerIsRed ? "font-bold text-accent" : "text-ink"}`}>
+                        {match.blueName}
+                      </span>
+                    </p>
+                    {decided ? (
+                      <p className="mt-xs font-mono text-[0.6rem] uppercase tracking-[0.1em] text-ink-muted">
+                        {won ? "You won" : "You lost"}
+                      </p>
+                    ) : null}
                   </div>
                 );
               })}

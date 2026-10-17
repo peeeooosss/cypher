@@ -1,7 +1,7 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin";
-import { ScoringConfigForm } from "@/components/scoring-config-form";
+import { ScoringConfigForm, type Criterion } from "@/components/scoring-config-form";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +12,10 @@ export default async function EditScoringConfigPage({ params }: Props) {
   const { id } = await params;
   const config = await prisma.scoringConfig.findUnique({ where: { id } });
   if (!config) return notFound();
+  const formData = {
+    ...config,
+    criteria: Array.isArray(config.criteria) ? (config.criteria as unknown as Criterion[]) : [],
+  };
   return (
     <div className="space-y-section max-w-3xl">
       <div>
@@ -20,7 +24,7 @@ export default async function EditScoringConfigPage({ params }: Props) {
           Update scoring criteria configuration.
         </p>
       </div>
-      <ScoringConfigForm config={config} />
+      <ScoringConfigForm config={formData} />
     </div>
   );
 }

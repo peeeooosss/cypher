@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { badRequest, serverError } from "@/lib/api";
+import type { Prisma } from "@/generated/prisma/client";
 
 const criterionSchema = z.object({
   key: z.string().min(1),
@@ -47,9 +48,9 @@ export async function POST(request: Request) {
       data: {
         name: data.name,
         description: data.description,
-        appliesTo: data.appliesTo as any,
+        appliesTo: data.appliesTo,
         appliesToValue: data.appliesToValue,
-        criteria: data.criteria as any,
+        criteria: data.criteria as unknown as Prisma.InputJsonValue,
         totalMax: data.totalMax,
         isDefault: data.isDefault ?? false,
         isActive: data.isActive ?? true,

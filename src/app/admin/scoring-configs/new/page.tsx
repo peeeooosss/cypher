@@ -1,5 +1,3 @@
-import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin";
 import { ScoringConfigForm } from "@/components/scoring-config-form";
 

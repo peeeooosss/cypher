@@ -2,16 +2,27 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { responseError } from "@/lib/client-error";
 
-type Criterion = {
+export type Criterion = {
   key: string;
   label: string;
   max: number;
   order: number;
 };
 
-export function ScoringConfigForm({ config }: { config?: any }) {
+export type ScoringConfigFormData = {
+  id?: string;
+  name?: string | null;
+  description?: string | null;
+  appliesTo?: string | null;
+  appliesToValue?: string | null;
+  totalMax?: number | null;
+  isDefault?: boolean | null;
+  isActive?: boolean | null;
+  criteria?: Criterion[] | null;
+};
+
+export function ScoringConfigForm({ config }: { config?: ScoringConfigFormData }) {
   const router = useRouter();
   const [name, setName] = useState(config?.name ?? "");
   const [description, setDescription] = useState(config?.description ?? "");
@@ -42,7 +53,7 @@ export function ScoringConfigForm({ config }: { config?: any }) {
     setCriteria(criteria.filter((_, i) => i !== idx).map((c, i) => ({ ...c, order: i + 1 })));
   };
 
-  const updateCriterion = (idx: number, field: keyof Criterion, value: any) => {
+  const updateCriterion = (idx: number, field: keyof Criterion, value: string | number) => {
     const updated = [...criteria];
     updated[idx] = { ...updated[idx], [field]: field === "max" || field === "order" ? Number(value) : value };
     setCriteria(updated);
