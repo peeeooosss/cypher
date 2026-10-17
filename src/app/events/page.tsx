@@ -4,6 +4,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { EventCard } from "@/components/event-card";
 import { StateFilter } from "@/components/state-filter";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/rbac";
 import { INDIAN_STATES } from "@/lib/states";
 
 export const dynamic = "force-dynamic";
@@ -93,6 +94,7 @@ export default async function EventsPage({ searchParams }: { searchParams: Searc
     },
     orderBy: [{ status: "asc" }, { startsAt: "asc" }],
   });
+  const user = await getCurrentUser();
 
   const tabs = [
     { label: "All", href: buildHref({ status: "", type, state }, { status: "" }), active: !statusFilter },
@@ -157,7 +159,7 @@ export default async function EventsPage({ searchParams }: { searchParams: Searc
         ) : (
           <div className="mt-lg grid gap-md sm:grid-cols-2 lg:grid-cols-3">
             {events.map((event) => (
-              <EventCard key={event.id} event={event} />
+              <EventCard key={event.id} event={event} isSignedIn={Boolean(user)} />
             ))}
           </div>
         )}

@@ -39,7 +39,7 @@ function excerpt(text: string | null | undefined, max = 180): string | null {
   return cleaned.length > max ? `${cleaned.slice(0, max).trimEnd()}…` : cleaned;
 }
 
-export function EventCard({ event }: { event: EventCardData }) {
+export function EventCard({ event, isSignedIn = false }: { event: EventCardData; isSignedIn?: boolean }) {
   const detailText = excerpt(event.eventDetails ?? event.description, 160);
   const scheduleCount = event._count?.scheduleItems ?? event.scheduleItems?.length ?? 0;
   const noticeCount = event._count?.notices ?? event.notices?.length ?? 0;
@@ -161,6 +161,14 @@ export function EventCard({ event }: { event: EventCardData }) {
               </p>
             );
           })()}
+                    {!isSignedIn && (event.status === EventStatus.PUBLISHED || event.status === EventStatus.LIVE) && (
+            <Link
+              href={`/login?callbackUrl=/events/${event.slug}/register`}
+              className="mt-md block border border-accent bg-accent/10 px-md py-sm text-center font-mono text-[0.65rem] font-bold uppercase tracking-[0.12em] text-accent transition-colors hover:bg-accent hover:text-paper"
+            >
+              Sign in as Artist to Register
+            </Link>
+          )}
         </div>
       </Link>
       {event.googleMapsUrl && (

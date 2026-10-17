@@ -62,7 +62,7 @@ export function AuditionRegistrationGuide({
           <li>
             <p className="font-bold uppercase">2. Register for SOLO</p>
             <ul className="mt-xs list-disc space-y-xs pl-5 text-ink-muted">
-              <li>Select your audition type: Offline (Guwahati / Dibrugarh / Tezpur) or Online.</li>
+              <li>Select your audition type: Offline (multiple cities listed in selection) or Online.</li>
               <li>Pick the SOLO category from the list.</li>
               <li>Enter your Choreographer name and Address (no crew name needed for solo) and continue.</li>
               <li>You’ll reach the cart — pay the entry fee. After payment, tap “I have paid” and send the payment screenshot to the organizer on WhatsApp for verification.</li>

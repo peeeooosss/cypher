@@ -17,7 +17,8 @@
     "socket:dev": "tsx watch server/socket.ts",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:load": "artillery run load/socket.yml"
+    "test:load": "artillery run load/socket.yml",
+    "setup:mock": "tsx -r dotenv/config scripts/setup-mock-comp.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",

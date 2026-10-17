@@ -3,7 +3,29 @@
 
 export const CUSTOM_AUDITION_EVENT_SLUG = "born-to-dance";
 
-export const CUSTOM_AUDITION_CITIES = ["Guwahati", "Dibrugarh", "Tezpur"] as const;
+export const CUSTOM_AUDITION_CITIES = [
+  "Tezpur",
+  "Dhekiajuli",
+  "Bokajan",
+  "Sarupathar",
+  "Jorhat",
+  "Mariani",
+  "Sivasagar",
+  "Dibrugarh",
+  "Nagaon",
+  "Silchar",
+  "Moran",
+  "Titabor",
+  "Tinsukia",
+  "Digboi",
+  "Rajgarh",
+  "Bamunbari (Moran)",
+  "Narayanpur",
+  "Biswanath Chariali",
+  "Shillong (Meghalaya)",
+  "Agartala (Tripura)",
+  "Guwahati",
+] as const;
 
 export type CustomAuditionMode = "offline" | "online";
 

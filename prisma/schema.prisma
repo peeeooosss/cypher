@@ -63,6 +63,14 @@ enum EventType {
   WORKSHOP
 }
 
+enum ScoringAppliesTo {
+  EVENT_TYPE
+  ROUND_TYPE
+  EVENT
+  CATEGORY
+  ROUND_FORMAT
+}
+
 enum Skill {
   DANCER
   CHOREOGRAPHER
@@ -270,6 +278,8 @@ model Event {
   slug                        String        @unique
   description                 String?
   eventType                   EventType?
+  scoringConfigId             String?
+  scoringConfig               ScoringConfig? @relation(fields: [scoringConfigId], references: [id])
   posterUrl                   String?
   posterFileKey               String?
   venue                       String?
@@ -321,6 +331,7 @@ model Event {
 
   @@index([organizerId])
   @@index([startsAt])
+  @@index([scoringConfigId])
 }
 
 model EventScheduleItem {
@@ -364,6 +375,8 @@ model Category {
   maxCompetitors      Int?
   entryFee            Int?                 @default(0)
   entryCurrency       String               @default("INR")
+  scoringConfigId     String?
+  scoringConfig       ScoringConfig?       @relation(fields: [scoringConfigId], references: [id])
   event               Event                @relation(fields: [eventId], references: [id], onDelete: Cascade)
   rounds              RoundFormat[]
   registrations       Registration[]
@@ -378,6 +391,7 @@ model Category {
 
   @@unique([eventId, name])
   @@index([eventId])
+  @@index([scoringConfigId])
 }
 
 model RoundFormat {
@@ -392,6 +406,8 @@ model RoundFormat {
   matchSize     Int           @default(2)
   phaseStatus   String?       @default("PENDING")
   timeLimitMs   Int           @default(60000)
+  scoringConfigId String?
+  scoringConfig ScoringConfig? @relation(fields: [scoringConfigId], references: [id])
   dancerScores  DancerScore[]
   battleMatches BattleMatch[]
   category      Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
@@ -967,3 +983,21 @@ model Audition {
 
   @@index([eventId, displayOrder])
 }
+
+model ScoringConfig {
+  id             String           @id @default(cuid())
+  name           String           @unique
+  description    String?
+  appliesTo      ScoringAppliesTo
+  appliesToValue String?
+  criteria       Json
+  totalMax       Int              @default(20)
+  isDefault      Boolean          @default(false)
+  isActive       Boolean          @default(true)
+  events         Event[]
+  categories     Category[]
+  roundFormats   RoundFormat[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+}
+
