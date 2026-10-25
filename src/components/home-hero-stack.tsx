@@ -13,6 +13,8 @@ const FALLBACK = [
   "https://images.pexels.com/photos/40088582/pexels-photo-40088582.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=700",
   "https://images.pexels.com/photos/3022420/pexels-photo-3022420.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=700",
   "https://images.pexels.com/photos/37747673/pexels-photo-37747673.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=700",
+  "https://images.pexels.com/photos/5191631/pexels-photo-5191631.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=700",
+  "https://images.pexels.com/photos/35197138/pexels-photo-35197138.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=700",
 ];
 
 export function HomeHeroStack({ slides = [] }: { slides?: Slide[] }) {
@@ -24,7 +26,9 @@ export function HomeHeroStack({ slides = [] }: { slides?: Slide[] }) {
       .map((s) => s.url || s.thumbnailUrl)
       .filter((x): x is string => Boolean(x));
     if (imgs.length > 0) {
-      setItems(imgs.slice(0, 4));
+      const merged = [...imgs, ...FALLBACK];
+      const unique = Array.from(new Set(merged));
+      setItems(unique.slice(0, 6));
     } else {
       setItems(FALLBACK);
     }

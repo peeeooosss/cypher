@@ -228,6 +228,90 @@ body {
   100% { transform: translateX(-50%); }
 }
 
+@keyframes artist-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* Sticky scroll scene */
+.scroll-scene {
+  position: relative;
+  height: 300vh;
+  border-bottom: 1px solid var(--line);
+}
+.scroll-scene-sticky {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: hidden;
+}
+.scene-image {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transform: scale(1.08);
+  transition: opacity 900ms ease, transform 1200ms ease;
+}
+.scene-image.active {
+  opacity: 1;
+  transform: scale(1);
+}
+.scene-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.scene-grad {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to right, rgba(10,10,10,0.92) 0%, rgba(10,10,10,0.55) 45%, transparent 80%),
+    linear-gradient(to top, rgba(10,10,10,0.85) 0%, transparent 45%);
+}
+.scene-copy {
+  position: relative;
+  z-index: 2;
+  max-width: 80rem;
+  margin: 0 auto;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  padding: 0 2rem;
+}
+.scene-panel {
+  position: absolute;
+  max-width: 38rem;
+  opacity: 0;
+  transform: translateY(40px) rotateX(6deg);
+  pointer-events: none;
+  transition: opacity 800ms ease, transform 900ms cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+.scene-panel.active {
+  opacity: 1;
+  transform: translateY(0) rotateX(0);
+  pointer-events: auto;
+}
+.scene-panel h2 {
+  font-family: var(--font-display);
+  font-size: clamp(2.4rem, 5.5vw, 4.6rem);
+  text-transform: uppercase;
+  line-height: 0.95;
+  margin-top: 0.8rem;
+}
+.scene-panel p.body {
+  margin-top: 1.4rem;
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: var(--ink-muted);
+  max-width: 34rem;
+}
+.accent-rule {
+  margin-top: 2rem;
+  height: 1px;
+  width: 6rem;
+  background: rgba(255,43,43,0.7);
+}
+
 .grain { position: relative; }
 .grain::after {
   content: "";
@@ -351,4 +435,13 @@ body {
   }
   .marquee-track { animation: none; flex-wrap: wrap; justify-content: center; }
   .parallax-layer { transform: none !important; }
+  .scene-image,
+  .scene-panel {
+    transition: none;
+    transform: none !important;
+  }
+  .scene-image { opacity: 0; }
+  .scene-image.active { opacity: 1; transform: none !important; }
+  .scene-panel { opacity: 0; transform: none !important; }
+  .scene-panel.active { opacity: 1; transform: none !important; }
 }

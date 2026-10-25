@@ -6,6 +6,8 @@ type SectionId = "hero" | "social" | "built" | "demo" | "artists" | "events" | "
 
 const SECTIONS: { id: SectionId; label: string }[] = [
   { id: "hero", label: "Hero" },
+  { id: "roles", label: "Roles" },
+  { id: "scene", label: "Scene" },
   { id: "social", label: "Stats" },
   { id: "built", label: "Built for" },
   { id: "demo", label: "Demo" },

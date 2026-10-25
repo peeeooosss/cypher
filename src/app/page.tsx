@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { HomeInteractions } from "@/components/home-interactions";
 import { HomeHeroStack } from "@/components/home-hero-stack";
 import { HomeLightbox } from "@/components/home-lightbox";
+import { HomeScrollScene } from "@/components/home-scroll-scene";
 
 export const dynamic = "force-dynamic";
 
@@ -157,19 +158,56 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Marquee */}
-      <section className="grain border-b border-line bg-paper-soft overflow-hidden">
-        <div style={{ padding: "1.4rem 0" }}>
-          <div className="marquee-track">
-            {["UNDERGROUND", "BATTLES", "CYPHER", "CREW", "STAGE", "MOTION", "RHYTHM", "FORM", "PRESSURE", "PRECISION", "HEAT", "LEGACY", "UNDERGROUND", "BATTLES", "CYPHER", "CREW", "STAGE", "MOTION", "RHYTHM", "FORM", "PRESSURE", "PRECISION", "HEAT", "LEGACY"].map((item, idx) => (
-              <div key={item + idx} style={{ display: "flex", alignItems: "center", gap: "1.5rem", whiteSpace: "nowrap" }}>
-                <span className="font-display" style={{ fontSize: "clamp(1.4rem, 3vw, 2.2rem)", letterSpacing: "0.4em", textTransform: "uppercase" }}>{item}</span>
-                <span style={{ height: "1px", width: "3rem", background: "rgba(255,43,43,0.6)", display: "inline-block" }} />
-              </div>
-            ))}
+      {/* Roles Marquee */}
+      <section id="roles" className="border-b border-line bg-paper-soft">
+        <div className="mx-auto max-w-7xl px-md py-section md:px-xl">
+          <p className="font-mono text-center text-body-sm uppercase tracking-[0.2em] text-accent">
+            This space is for you if you are
+          </p>
+          <div className="relative mt-xl overflow-hidden">
+            <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-gradient-to-r from-paper-soft to-transparent"></div>
+            <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-paper-soft to-transparent"></div>
+            <div className="flex w-max animate-[artist-scroll_30s_linear_infinite] gap-sm hover:[animation-play-state:paused]">
+              {[
+                "Dancers",
+                "Choreographers",
+                "DJs",
+                "Guitarists",
+                "Drummers",
+                "Performers",
+                "Rappers",
+                "Vocalists",
+                "Producers",
+                "Beatboxers",
+                "Visual artists",
+                "Photographers",
+                "Dancers",
+                "Choreographers",
+                "DJs",
+                "Guitarists",
+                "Drummers",
+                "Performers",
+                "Rappers",
+                "Vocalists",
+                "Producers",
+                "Beatboxers",
+                "Visual artists",
+                "Photographers",
+              ].map((role, idx) => (
+                <span
+                  key={role + idx}
+                  className="shrink-0 border border-line bg-paper px-lg py-md font-display text-title-md uppercase tracking-[-0.02em] transition-colors hover:border-accent hover:text-accent"
+                >
+                  {role}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       </section>
+
+      {/* Sticky 3D Scroll Scene */}
+      <HomeScrollScene />
 
       {/* Social proof strip */}
       <section id="social" className="border-b border-line bg-paper-soft">
