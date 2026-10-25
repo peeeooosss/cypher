@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-type SectionId = "hero" | "social" | "built" | "demo" | "artists" | "events" | "gallery" | "testimonials" | "ctas";
+type SectionId = "hero" | "roles" | "scene" | "social" | "built" | "demo" | "artists" | "events" | "gallery" | "testimonials" | "ctas";
 
 const SECTIONS: { id: SectionId; label: string }[] = [
   { id: "hero", label: "Hero" },
