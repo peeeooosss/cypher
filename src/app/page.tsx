@@ -4,6 +4,9 @@ import { ArtistSlider } from "@/components/artist-slider";
 import { HomeEvents } from "@/components/home-events";
 import { GallerySlider } from "@/components/gallery-slider";
 import { prisma } from "@/lib/prisma";
+import { HomeInteractions } from "@/components/home-interactions";
+import { HomeHeroStack } from "@/components/home-hero-stack";
+import { HomeLightbox } from "@/components/home-lightbox";
 
 export const dynamic = "force-dynamic";
 
@@ -75,37 +78,47 @@ export default async function Home() {
 
   return (
     <main className="min-h-screen bg-paper">
+      <HomeInteractions />
+      <HomeLightbox />
       {/* Hero */}
-      <section className="border-b border-line">
-        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-section md:grid-cols-[1fr_0.42fr]">
+      <section id="hero" className="relative overflow-hidden border-b border-line">
+        <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+          <div style={{ position: "absolute", top: "-10rem", left: "50%", transform: "translateX(-50%)", width: "520px", height: "520px", borderRadius: "50%", background: "rgba(255,43,43,0.12)", filter: "blur(160px)" }} />
+          <div style={{ position: "absolute", bottom: "-30%", right: "-10%", width: "420px", height: "420px", borderRadius: "50%", background: "rgba(255,43,43,0.08)", filter: "blur(140px)" }} />
+        </div>
+        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-section md:grid-cols-[1.1fr_0.9fr]">
           <div className="px-md pt-section md:px-xl">
-            <p className="font-mono text-center text-body-sm uppercase tracking-[0.18em] text-accent sm:text-left">
-              The platform for artists, events & organizers
-            </p>
-            <h1 className="mt-lg font-display text-center text-display-xl uppercase tracking-[-0.03em] leading-tight text-ink sm:text-left md:max-w-2xl">
-              Discover events. Build experiences. Grow your work.
-            </h1>
-            <p className="mt-md text-center text-body-md text-ink-muted sm:text-left sm:max-w-2xl">
-              One place to discover competitions, run better events, and connect with
-              the creative community. CYPHR serves artists, organizers, and judges.
-            </p>
-            <div className="mt-xl flex flex-wrap justify-center gap-sm sm:justify-start">
-              <Link
-                href="/events"
-                className="border border-accent bg-accent px-lg py-sm text-button-md font-bold uppercase text-paper transition-opacity hover:opacity-80"
-              >
-                Browse events
-              </Link>
-              <Link
-                href="/artist/directory"
-                className="border border-accent/40 px-lg py-sm text-button-md font-bold uppercase text-ink transition-colors hover:border-accent hover:text-accent"
-              >
-                Meet the artists
-              </Link>
+            <div className="perspective-1200">
+              <div className="preserve-3d parallax-layer" id="hero-layer" style={{ ["--pz" as string]: "40px" }}>
+                <p className="font-mono text-center text-body-sm uppercase tracking-[0.18em] text-accent sm:text-left">
+                  The platform for artists, events & organizers
+                </p>
+                <h1 className="mt-lg font-display text-center text-display-xl uppercase tracking-[-0.03em] leading-tight text-ink sm:text-left md:max-w-2xl">
+                  Discover events. Build experiences. Grow your work.
+                </h1>
+                <p className="mt-md text-center text-body-sm text-ink-muted sm:text-left sm:max-w-2xl">
+                  One place to discover competitions, run better events, and connect with
+                  the creative community. CYPHR serves artists, organizers, and judges.
+                </p>
+                <div className="mt-xl flex flex-wrap justify-center gap-sm sm:justify-start">
+                  <Link
+                    href="/events"
+                    className="border border-accent bg-accent px-lg py-sm text-button-md font-bold uppercase text-paper transition-opacity hover:opacity-80"
+                  >
+                    Browse events
+                  </Link>
+                  <Link
+                    href="/artist/directory"
+                    className="border border-accent/40 px-lg py-sm text-button-md font-bold uppercase text-ink transition-colors hover:border-accent hover:text-accent"
+                  >
+                    Meet the artists
+                  </Link>
+                </div>
+              </div>
             </div>
           </div>
 
-          <aside className="flex items-start border-t border-line bg-paper-soft px-md pt-lg md:border-t-0 md:border-l md:px-xl">
+          <aside className="relative flex items-center border-t border-line bg-paper-soft px-md py-lg md:border-t-0 md:border-l md:px-xl">
             <div className="w-full">
               <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-ink-muted">
                 Built for every stage
@@ -136,14 +149,31 @@ export default async function Home() {
                   <p className="mt-xs font-mono text-[0.6rem] uppercase tracking-[0.1em] text-ink-muted">Registrations</p>
                 </div>
               </div>
+              <div className="mt-xl hidden md:block">
+                <HomeHeroStack slides={gallerySlides} />
+              </div>
             </div>
           </aside>
         </div>
       </section>
 
+      {/* Marquee */}
+      <section className="grain border-b border-line bg-paper-soft overflow-hidden">
+        <div style={{ padding: "1.4rem 0" }}>
+          <div className="marquee-track">
+            {["UNDERGROUND", "BATTLES", "CYPHER", "CREW", "STAGE", "MOTION", "RHYTHM", "FORM", "PRESSURE", "PRECISION", "HEAT", "LEGACY", "UNDERGROUND", "BATTLES", "CYPHER", "CREW", "STAGE", "MOTION", "RHYTHM", "FORM", "PRESSURE", "PRECISION", "HEAT", "LEGACY"].map((item, idx) => (
+              <div key={item + idx} style={{ display: "flex", alignItems: "center", gap: "1.5rem", whiteSpace: "nowrap" }}>
+                <span className="font-display" style={{ fontSize: "clamp(1.4rem, 3vw, 2.2rem)", letterSpacing: "0.4em", textTransform: "uppercase" }}>{item}</span>
+                <span style={{ height: "1px", width: "3rem", background: "rgba(255,43,43,0.6)", display: "inline-block" }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Social proof strip */}
-      <section className="border-b border-line bg-paper-soft">
-        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-md px-md py-lg md:grid-cols-4 md:px-xl">
+      <section id="social" className="border-b border-line bg-paper-soft">
+        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-md px-md py-lg md:grid-cols-4 md:px-xl reveal-stagger">
           <div className="flex items-baseline justify-center gap-sm">
             <span className="font-display text-display-lg text-accent">{stats.events > 0 ? stats.events : "—"}</span>
             <span className="font-mono text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">Events hosted</span>
@@ -164,15 +194,15 @@ export default async function Home() {
       </section>
 
       {/* For organizers / For artists / For opportunities */}
-      <section className="border-b border-line">
+      <section id="built" className="border-b border-line">
         <div className="mx-auto max-w-7xl px-md py-section md:px-xl">
-          <p className="font-mono text-center text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted md:text-left">
+          <p className="font-mono text-center text-[0.7rem] uppercase tracking-[0.2em] text-ink-muted md:text-left reveal">
             Built for the whole scene
           </p>
           <div className="mt-lg grid gap-md md:grid-cols-3">
             <Link
               href="/for-organizers"
-              className="group flex flex-col justify-between border border-line bg-paper-soft p-xl transition-colors hover:border-accent"
+              className="group flex flex-col justify-between border border-line bg-paper-soft p-xl transition-colors hover:border-accent tilt-hover preserve-3d grain reveal"
             >
               <div>
                 <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-accent">
@@ -197,7 +227,8 @@ export default async function Home() {
             </Link>
             <Link
               href="/for-artists"
-              className="group flex flex-col justify-between border border-line bg-paper-soft p-xl transition-colors hover:border-accent"
+              className="group flex flex-col justify-between border border-line bg-paper-soft p-xl transition-colors hover:border-accent tilt-hover preserve-3d grain reveal"
+              data-delay="80"
             >
               <div>
                 <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-accent">
@@ -222,7 +253,8 @@ export default async function Home() {
             </Link>
             <Link
               href="/artist/marketplace"
-              className="group flex flex-col justify-between border border-line bg-paper-soft p-xl transition-colors hover:border-accent"
+              className="group flex flex-col justify-between border border-line bg-paper-soft p-xl transition-colors hover:border-accent tilt-hover preserve-3d grain reveal"
+              data-delay="160"
             >
               <div>
                 <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-accent">
@@ -250,9 +282,9 @@ export default async function Home() {
       </section>
 
       {/* Platform demo */}
-      <section className="border-b border-line">
+      <section id="demo" className="border-b border-line">
         <div className="mx-auto max-w-7xl px-md py-section md:px-xl">
-          <div className="flex flex-wrap items-center justify-between gap-md">
+          <div className="flex flex-wrap items-center justify-between gap-md reveal">
             <div>
               <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-accent">
                 See it in action
@@ -276,34 +308,40 @@ export default async function Home() {
       </section>
 
       {/* Artist slider */}
-      <ArtistSlider />
+      <div id="artists" className="reveal">
+        <ArtistSlider />
+      </div>
 
       {/* Events tabs */}
-      <HomeEvents liveEvents={liveEvents} upcomingEvents={upcomingEvents} closedEvents={closedEvents} />
+      <div id="events" className="reveal">
+        <HomeEvents liveEvents={liveEvents} upcomingEvents={upcomingEvents} closedEvents={closedEvents} />
+      </div>
 
       {/* Gallery slider — past event moments */}
-      <GallerySlider
-        items={gallerySlides.map((item) => ({
-          id: item.id,
-          type: item.type,
-          url: item.url,
-          thumbnailUrl: item.thumbnailUrl,
-          title: item.title,
-          eventTitle: item.event?.title ?? null,
-          eventSlug: item.event?.slug ?? null,
-        }))}
-      />
+      <div id="gallery" className="reveal">
+        <GallerySlider
+          items={gallerySlides.map((item) => ({
+            id: item.id,
+            type: item.type,
+            url: item.url,
+            thumbnailUrl: item.thumbnailUrl,
+            title: item.title,
+            eventTitle: item.event?.title ?? null,
+            eventSlug: item.event?.slug ?? null,
+          }))}
+        />
+      </div>
 
       {/* Testimonials */}
-      <section className="border-t border-line bg-paper-soft">
+      <section id="testimonials" className="border-t border-line bg-paper-soft">
         <div className="mx-auto max-w-7xl px-md py-section md:px-xl">
-          <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-accent">
+          <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-accent reveal">
             From the community
           </p>
-          <h2 className="mt-md font-display text-display-lg uppercase">
+          <h2 className="mt-md font-display text-display-lg uppercase reveal" data-delay="60">
             Built with the scene, for the scene
           </h2>
-          <div className="mt-lg grid gap-md md:grid-cols-3">
+          <div className="mt-lg grid gap-md md:grid-cols-3 reveal-stagger">
             {[
               {
                 quote:
@@ -324,7 +362,7 @@ export default async function Home() {
                 role: "Panel lead",
               },
             ].map((t) => (
-              <figure key={t.name} className="flex h-full flex-col justify-between border border-line bg-paper p-lg">
+              <figure key={t.name} className="flex h-full flex-col justify-between border border-line bg-paper p-lg tilt-hover preserve-3d grain">
                 <blockquote className="text-body-sm leading-relaxed text-ink">“{t.quote}”</blockquote>
                 <figcaption className="mt-lg">
                   <p className="font-display text-title-sm uppercase">{t.name}</p>
@@ -337,11 +375,11 @@ export default async function Home() {
       </section>
 
       {/* Footer CTA */}
-      <section className="border-t border-line">
+      <section id="ctas" className="border-t border-line">
         <div className="mx-auto grid max-w-7xl gap-md px-md py-section md:grid-cols-2 md:px-xl">
           <Link
             href="/signup"
-            className="group border border-accent bg-accent p-xl transition-opacity hover:opacity-90"
+            className="group border border-accent bg-accent p-xl transition-opacity hover:opacity-90 tilt-hover preserve-3d reveal grain"
           >
             <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-paper/80">For artists</p>
             <h2 className="mt-md font-display text-display-lg uppercase text-paper">
@@ -353,7 +391,8 @@ export default async function Home() {
           </Link>
           <Link
             href="/for-organizers"
-            className="group border border-line bg-paper-soft p-xl transition-colors hover:border-accent"
+            className="group border border-line bg-paper-soft p-xl transition-colors hover:border-accent tilt-hover preserve-3d reveal grain"
+            data-delay="80"
           >
             <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-accent">For organizers</p>
             <h2 className="mt-md font-display text-display-lg uppercase">
