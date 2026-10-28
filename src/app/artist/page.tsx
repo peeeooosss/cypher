@@ -207,40 +207,6 @@ export default async function ArtistPage({ searchParams }: PageProps) {
       <TeamInvitations initialInvitations={invitations} />
       <TeamEntries entries={teamEntries} />
 
-      <section className="mt-section border border-line bg-paper-soft p-lg">
-        <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-ink-muted">Battle stats</p>
-        <div className="mt-lg grid grid-cols-2 gap-md sm:grid-cols-4">
-          <div>
-            <p className="font-display text-title-md text-accent">{battleResults.length}</p>
-            <p className="mt-xs font-mono text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">Events entered</p>
-          </div>
-          <div>
-            <p className="font-display text-title-md text-accent">{totalWins}</p>
-            <p className="mt-xs font-mono text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">Battles won</p>
-          </div>
-          <div>
-            <p className="font-display text-title-md">{totalMatches}</p>
-            <p className="mt-xs font-mono text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">Total battles</p>
-          </div>
-          <div>
-            <p className="font-display text-title-md">{prizesPaid} <span className="text-ink-muted">/ {prizesPaid + prizesPending}</span></p>
-            <p className="mt-xs font-mono text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">Prizes paid</p>
-          </div>
-        </div>
-      </section>
-
-      <section className="mt-section">
-        <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-ink-muted">My achievements</p>
-        <div className="mt-lg">
-          <ArtistAchievements achievements={achievements as Achievement[]} />
-        </div>
-      </section>
-
-      <ArtistWorks />
-
-       <MarketplaceComingSoon compact />
-       <MarketplaceComingSoon variant="rates" compact />
-
       {battleResults.length > 0 ? (
         <section className="mt-section">
           <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-ink-muted">My enrolled events</p>
@@ -356,6 +322,41 @@ export default async function ArtistPage({ searchParams }: PageProps) {
           <Pagination currentPage={currentPage} totalPages={totalPages} basePath="/artist" />
         </section>
       ) : null}
-    </main>
+
+      <section className="mt-section border border-line bg-paper-soft p-lg">
+        <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-ink-muted">Battle stats</p>
+        <div className="mt-lg grid grid-cols-2 gap-md sm:grid-cols-4">
+          <div>
+            <p className="font-display text-title-md text-accent">{battleResults.length}</p>
+            <p className="mt-xs font-mono text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">Events entered</p>
+          </div>
+          <div>
+            <p className="font-display text-title-md text-accent">{totalWins}</p>
+            <p className="mt-xs font-mono text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">Battles won</p>
+          </div>
+          <div>
+            <p className="font-display text-title-md">{totalMatches}</p>
+            <p className="mt-xs font-mono text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">Total battles</p>
+          </div>
+          <div>
+            <p className="font-display text-title-md">{prizesPaid} <span className="text-ink-muted">/ {prizesPaid + prizesPending}</span></p>
+            <p className="mt-xs font-mono text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">Prizes paid</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="mt-section">
+        <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-ink-muted">My achievements</p>
+        <div className="mt-lg">
+          <ArtistAchievements achievements={achievements as Achievement[]} />
+        </div>
+      </section>
+
+      <ArtistWorks />
+
+       <MarketplaceComingSoon compact />
+       <MarketplaceComingSoon variant="rates" compact />
+
+</main>
   );
 }
