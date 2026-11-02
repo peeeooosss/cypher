@@ -6,10 +6,8 @@ import { responseError } from "@/lib/client-error";
 
 export function AdminAddArtistForm() {
   const router = useRouter();
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -21,12 +19,12 @@ export function AdminAddArtistForm() {
     setSuccess("");
 
     const phoneClean = phone.replace(/\D/g, "");
-    if (phoneClean.length !== 10) {
-      setError("Enter a valid 10-digit mobile number.");
+    if (!username.trim()) {
+      setError("Username is required.");
       return;
     }
-    if (!name.trim()) {
-      setError("Name is required.");
+    if (phoneClean.length !== 10) {
+      setError("Enter a valid 10-digit mobile number.");
       return;
     }
     if (!password || password.length < 8) {
@@ -41,10 +39,8 @@ export function AdminAddArtistForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name,
+          username,
           phone: phoneClean,
-          email: email || undefined,
-          username: username || undefined,
           password,
         }),
       });
@@ -56,10 +52,8 @@ export function AdminAddArtistForm() {
       }
 
       setSuccess("Artist added successfully.");
-      setName("");
-      setPhone("");
-      setEmail("");
       setUsername("");
+      setPhone("");
       setPassword("");
       setIsSubmitting(false);
       router.refresh();
@@ -74,12 +68,12 @@ export function AdminAddArtistForm() {
       <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-accent">Add Artist</p>
       <form className="mt-md grid gap-md sm:grid-cols-2" onSubmit={handleSubmit}>
         <label className="block text-body-sm font-bold uppercase">
-          Name *
+          Username *
           <input
             required
             className="mt-xs block w-full border border-line bg-paper px-md py-sm text-body-md outline-none focus:border-accent"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
           />
         </label>
         <label className="block text-body-sm font-bold uppercase">
@@ -92,23 +86,6 @@ export function AdminAddArtistForm() {
             className="mt-xs block w-full border border-line bg-paper px-md py-sm text-body-md outline-none focus:border-accent"
             value={phone}
             onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
-          />
-        </label>
-        <label className="block text-body-sm font-bold uppercase">
-          Email
-          <input
-            type="email"
-            className="mt-xs block w-full border border-line bg-paper px-md py-sm text-body-md outline-none focus:border-accent"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </label>
-        <label className="block text-body-sm font-bold uppercase">
-          Username
-          <input
-            className="mt-xs block w-full border border-line bg-paper px-md py-sm text-body-md outline-none focus:border-accent"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
           />
         </label>
         <label className="block text-body-sm font-bold uppercase sm:col-span-2">

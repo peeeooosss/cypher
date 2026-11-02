@@ -9,14 +9,12 @@ export async function POST(req: Request) {
     await requireAdmin();
     const body = await req.json().catch(() => null);
 
-    const name = typeof body?.name === "string" ? body.name.trim() : "";
     const phoneRaw = typeof body?.phone === "string" ? body.phone : "";
     const phone = phoneRaw.replace(/\D/g, "");
-    const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
     const username = typeof body?.username === "string" ? body.username.trim() : "";
     const password = typeof body?.password === "string" ? body.password : "";
 
-    if (!name) return badRequest("Name is required.");
+    if (!username) return badRequest("Username is required.");
     if (phone.length !== 10) return badRequest("Enter a valid 10-digit mobile number.");
     if (!password || password.length < 8) return badRequest("Password must be at least 8 characters.");
 
@@ -26,34 +24,23 @@ export async function POST(req: Request) {
     });
     if (existingByPhone) return conflict("A user with this phone number already exists.");
 
-    if (email) {
-      const existingByEmail = await prisma.user.findUnique({ where: { email }, select: { id: true } });
-      if (existingByEmail) return conflict("A user with this email already exists.");
-    }
-
-    if (username) {
-      const existingByUsername = await prisma.user.findUnique({ where: { username }, select: { id: true } });
-      if (existingByUsername) return conflict("A user with this username already exists.");
-    }
+    const existingByUsername = await prisma.user.findUnique({ where: { username }, select: { id: true } });
+    if (existingByUsername) return conflict("A user with this username already exists.");
 
     const passwordHash = await bcrypt.hash(password, 12);
 
     const user = await prisma.user.create({
       data: {
-        name,
+        username,
         phone,
-        email: email || null,
-        username: username || null,
         passwordHash,
         plainPassword: password,
         role: "ARTIST",
       },
       select: {
         id: true,
-        name: true,
-        phone: true,
-        email: true,
         username: true,
+        phone: true,
         role: true,
       },
     });
