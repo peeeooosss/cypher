@@ -7,8 +7,9 @@ const WHATSAPP_NUMBER = (process.env.NEXT_PUBLIC_BILL_WHATSAPP_NUMBER ?? "919864
 export default function ForgotPasswordPage() {
   const [identifier, setIdentifier] = useState("");
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
 
@@ -18,11 +19,37 @@ export default function ForgotPasswordPage() {
       return;
     }
 
-    const message = encodeURIComponent(
-      `Hi Admin, I forgot my CYPHR password. My registered phone number: ${phone}. Please help me reset it.`,
-    );
-    const href = `https://wa.me/${WHATSAPP_NUMBER}?text=${message}`;
-    window.open(href, "_blank", "noopener,noreferrer");
+    setIsSubmitting(true);
+
+    try {
+      const res = await fetch("/api/auth/forgot-password/lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone }),
+      });
+
+      if (res.status === 404) {
+        setError("Number not registered");
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!res.ok) {
+        setError("Something went wrong. Please try again.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      const message = encodeURIComponent(
+        `Hi Admin, I forgot my CYPHR password. My registered phone number: ${phone}. Please help me reset it.`,
+      );
+      const href = `https://wa.me/${WHATSAPP_NUMBER}?text=${message}`;
+      window.open(href, "_blank", "noopener,noreferrer");
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -55,10 +82,11 @@ export default function ForgotPasswordPage() {
           {error ? <p className="text-body-sm text-accent">{error}</p> : null}
 
           <button
-            className="border border-accent bg-accent px-lg py-md text-button-md font-bold uppercase text-paper"
+            className="border border-accent bg-accent px-lg py-md text-button-md font-bold uppercase text-paper disabled:opacity-60"
             type="submit"
+            disabled={isSubmitting}
           >
-            Contact Admin
+            {isSubmitting ? "Checking..." : "Contact Admin"}
           </button>
         </form>
 
