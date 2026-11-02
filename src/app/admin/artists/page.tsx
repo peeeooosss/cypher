@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getAdminArtists, requireAdmin } from "@/lib/admin";
 import { AdminDeleteButton } from "@/components/admin-delete-button";
+import { AdminAddArtistForm } from "@/components/admin-add-artist-form";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,9 @@ export default async function AdminArtistsPage() {
   return (
     <div>
       <h2 className="font-display text-title-md uppercase">Artists</h2>
+      <div className="mt-lg">
+        <AdminAddArtistForm />
+      </div>
       {artists.length === 0 ? (
         <p className="mt-md border border-line p-lg text-ink-muted">No artists yet.</p>
       ) : (
