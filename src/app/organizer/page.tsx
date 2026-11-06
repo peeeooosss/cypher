@@ -2,6 +2,7 @@ import { CategoryForm, EventForm } from "@/components/event-form";
 import { OrganizerProfileForm } from "@/components/organizer-profile-form";
 import { SignOutButton } from "@/components/sign-out-button";
 import { UpiForm } from "@/components/upi-form";
+import { ChangePasswordForm } from "@/components/change-password-form";
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
@@ -75,6 +76,8 @@ export default async function OrganizerPage() {
           <UpiForm currentUpiId={currentUser?.upiId ?? null} currentWhatsappNumber={currentUser?.whatsappNumber ?? null} />
         </div>
       </div>
+
+      <ChangePasswordForm />
 
       <div className="mt-section">
         <EventForm />

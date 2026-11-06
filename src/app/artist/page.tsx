@@ -12,6 +12,7 @@ import { TeamEntries } from "@/components/team-entries";
 import { ArtistEventCard } from "@/components/artist-event-card";
 import { AccountDetails } from "@/components/account-details";
 import { ShareProfileCard } from "@/components/share-profile-card";
+import { ChangePasswordForm } from "@/components/change-password-form";
 import { resolveProfileUrl } from "@/lib/profile-url";
 import { isTeamFormat } from "@/lib/event-types";
 import QRCode from "qrcode";
@@ -192,6 +193,8 @@ export default async function ArtistPage({ searchParams }: PageProps) {
         email={profile?.email ?? null}
         emailVerifiedAt={profile?.emailVerifiedAt ?? null}
       />
+
+      <ChangePasswordForm />
 
       <section className="mt-section">
         <ArtistProfileForm profile={profile as ArtistProfile} />
