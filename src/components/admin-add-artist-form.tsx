@@ -6,7 +6,7 @@ import { responseError } from "@/lib/client-error";
 
 export function AdminAddArtistForm() {
   const router = useRouter();
-  const [username, setUsername] = useState("");
+  const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -19,8 +19,8 @@ export function AdminAddArtistForm() {
     setSuccess("");
 
     const phoneClean = phone.replace(/\D/g, "");
-    if (!username.trim()) {
-      setError("Username is required.");
+    if (!name.trim()) {
+      setError("Name is required.");
       return;
     }
     if (phoneClean.length !== 10) {
@@ -39,7 +39,7 @@ export function AdminAddArtistForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          username,
+          name,
           phone: phoneClean,
           password,
         }),
@@ -52,7 +52,7 @@ export function AdminAddArtistForm() {
       }
 
       setSuccess("Artist added successfully.");
-      setUsername("");
+      setName("");
       setPhone("");
       setPassword("");
       setIsSubmitting(false);
@@ -68,12 +68,12 @@ export function AdminAddArtistForm() {
       <p className="font-mono text-body-sm uppercase tracking-[0.18em] text-accent">Add Artist</p>
       <form className="mt-md grid gap-md sm:grid-cols-2" onSubmit={handleSubmit}>
         <label className="block text-body-sm font-bold uppercase">
-          Username *
+          Name *
           <input
             required
             className="mt-xs block w-full border border-line bg-paper px-md py-sm text-body-md outline-none focus:border-accent"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
           />
         </label>
         <label className="block text-body-sm font-bold uppercase">
