@@ -6,7 +6,9 @@ import Link from "next/link";
 import { SocketProvider } from "@/components/socket-provider";
 import { LiveSpectator } from "@/components/live-spectator";
 import { LiveLeaderboard } from "@/components/live-leaderboard";
+import { AuditionQualifiers } from "@/components/audition-qualifiers";
 import { canViewLeaderboard } from "@/lib/leaderboard-access";
+import { hasAuditionQualifiers, hideScoreLeaderboard } from "@/lib/audition-qualifiers";
 
 type PageParams = { params: Promise<{ slug: string }> };
 
@@ -20,14 +22,18 @@ export default async function EventLivePage({ params }: PageParams) {
 
   if (!event) notFound();
 
-  const allowed = await canViewLeaderboard(event.id, event);
+  const hideBoard = hideScoreLeaderboard(slug);
+  const showQualifiers = hideBoard && hasAuditionQualifiers(slug);
+  const allowed = hideBoard ? false : await canViewLeaderboard(event.id, event);
+
+  const headerEyebrow = showQualifiers ? "Audition qualifiers" : "Live scores";
 
   return (
     <main className="min-h-screen bg-paper">
       <header className="border-b border-line">
         <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-sm px-md py-lg md:flex-row md:items-end md:px-xl">
           <div>
-            <p className="font-mono text-body-sm uppercase text-accent">Live scores</p>
+            <p className="font-mono text-body-sm uppercase text-accent">{headerEyebrow}</p>
             <h1 className="mt-sm font-display text-display-lg uppercase">{event.title}</h1>
             <p className="mt-sm text-body-sm text-ink-muted">
               {event.city ?? ""}
@@ -45,7 +51,14 @@ export default async function EventLivePage({ params }: PageParams) {
       </header>
 
       <div className="mx-auto max-w-7xl space-y-lg px-md py-lg md:px-xl">
-        {!allowed ? (
+        {showQualifiers ? (
+          <div>
+            <p className="mb-lg max-w-prose text-body-md leading-relaxed text-ink-muted">
+              Artists who cleared their city audition round and qualified for the finals.
+            </p>
+            <AuditionQualifiers />
+          </div>
+        ) : !allowed ? (
           <div className="border border-line bg-paper-soft p-lg text-center">
             <p className="font-display text-title-md uppercase">Results paused</p>
             <p className="mt-sm text-body-sm text-ink-muted">

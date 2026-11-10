@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { EventCard } from "@/components/event-card";
 import { LiveLeaderboard } from "@/components/live-leaderboard";
+import { hideScoreLeaderboard } from "@/lib/audition-qualifiers";
 import type { EventCardData } from "@/components/event-card";
 
 type HomeEventsProps = {
@@ -67,13 +68,13 @@ export function HomeEvents({ liveEvents, upcomingEvents, closedEvents }: HomeEve
               <EventCard key={event.id} event={event} />
             ))}
           </div>
-          {liveEvents.map((event) => (
-            event.showPublicLeaderboard === false ? null : (
+          {liveEvents.map((event) =>
+            event.showPublicLeaderboard === false || hideScoreLeaderboard(event.slug) ? null : (
               <div className="mt-lg" key={`${event.id}-board`}>
                 <LiveLeaderboard eventId={event.id} title={`${event.title} — Standings`} compact />
               </div>
             )
-          ))}
+          )}
         </>
       )}
 

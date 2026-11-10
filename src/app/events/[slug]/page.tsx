@@ -13,6 +13,8 @@ import { EventInfoAccordion } from "@/components/event-info-accordion";
 import { EventAside } from "@/components/event-aside";
 import { EventGalleryStrip } from "@/components/event-gallery-strip";
 import { EventOrganizerProfile } from "@/components/event-organizer-profile";
+import { AuditionQualifiers } from "@/components/audition-qualifiers";
+import { hasAuditionQualifiers, hideScoreLeaderboard } from "@/lib/audition-qualifiers";
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { EventStatus } from "@/generated/prisma/enums";
@@ -101,13 +103,14 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
   const isCompleted = event.status === EventStatus.COMPLETED;
 
   const isAdmin = user?.role === "ADMIN";
-  const canViewBoard = event.showPublicLeaderboard || isOwner || isAdmin;
+  const hideBoard = hideScoreLeaderboard(event.slug);
+  const canViewBoard = (event.showPublicLeaderboard || isOwner || isAdmin) && !hideBoard;
   const showBoard = (isLive || isCompleted) && !workshop && canViewBoard;
-  const boardPaused = (isLive || isCompleted) && !workshop && !canViewBoard;
+  const boardPaused = (isLive || isCompleted) && !workshop && !canViewBoard && !hideBoard;
 
   const registerHref = isArtist && isOpen ? `/events/${event.slug}/register` : null;
   const registerLabel = workshop ? "Join this workshop" : "Register for this event";
-  const liveHref = isLive ? `/events/${event.slug}/live` : null;
+  const liveHref = isLive && !hideBoard ? `/events/${event.slug}/live` : null;
   const standingsHref = showBoard ? `/events/${event.slug}/standings` : null;
 
   let totalPrizePool = event.categories.reduce(
@@ -158,6 +161,7 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
     { id: "judges", label: "Judges", show: judges.length > 0 },
     { id: "organizer", label: "Organizer", show: Boolean(event.organizer.bio?.trim()) },
     { id: "categories", label: workshop ? "Sessions" : "Categories", show: true },
+    { id: "qualifiers", label: "Qualifiers", show: hasAuditionQualifiers(event.slug) },
     { id: "schedule", label: "Schedule", show: event.scheduleItems.length > 0 },
     { id: "gallery", label: "Gallery", show: event.galleryItems.length > 0 || event.eventPhotos.length > 0 },
     { id: "host", label: "Our host", show: Boolean(event.organizerPhotoUrl || event.organizerBio?.trim()) },
@@ -273,6 +277,17 @@ export default async function EventDetailPage({ params }: EventDetailContext) {
               totalPrize={totalPrizePool}
               slug={event.slug}
             />
+
+            {hasAuditionQualifiers(event.slug) ? (
+              <section id="qualifiers" aria-label="Audition qualifiers" className="scroll-mt-24">
+                <SectionHeading
+                  eyebrow="Audition round"
+                  title="Qualifiers"
+                  description="Artists who cleared their city audition round and qualified for the finals."
+                />
+                <AuditionQualifiers />
+              </section>
+            ) : null}
 
             <EventSchedule items={event.scheduleItems} />
 

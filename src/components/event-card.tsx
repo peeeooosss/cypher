@@ -4,6 +4,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { EventCardLeaderboard } from "@/components/event-card-leaderboard";
 import { EventPoster } from "@/components/event-poster";
 import { formatDateShort } from "@/lib/format";
+import { hideScoreLeaderboard } from "@/lib/audition-qualifiers";
 import { EVENT_TYPE_LABELS, formatLabel, isWorkshopType } from "@/lib/event-types";
 
 type ScheduleItemSummary = { id: string; title: string; startTime: Date };
@@ -193,7 +194,7 @@ export function EventCard({ event, isSignedIn = false }: { event: EventCardData;
           {isWorkshopType(event.eventType) ? "Join this workshop" : "Register for this event"}
         </Link>
       )}
-      {event.status === EventStatus.LIVE && (
+      {event.status === EventStatus.LIVE && !hideScoreLeaderboard(event.slug) && (
         <Link
           href={`/events/${event.slug}/live`}
           className="block border-t border-line bg-accent px-md py-sm text-center font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper transition-opacity hover:opacity-80"
@@ -201,7 +202,9 @@ export function EventCard({ event, isSignedIn = false }: { event: EventCardData;
           View live scores
         </Link>
       )}
-      {isCompleted && <EventCardLeaderboard eventId={event.id} slug={event.slug} />}
+      {isCompleted && !hideScoreLeaderboard(event.slug) && (
+        <EventCardLeaderboard eventId={event.id} slug={event.slug} />
+      )}
     </div>
   );
 }

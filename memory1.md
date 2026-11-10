@@ -664,6 +664,36 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 
 ---
 
+## Session 21: Born-to-Dance — Hide Leaderboard + Per-City Audition Qualifier Tables
+
+### User requirements
+- Hide the (empty/offline) score leaderboard from every public surface of **BORN TO DANCE CHAMPIONSHIP** for now.
+- Show **per-audition-city tables of artists who cleared the audition round and qualified for finals** on the event card — seeded with the **Bokajan** list (19 solos + 2 groups).
+
+### Decisions
+- Qualifier data lives in a **static TS file** (`src/lib/audition-qualifiers.ts`) — organizer sends lists per city, we add entries; no schema/API/dashboard work. Future cities = new keys in `AUDITION_QUALIFIERS_BY_CITY`.
+- **Kill-switch**: `HIDE_SCORE_LEADERBOARD = true` in that file + `hideScoreLeaderboard(slug)` guard (born-to-dance only). Flip to `false` to restore every leaderboard surface when finals scoring runs on the platform.
+- Qualifiers section sits **after Categories** on the event page + sub-nav link "Qualifiers". `/standings` and `/live` render qualifiers instead of the board while hidden (standings link becomes the shareable "who qualified" URL).
+- "Royel Cubs Crew" academy corrected to **Singh Dance Academy** (user confirmed) and trailing space trimmed on Tiny Hoppers' academy.
+- Leaderboard **API route untouched** (organizer dashboard Leaderboard tab still works; it contains no scores — 0 registrations). DB `showPublicLeaderboard` toggle untouched (belt-and-suspenders).
+
+### Changes
+- **`src/lib/audition-qualifiers.ts`** (new): `HIDE_SCORE_LEADERBOARD`, `hideScoreLeaderboard()`, `AuditionQualifier`/`CityQualifiers` types, `AUDITION_QUALIFIERS_BY_CITY` (Bokajan), `getQualifierCities()`, `getCityQualifiers()`, `hasAuditionQualifiers()`.
+- **`src/components/audition-qualifiers.tsx`** (new, server component): per-city heading "<CITY> audition — qualified for finals" + Solo/Group `<table>`s (Sl. No. / Name / Category / Academy Name), `overflow-x-auto`, site tokens.
+- **`src/app/events/[slug]/page.tsx`**: `hideBoard` gates `canViewBoard`/`boardPaused`/`liveHref` (kills board section, Results sub-nav, hero/aside/mobile Results + live CTAs); Qualifiers section + sub-nav entry after Categories.
+- **`src/components/event-card.tsx`**: skip `EventCardLeaderboard` (completed) + "View live scores" link when hidden.
+- **`src/components/home-events.tsx`**: skip compact live board when hidden.
+- **`src/app/events/[slug]/standings/page.tsx` + `.../live/page.tsx`**: while hidden → header eyebrow "Audition qualifiers" + `AuditionQualifiers` instead of `LiveLeaderboard`/spectator (public, un-gated); "Results paused" only for non-custom hidden events.
+
+### Build / verification
+- `tsc` clean; `lint` unchanged (3 pre-existing errors + 11 warnings, verified identical on stashed tree); `next build` exit 0.
+- Prod smoke (`next start`): `/events/born-to-dance` renders Bokajan tables (21 rows) after Categories, no leaderboard/results/live CTAs anywhere; `/standings` + `/live` show qualifiers; other events (`in-house-battle-rrdc`, `kinetic-vol1`) still show "Final standings" cards; homepage + register + events listing 200.
+
+### Commits
+- (pending) feat(born-to-dance): hide leaderboard, add per-city audition qualifier tables
+
+---
+
 ## Key Files Reference (Updated)
 
 ### Schema
@@ -693,6 +723,7 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 - `src/components/event-card.tsx` — event card with directions link + prize pool + (completed) card leaderboard
 - `src/components/event-card-leaderboard.tsx` — compact card standings; "Copy link" + "Full results →" point to `/events/<slug>/standings`; 403 → "Results paused"
 - `src/components/live-leaderboard.tsx` — full live/final leaderboard (reused on event page, `/live`, `/standings`); handles `leaderboard_visibility` + hidden state
+- `src/lib/audition-qualifiers.ts` + `src/components/audition-qualifiers.tsx` — born-to-dance leaderboard kill-switch + per-city audition qualifier tables (see Session 21)
 - `src/components/copy-link-button.tsx` — reusable copy-absolute-URL button
 - `src/app/page.tsx` — homepage with event cards + gallery slider
 
