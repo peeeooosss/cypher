@@ -675,11 +675,12 @@ Replaced manual UPI for CYPHR platform fees with PayU Hosted Checkout. Registrat
 - **Kill-switch**: `HIDE_SCORE_LEADERBOARD = true` in that file + `hideScoreLeaderboard(slug)` guard (born-to-dance only). Flip to `false` to restore every leaderboard surface when finals scoring runs on the platform.
 - Qualifiers section sits **after Categories** on the event page + sub-nav link "Qualifiers". `/standings` and `/live` render qualifiers instead of the board while hidden (standings link becomes the shareable "who qualified" URL).
 - "Royel Cubs Crew" academy corrected to **Singh Dance Academy** (user confirmed) and trailing space trimmed on Tiny Hoppers' academy.
+- **City dropdown**: `AuditionQualifiers` is a `"use client"` component with a styled native `<select>` ("Audition city") switching between `AUDITION_QUALIFIERS_BY_CITY` keys; first key (Bokajan) is the default. Multi-city auditions can share one entry — "Tezpur & Biswanath Chariali" is a single combined list (21 solos, no groups; user confirmed keeping both Mousumi Hazarika rows — #12 All Unique Biswanath, #21 Nrityanjali Kala Niketan).
 - Leaderboard **API route untouched** (organizer dashboard Leaderboard tab still works; it contains no scores — 0 registrations). DB `showPublicLeaderboard` toggle untouched (belt-and-suspenders).
 
 ### Changes
 - **`src/lib/audition-qualifiers.ts`** (new): `HIDE_SCORE_LEADERBOARD`, `hideScoreLeaderboard()`, `AuditionQualifier`/`CityQualifiers` types, `AUDITION_QUALIFIERS_BY_CITY` (Bokajan), `getQualifierCities()`, `getCityQualifiers()`, `hasAuditionQualifiers()`.
-- **`src/components/audition-qualifiers.tsx`** (new, server component): per-city heading "<CITY> audition — qualified for finals" + Solo/Group `<table>`s (Sl. No. / Name / Category / Academy Name), `overflow-x-auto`, site tokens.
+- **`src/components/audition-qualifiers.tsx`** (new, `"use client"`): "Audition city" native `<select>` (default = first city) + per-city heading "<CITY> audition — qualified for finals" + Solo/Group `<table>`s (Sl. No. / Name / Category / Academy Name), `overflow-x-auto`, site tokens.
 - **`src/app/events/[slug]/page.tsx`**: `hideBoard` gates `canViewBoard`/`boardPaused`/`liveHref` (kills board section, Results sub-nav, hero/aside/mobile Results + live CTAs); Qualifiers section + sub-nav entry after Categories.
 - **`src/components/event-card.tsx`**: skip `EventCardLeaderboard` (completed) + "View live scores" link when hidden.
 - **`src/components/home-events.tsx`**: skip compact live board when hidden.

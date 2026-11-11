@@ -45,6 +45,32 @@ export const AUDITION_QUALIFIERS_BY_CITY: Record<string, CityQualifiers> = {
       { name: "Tiny Hoppers", category: "Group", academy: "Stepping Stones Dance Academy" },
     ],
   },
+  "Tezpur & Biswanath Chariali": {
+    solos: [
+      { name: "Tezal Tak", category: "Solo Junior", academy: "Jaan's Nataraj Dance World" },
+      { name: "Bhashin Kashyap", category: "Solo Junior", academy: "Lakhya Dance Academy" },
+      { name: "Radha Gurung", category: "Solo Junior", academy: "Smooth Dance Academy" },
+      { name: "Aaradhya Mandal", category: "Solo Junior", academy: "Jaan's Nataraj Dance World" },
+      { name: "Ayat Ahamed", category: "Solo Junior", academy: "Aura Dance Academy" },
+      { name: "Kashish Tilkar", category: "Solo Senior", academy: "Tarangini Studio" },
+      { name: "Abhishruti Koiri", category: "Solo Junior", academy: "Street Hip Hop Dance Academy" },
+      { name: "Akiba Hayat", category: "Solo Senior", academy: "Street Hip Hop Dance Academy" },
+      { name: "Arpita Devi", category: "Solo Junior", academy: "Street Hip Hop Dance Academy" },
+      { name: "Abriti Gogoi", category: "Solo Junior", academy: "Street Hip Hop Dance Academy" },
+      { name: "Krishor Terang", category: "Solo Junior", academy: "All Unique Biswanath Dance Academy" },
+      { name: "Mousumi Hazarika", category: "Solo Junior", academy: "All Unique Biswanath Dance Academy" },
+      { name: "Kabita Basumatary", category: "Solo Junior", academy: "All Unique Biswanath Dance Academy" },
+      { name: "Terzan Bhumij", category: "Solo Junior", academy: "All Unique Biswanath Dance Academy" },
+      { name: "Laxmi Devi", category: "Solo Senior", academy: "Biswanath Dance Center" },
+      { name: "Aaruhi Kashyap", category: "Solo Junior", academy: "Nrityanjali Kala Niketan" },
+      { name: "Amoyra Borah", category: "Solo Junior", academy: "Nrityanjali Kala Niketan" },
+      { name: "Swapna Borah", category: "Solo Junior", academy: "Nrityanjali Kala Niketan" },
+      { name: "Ashesh Borah", category: "Solo Junior", academy: "Nrityanjali Kala Niketan" },
+      { name: "Baruni Kashyap", category: "Solo Junior", academy: "Nrityanjali Kala Niketan" },
+      { name: "Mousumi Hazarika", category: "Solo Junior", academy: "Nrityanjali Kala Niketan" },
+    ],
+    groups: [],
+  },
 };
 
 export function getQualifierCities(): string[] {

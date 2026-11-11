@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import {
   getQualifierCities,
   getCityQualifiers,
@@ -55,22 +58,42 @@ function QualifierTable({ title, rows }: { title: string; rows: AuditionQualifie
 
 export function AuditionQualifiers() {
   const cities = getQualifierCities();
+  const [city, setCity] = useState(cities[0] ?? "");
+
   if (cities.length === 0) return null;
+
+  const cityData = getCityQualifiers(city);
+
   return (
-    <div className="space-y-xl">
-      {cities.map((city) => {
-        const cityData = getCityQualifiers(city);
-        if (!cityData) return null;
-        return (
-          <div key={city}>
-            <p className="font-mono text-[0.7rem] font-bold uppercase tracking-[0.2em] text-accent">
-              {city} audition — qualified for finals
-            </p>
-            <QualifierTable title="Solo qualifiers" rows={cityData.solos} />
-            <QualifierTable title="Group qualifiers" rows={cityData.groups} />
-          </div>
-        );
-      })}
+    <div>
+      <label
+        htmlFor="audition-city-select"
+        className="font-mono text-[0.65rem] font-bold uppercase tracking-[0.2em] text-ink-muted"
+      >
+        Audition city
+      </label>
+      <select
+        id="audition-city-select"
+        value={city}
+        onChange={(e) => setCity(e.target.value)}
+        className="mt-sm w-full max-w-sm appearance-none rounded-md border border-line bg-paper-soft px-sm py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.1em] text-ink outline-none transition-colors hover:border-accent focus:border-accent"
+      >
+        {cities.map((optionCity) => (
+          <option key={optionCity} value={optionCity}>
+            {optionCity}
+          </option>
+        ))}
+      </select>
+
+      {cityData ? (
+        <div className="mt-lg">
+          <p className="font-mono text-[0.7rem] font-bold uppercase tracking-[0.2em] text-accent">
+            {city} audition — qualified for finals
+          </p>
+          <QualifierTable title="Solo qualifiers" rows={cityData.solos} />
+          <QualifierTable title="Group qualifiers" rows={cityData.groups} />
+        </div>
+      ) : null}
     </div>
   );
 }
