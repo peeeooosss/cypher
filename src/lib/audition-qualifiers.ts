@@ -20,9 +20,9 @@ export type CityQualifiers = {
 export const AUDITION_QUALIFIERS_BY_CITY: Record<string, CityQualifiers> = {
   Bokajan: {
     solos: [
-      { name: "Ashtha Das", category: "Solo Junior", academy: "Stepping Stones Dance Academy" },
-      { name: "Ami Singha", category: "Solo Junior", academy: "Stepping Stones Dance Academy" },
-      { name: "Bithika RongPipi", category: "Solo Junior", academy: "Stepping Stones Dance Academy" },
+      { name: "Astha Das", category: "Solo Junior", academy: "Stepping Stones Dance Academy" },
+      { name: "Avni Singha", category: "Solo Junior", academy: "Stepping Stones Dance Academy" },
+      { name: "Bithika Rongpipi", category: "Solo Junior", academy: "Stepping Stones Dance Academy" },
       { name: "Trisha Sangma", category: "Solo Senior", academy: "Stepping Stones Dance Academy" },
       { name: "Shreya Das", category: "Solo Junior", academy: "D Speed Dance Academy" },
       { name: "Samardip Bhomik", category: "Solo Senior", academy: "D Speed Dance Academy" },
@@ -41,7 +41,7 @@ export const AUDITION_QUALIFIERS_BY_CITY: Record<string, CityQualifiers> = {
       { name: "Irien Khakha", category: "Solo Junior", academy: "Singh Dance Academy" },
     ],
     groups: [
-      { name: "Royel Cubs Crew", category: "Group", academy: "Singh Dance Academy" },
+      { name: "Royal Cubs Crew", category: "Group", academy: "Singh Dance Academy" },
       { name: "Tiny Hoppers", category: "Group", academy: "Stepping Stones Dance Academy" },
     ],
   },
