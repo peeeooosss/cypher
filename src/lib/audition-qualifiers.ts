@@ -71,6 +71,38 @@ export const AUDITION_QUALIFIERS_BY_CITY: Record<string, CityQualifiers> = {
     ],
     groups: [],
   },
+  Sarupathar: {
+    solos: [
+      { name: "Bhargav Boruah", category: "Solo Junior", academy: "Step Up Dance & Fitness Academy" },
+      { name: "Kabyam Bora", category: "Solo Junior", academy: "Step Up Dance & Fitness Academy" },
+      { name: "Geetashri Saikia", category: "Solo Junior", academy: "Step Up Dance & Fitness Academy" },
+      { name: "Parinita Devi", category: "Solo Junior", academy: "Step Up Dance & Fitness Academy" },
+      { name: "Kritika Das", category: "Solo Junior", academy: "Step Up Dance & Fitness Academy" },
+      { name: "Jutika Sarkar", category: "Solo Junior", academy: "Step Up Dance & Fitness Academy" },
+      { name: "Nikita Chakraborty", category: "Solo Junior", academy: "Step Up Dance & Fitness Academy" },
+      { name: "Nivedita Sharma", category: "Solo Senior", academy: "Step Up Dance & Fitness Academy" },
+      { name: "Aparajita Sonowal", category: "Solo Senior", academy: "Step Up Dance & Fitness Academy" },
+      { name: "Ridhi Bhargav", category: "Solo Senior", academy: "Step Up Dance & Fitness Academy" },
+    ],
+    groups: [],
+  },
+  Borgang: {
+    solos: [
+      { name: "Loukyapriya Boruah", category: "Solo Junior", academy: "Gangmou Sanskriti Kala Kendra" },
+      { name: "Riki Deuri", category: "Solo Junior", academy: "Gangmou Sanskriti Kala Kendra" },
+      { name: "Pomita Nahekia", category: "Solo Junior", academy: "Gangmou Sanskriti Kala Kendra" },
+      { name: "Prince Chetry", category: "Solo Junior", academy: "Behali Art Hub" },
+      { name: "Anurag Saha", category: "Solo Junior", academy: "Behali Art Hub" },
+      { name: "Nita Shree Sharma", category: "Solo Junior", academy: "Dhrijati Nritya Kala Bhumi Academy" },
+      { name: "Sahalam", category: "Solo Senior", academy: "Behali Art Hub" },
+      { name: "Sweety Nath", category: "Solo Senior", academy: "Gangmou Sanskriti Kala Kendra" },
+    ],
+    groups: [
+      { name: "Dhrijati Nritya Kala Bhumi Crew", category: "Group", academy: "Dhrijati Nritya Kala Bhumi Academy" },
+      { name: "NATYARANG Crew", category: "Group", academy: "Dhrijati Nritya Kala Bhumi Academy" },
+      { name: "LASYA TARANG Junior Crew", category: "Group", academy: "Dhrijati Nritya Kala Bhumi Academy" },
+    ],
+  },
 };
 
 export function getQualifierCities(): string[] {
