@@ -3,28 +3,37 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatFee } from "@/lib/format";
-import type { CustomAuditionMode } from "@/lib/audition-events";
 
 export function CartSubmit({
   eventId,
   categoryIds,
   teamName,
   choreographerName,
-  address,
+  age,
+  auditionCity,
+  musicFileUrl,
+  musicFileKey,
+  musicFileName,
+  musicFileSize,
+  musicMimeType,
   memberIds,
   total,
-  audMode,
-  audCity,
+  verifyHref,
 }: {
   eventId: string;
   categoryIds: string[];
   teamName?: string;
   choreographerName?: string;
-  address?: string;
+  age?: number;
+  auditionCity?: string;
+  musicFileUrl?: string;
+  musicFileKey?: string;
+  musicFileName?: string;
+  musicFileSize?: number;
+  musicMimeType?: string;
   memberIds: string[];
   total: number;
-  audMode?: CustomAuditionMode | null;
-  audCity?: string | null;
+  verifyHref: string;
 }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
@@ -40,7 +49,13 @@ export function CartSubmit({
         categoryIds,
         teamName: teamName?.trim() || undefined,
         choreographerName: choreographerName?.trim() || undefined,
-        address: address?.trim() || undefined,
+        age,
+        auditionCity: auditionCity?.trim() || undefined,
+        musicFileUrl,
+        musicFileKey,
+        musicFileName,
+        musicFileSize,
+        musicMimeType,
         memberIds,
         claim: true,
       }),
@@ -56,8 +71,8 @@ export function CartSubmit({
       event: eventId,
       ids: created.map((registration) => registration.id).join(","),
     });
-    if (audMode) next.set("audmode", audMode);
-    if (audMode === "offline" && audCity) next.set("audcity", audCity);
+    const popup = window.open(verifyHref, "_blank", "noopener,noreferrer");
+    if (!popup) window.location.assign(verifyHref);
     router.replace(`/cart?${next.toString()}`);
   }
 
@@ -69,7 +84,7 @@ export function CartSubmit({
         onClick={() => void handleClaim()}
         disabled={submitting}
       >
-        {submitting ? "Registering…" : `I have paid — ${formatFee(total, "INR")}`}
+        {submitting ? "Registering…" : `Paid & Verify Now — ${formatFee(total, "INR")}`}
       </button>
       {error ? <p className="mt-sm text-body-sm text-accent">{error}</p> : null}
     </div>

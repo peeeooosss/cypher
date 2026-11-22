@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/rbac";
 
 const f = createUploadthing();
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const ALLOWED_AUDIO_TYPES = new Set(["audio/mpeg", "audio/mp3", "audio/wav", "audio/x-wav", "audio/mp4", "audio/x-m4a", "audio/aac"]);
 
 async function requireUser() {
   const user = await getCurrentUser();
@@ -111,6 +112,29 @@ export const ourFileRouter = {
       userId: metadata.userId,
       fileKey: file.key,
       fileUrl: file.ufsUrl,
+    })),
+
+  registrationMusicUploader: f({ audio: { maxFileSize: "32MB", maxFileCount: 1 } })
+    .middleware(async ({ files }) => {
+      const user = await requireUser();
+      if (user.role !== "ARTIST") throw new UploadThingError("Artist access required");
+      const file = files[0];
+      if (!file) throw new UploadThingError("Music file is required");
+      if (!ALLOWED_AUDIO_TYPES.has(file.type)) {
+        throw new UploadThingError("Only MP3, WAV, M4A, or AAC audio files are allowed");
+      }
+      if (file.size > 20 * 1024 * 1024) {
+        throw new UploadThingError("Audio is too large. Keep it under 20MB");
+      }
+      return { userId: user.id };
+    })
+    .onUploadComplete(async ({ file, metadata }) => ({
+      userId: metadata.userId,
+      fileKey: file.key,
+      fileUrl: file.ufsUrl,
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type,
     })),
 } satisfies FileRouter;
 

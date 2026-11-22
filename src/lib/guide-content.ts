@@ -319,7 +319,7 @@ export const artistGuideTabs: GuideTab[] = [
       },
       {
         title: "Report each category",
-        text: "For every category tap I have paid. If team members were invited, they must accept their spot before you can report payment.",
+        text: "For every category tap Paid & Verify Now. This reports payment to the organizer dashboard and opens WhatsApp for your screenshot. Team members, if invited, must accept before payment can be reported.",
       },
       {
         title: "Send the screenshot",

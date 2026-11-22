@@ -1,7 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ArtistIdentityBox } from "@/components/artist-identity-box";
-import { AuditionRegisterFlow } from "@/components/audition-register-flow";
 import { RegistrationForm } from "@/components/registration-form";
 import { AuditionRegistrationGuide } from "@/components/audition-registration-guide";
 import { prisma } from "@/lib/prisma";
@@ -268,10 +267,8 @@ export default async function RegisterPage({ params }: RegisterPageContext) {
           </div>
         ) : needsName || needsPhone ? (
           <ArtistIdentityBox needsName={needsName} needsPhone={needsPhone} />
-        ) : useAuditionFlow ? (
-          <AuditionRegisterFlow {...formProps} />
         ) : (
-          <RegistrationForm {...formProps} />
+          <RegistrationForm {...formProps} isCustomAudition={useAuditionFlow} />
         )}
       </div>
     </main>

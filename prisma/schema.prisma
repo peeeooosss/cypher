@@ -438,6 +438,13 @@ model Registration {
   crew           String?
   choreographerName String?
   address        String?
+  age            Int?
+  auditionCity   String?
+  musicFileUrl   String?
+  musicFileKey   String?
+  musicFileName  String?
+  musicFileSize  Int?
+  musicMimeType  String?
   city           String?
   country        String?
   experience     String?

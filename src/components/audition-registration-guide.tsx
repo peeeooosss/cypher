@@ -20,7 +20,7 @@ export function AuditionRegistrationGuide({
       <div className="border-b border-line px-lg py-md">
         <p className="font-display text-title-md uppercase">Audition registration guide</p>
         <p className="mt-xs text-body-sm text-ink-muted">
-          Watch this short video before you start. For online auditions, share your audition video directly to the organizer’s WhatsApp number (see Contact below).
+          Watch this short video before you start. You will register in one form: select city, category, add choreographer, and upload your music file.
         </p>
       </div>
       <div className="gap-md p-lg">
@@ -33,7 +33,7 @@ export function AuditionRegistrationGuide({
       {hasContact && (
         <div className="border-t border-line px-lg py-sm">
           <p className="text-body-sm text-ink-muted">
-            Organizer contact (for WhatsApp verification & online video share):{" "}
+            Organizer contact (for WhatsApp verification):{" "}
             <span className="font-mono text-[0.7rem] uppercase text-ink">{contactDetails}</span>
           </p>
         </div>
@@ -60,29 +60,19 @@ export function AuditionRegistrationGuide({
             </ul>
           </li>
           <li>
-            <p className="font-bold uppercase">2. Register for SOLO</p>
+            <p className="font-bold uppercase">2. Fill the qualifier form</p>
             <ul className="mt-xs list-disc space-y-xs pl-5 text-ink-muted">
-              <li>Select your audition type: Offline (multiple cities listed in selection) or Online.</li>
-              <li>Pick the SOLO category from the list.</li>
-              <li>Enter your Choreographer name and Address (no crew name needed for solo) and continue.</li>
-              <li>You’ll reach the cart — pay the entry fee. After payment, tap “I have paid” and send the payment screenshot to the organizer on WhatsApp for verification.</li>
+              <li>Enter your <span className="text-ink">Age</span>, select your <span className="text-ink">City</span>, and pick your <span className="text-ink">Category</span>.</li>
+              <li>Add <span className="text-ink">Choreographer name</span>. For DUO/TRIO/GROUP, captain also adds <span className="text-ink">Crew name</span> and registers the whole crew.</li>
+              <li>Upload your <span className="text-ink">Music file</span> (MP3/WAV/M4A/AAC, max 20MB).</li>
             </ul>
           </li>
           <li>
-            <p className="font-bold uppercase">3. Register for DUO / TRIO / GROUP</p>
+            <p className="font-bold uppercase">3. Pay and verify</p>
             <ul className="mt-xs list-disc space-y-xs pl-5 text-ink-muted">
-              <li>Select your audition type (Offline by city, or Online).</li>
-              <li>Pick the DUO / TRIO / GROUP category.</li>
-              <li>Enter your <span className="text-ink">Crew name</span>, <span className="text-ink">Choreographer name</span> and <span className="text-ink">Address</span>. Only the captain creates an account and registers the whole crew — there is no member search or invite step.</li>
-              <li>Continue to cart and pay as captain.</li>
-              <li>After payment, tap “I have paid” and send the payment screenshot to the organizer on WhatsApp for verification.</li>
-            </ul>
-          </li>
-          <li>
-            <p className="font-bold uppercase">4. After registration</p>
-            <ul className="mt-xs list-disc space-y-xs pl-5 text-ink-muted">
-              <li>For ONLINE auditions: share your audition video directly to the organizer’s WhatsApp number (from Contact). No upload on the website.</li>
-              <li>Check your cart/status at any time. The “Verify now” button uses the structured WhatsApp message for quick verification.</li>
+              <li>Continue to cart and pay the entry fee.</li>
+              <li>After payment, tap “Paid & Verify Now”. This reports your payment to the organizer dashboard and opens WhatsApp so you can send your screenshot.</li>
+              <li>Check your cart/status at any time. If needed, use the WhatsApp link in cart to resend your screenshot for quick verification.</li>
             </ul>
           </li>
         </ol>

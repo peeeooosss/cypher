@@ -6,8 +6,8 @@ import { formatFee } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/rbac";
 import { formatLabel } from "@/lib/event-types";
-import { whatsappLink, displayName } from "@/lib/payment";
-import { isCustomAuditionCity, isCustomAuditionEvent, buildStructuredVerifyMessage } from "@/lib/audition-events";
+import { whatsappLink, displayName, BILL_WHATSAPP_NUMBER } from "@/lib/payment";
+import { isCustomAuditionEvent, buildStructuredVerifyMessage } from "@/lib/audition-events";
 import { CategoryFormat } from "@/generated/prisma/enums";
 import { CartCategoryList } from "@/components/cart-claim";
 import { CartSubmit } from "@/components/cart-submit";
@@ -21,10 +21,14 @@ type CartSearchParams = Promise<{
   event?: string;
   team?: string;
   choreo?: string;
-  addr?: string;
+  age?: string;
+  city?: string;
+  musicUrl?: string;
+  musicKey?: string;
+  musicName?: string;
+  musicSize?: string;
+  musicType?: string;
   members?: string;
-  audmode?: string;
-  audcity?: string;
 }>;
 
 function resolveFormat(format: CategoryFormat | string | null, eventType: string | null) {
@@ -105,7 +109,7 @@ async function PaymentAside({
           />
           <p className="mt-lg text-body-sm leading-relaxed text-ink-muted">{note}</p>
           {children}
-          {organizerWhatsapp ? (
+          {!children && organizerWhatsapp ? (
             <Link
               href={whatsappLink(
                 organizerWhatsapp,
@@ -114,9 +118,9 @@ async function PaymentAside({
               )}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-lg block w-full border border-accent bg-accent px-md py-sm text-body-sm font-bold uppercase text-paper hover:opacity-80"
+              className="mt-lg block w-full border border-accent px-md py-sm text-body-sm font-bold uppercase text-accent hover:bg-accent hover:text-paper"
             >
-              Send payment screenshot on WhatsApp
+              Open WhatsApp
             </Link>
           ) : null}
         </>
@@ -201,39 +205,34 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
     const organizer = event.organizer;
     const teamName = params.team?.trim();
     const choreographerName = params.choreo?.trim();
-    const address = params.addr?.trim();
+    const age = params.age ? Number(params.age) : undefined;
+    const auditionCity = params.city?.trim();
+    const musicFileUrl = params.musicUrl?.trim();
+    const musicFileKey = params.musicKey?.trim();
+    const musicFileName = params.musicName?.trim();
+    const musicFileSize = params.musicSize ? Number(params.musicSize) : undefined;
+    const musicMimeType = params.musicType?.trim();
+    const messageExtra = [teamName ? `Team: ${teamName}.` : null].filter(Boolean).join(" ");
 
-    // Custom audition params are only honored for the audition event; anything
-    // else (or forged values) is ignored so other events keep today's flow.
-    const audMode =
-      isCustomAuditionEvent(event.slug) && (params.audmode === "offline" || params.audmode === "online")
-        ? params.audmode
-        : null;
-    const audCity = audMode === "offline" && isCustomAuditionCity(params.audcity) ? params.audcity!.trim() : null;
-    const messageExtra = [
-      teamName ? `Team: ${teamName}.` : null,
-      audMode
-        ? `Audition: ${audMode === "offline" ? "Offline" : "Online"}${audCity ? ` (${audCity})` : ""}. Categories: ${event.categories.map((c) => c.name).join(", ")}.`
-        : null,
-    ]
-      .filter(Boolean)
-      .join(" ");
-
-    // Structured multi-line verification message, only for the custom audition event.
     const senderName = displayName(captain?.name, captain?.username) ?? "a participant";
     const customMessage = isCustomAuditionEvent(event.slug)
       ? buildStructuredVerifyMessage({
           studio: organizer.studioName ?? organizer.name ?? "Organizer",
           sender: senderName,
+          age: Number.isFinite(age) ? age : null,
+          city: auditionCity || null,
           team: teamName || null,
           choreographer: choreographerName || null,
-          address: address || null,
           categories: event.categories.map((c) => c.name).join(", "),
           payment: formatFee(total, "INR"),
-          audMode,
-          audCity,
+          musicFileName: musicFileName || null,
+          musicFileUrl: musicFileUrl || null,
         })
       : null;
+    const verifyHref = whatsappLink(
+      organizer.whatsappNumber ?? BILL_WHATSAPP_NUMBER,
+      customMessage ?? `Hi ${organizer.name ?? "Organizer"}, I'm ${senderName}. I've paid ${formatFee(total, "INR")} for ${event.title} entry.${messageExtra ? ` ${messageExtra}` : ""} Sharing my payment screenshot for verification.`,
+    );
 
     return (
       <main className="min-h-screen bg-paper">
@@ -246,34 +245,16 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
           </Link>
           <p className="mt-lg font-mono text-body-sm uppercase tracking-[0.18em] text-accent">Checkout</p>
           <h1 className="mt-sm font-display text-display-xl uppercase">Pay your entry</h1>
-          {audMode ? (
-            <div className="mt-md border border-accent bg-paper-soft p-md">
-              <p className="font-mono text-[0.65rem] uppercase tracking-[0.15em] text-accent">
-                {audMode === "offline" ? "Offline audition" : "Online audition"}
-                {audCity ? ` — ${audCity}` : ""}
-              </p>
-            </div>
-          ) : null}
 
           <div className="mt-section grid gap-section lg:grid-cols-[1fr_0.8fr]">
             <section className="border border-line">
               <div className="border-b border-line bg-paper-soft px-lg py-md">
                 <p className="font-display text-title-md uppercase">{event.title}</p>
-                {teamName ? (
-                  <p className="mt-xs font-mono text-[0.7rem] uppercase tracking-[0.1em] text-accent">
-                    {teamName}
-                  </p>
-                ) : null}
-                {choreographerName ? (
-                  <p className="mt-xs font-mono text-[0.7rem] uppercase tracking-[0.1em] text-ink-muted">
-                    Choreographer: {choreographerName}
-                  </p>
-                ) : null}
-                {address ? (
-                  <p className="mt-xs font-mono text-[0.7rem] uppercase tracking-[0.1em] text-ink-muted">
-                    Address: {address}
-                  </p>
-                ) : null}
+                {teamName ? <p className="mt-xs font-mono text-[0.7rem] uppercase tracking-[0.1em] text-accent">{teamName}</p> : null}
+                {Number.isFinite(age) ? <p className="mt-xs font-mono text-[0.7rem] uppercase tracking-[0.1em] text-ink-muted">Age: {age}</p> : null}
+                {auditionCity ? <p className="mt-xs font-mono text-[0.7rem] uppercase tracking-[0.1em] text-ink-muted">City: {auditionCity}</p> : null}
+                {choreographerName ? <p className="mt-xs font-mono text-[0.7rem] uppercase tracking-[0.1em] text-ink-muted">Choreographer: {choreographerName}</p> : null}
+                {musicFileName ? <p className="mt-xs font-mono text-[0.7rem] uppercase tracking-[0.1em] text-ink-muted">Music: {musicFileName}</p> : null}
               </div>
               <ul className="divide-y divide-line">
                 {event.categories.map((category) => (
@@ -342,19 +323,24 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
               messageExtra: messageExtra || null,
               customMessage,
               note: isCustomAuditionEvent(event.slug)
-                ? "Pay the exact amount above, then tap I have paid and send your payment screenshot to the organizer. Only the captain needs an account — no team invites required."
-                : "Pay the exact amount above, then tap I have paid and send your payment screenshot to the organizer. Invited members will be asked to confirm their spot.",
+                ? "Pay the exact amount above, then tap Paid & Verify Now. This reports your payment to the organizer dashboard and opens WhatsApp so you can send your screenshot."
+                : "Pay the exact amount above, then tap Paid & Verify Now. This reports your payment to the organizer dashboard and opens WhatsApp so you can send your screenshot.",
               children: (
                 <CartSubmit
                   eventId={event.id}
                   categoryIds={event.categories.map((category) => category.id)}
                   teamName={teamName ?? undefined}
                   choreographerName={choreographerName ?? undefined}
-                  address={address ?? undefined}
+                  age={Number.isFinite(age) ? age : undefined}
+                  auditionCity={auditionCity || undefined}
+                  musicFileUrl={musicFileUrl || undefined}
+                  musicFileKey={musicFileKey || undefined}
+                  musicFileName={musicFileName || undefined}
+                  musicFileSize={Number.isFinite(musicFileSize) ? musicFileSize : undefined}
+                  musicMimeType={musicMimeType || undefined}
                   memberIds={memberUsers.map((member) => member.id)}
                   total={total}
-                  audMode={audMode}
-                  audCity={audCity}
+                  verifyHref={verifyHref}
                 />
               ),
             })}
@@ -421,25 +407,18 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
   });
   const sender = displayName(me?.name, me?.username);
 
-  // Same audition context as the fresh-checkout branch, re-validated here so
-  // forged values are ignored and other events keep today's message.
-  const idsAudMode =
-    isCustomAuditionEvent(event.slug) && (params.audmode === "offline" || params.audmode === "online")
-      ? params.audmode
-      : null;
-  const idsAudCity =
-    idsAudMode === "offline" && isCustomAuditionCity(params.audcity) ? params.audcity!.trim() : null;
   const idsCustomMessage = isCustomAuditionEvent(event.slug)
     ? buildStructuredVerifyMessage({
         studio: organizer.studioName ?? organizer.name ?? "Organizer",
         sender: sender ?? "a participant",
+        age: registrations.map((r) => r.age).find((v) => v != null) ?? null,
+        city: registrations.map((r) => r.auditionCity).find(Boolean) ?? null,
         team: registrations.map((r) => r.teamName).find(Boolean) ?? null,
         choreographer: registrations.map((r) => r.choreographerName).find(Boolean) ?? null,
-        address: registrations.map((r) => r.address).find(Boolean) ?? null,
         categories: [...new Set(registrations.map((r) => r.category.name))].join(", "),
         payment: formatFee(total, "INR"),
-        audMode: idsAudMode,
-        audCity: idsAudCity,
+        musicFileName: registrations.map((r) => r.musicFileName).find(Boolean) ?? null,
+        musicFileUrl: registrations.map((r) => r.musicFileUrl).find(Boolean) ?? null,
       })
     : null;
 
@@ -469,7 +448,10 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
                 format: registration.category.format,
                 teamName: registration.teamName,
                 choreographerName: registration.choreographerName,
-                address: registration.address,
+                age: registration.age,
+                auditionCity: registration.auditionCity,
+                musicFileName: registration.musicFileName,
+                musicFileUrl: registration.musicFileUrl,
                 members: registration.members.map((member) => ({ name: member.user.name, username: member.user.username, status: member.status })),
                 allMembersAccepted: registration.members.every((member) => member.status === "ACCEPTED"),
                 paid: registration.paid,
@@ -481,8 +463,6 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
               organizerName={organizer.name}
               organizerStudioName={organizer.studioName}
               eventSlug={event.slug}
-              audMode={idsAudMode}
-              audCity={idsAudCity}
               sender={sender}
             />
             <div className="flex items-center justify-between gap-sm border-t border-line bg-paper-soft px-lg py-md">
@@ -506,7 +486,7 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
             customMessage: idsCustomMessage,
             note: rosterPending
               ? "Wait for every invited team member to accept before reporting payment."
-              : "Pay the exact amount above, tap I have paid for each category, then send your payment screenshot to the organizer. The organizer approves your entry.",
+              : "Pay the exact amount above, tap Paid & Verify Now for each category. This reports payment to the organizer dashboard and opens WhatsApp for your screenshot.",
           })}
         </div>
       </div>

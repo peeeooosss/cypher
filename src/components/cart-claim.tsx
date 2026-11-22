@@ -5,7 +5,7 @@ import Link from "next/link";
 import { formatFee } from "@/lib/format";
 import { formatInr } from "@/lib/money";
 import { whatsappLink, BILL_WHATSAPP_NUMBER } from "@/lib/payment";
-import { buildStructuredVerifyMessage, isCustomAuditionEvent, type CustomAuditionMode } from "@/lib/audition-events";
+import { buildStructuredVerifyMessage, isCustomAuditionEvent } from "@/lib/audition-events";
 
 export type CartRegistration = {
   id: string;
@@ -13,7 +13,10 @@ export type CartRegistration = {
   format: string | null;
   teamName: string | null;
   choreographerName?: string | null;
-  address?: string | null;
+  age?: number | null;
+  auditionCity?: string | null;
+  musicFileName?: string | null;
+  musicFileUrl?: string | null;
   members: Array<{ name: string | null; username: string | null; status: string }>;
   allMembersAccepted: boolean;
   entryFee: number | null;
@@ -22,14 +25,14 @@ export type CartRegistration = {
   paidClaimedAt: string | null;
 };
 
-export function CartCategoryList({ registrations, eventTitle, total, organizerWhatsapp, organizerName, organizerStudioName, eventSlug, audMode, audCity, sender }: { registrations: CartRegistration[]; eventTitle?: string; total?: number; organizerWhatsapp?: string | null; organizerName?: string | null; organizerStudioName?: string | null; eventSlug?: string | null; audMode?: CustomAuditionMode | null; audCity?: string | null; sender?: string | null }) {
+export function CartCategoryList({ registrations, eventTitle, total, organizerWhatsapp, organizerName, organizerStudioName, eventSlug, sender }: { registrations: CartRegistration[]; eventTitle?: string; total?: number; organizerWhatsapp?: string | null; organizerName?: string | null; organizerStudioName?: string | null; eventSlug?: string | null; sender?: string | null }) {
   const [claimedIds, setClaimedIds] = useState<Set<string>>(
     () => new Set(registrations.filter((r) => r.paidClaimedAt).map((r) => r.id)),
   );
   const [updating, setUpdating] = useState<string | null>(null);
   const [error, setError] = useState("");
 
-  async function handleClaim(id: string) {
+  async function handleClaim(id: string, verifyHref: string) {
     setUpdating(id);
     setError("");
     try {
@@ -40,6 +43,8 @@ export function CartCategoryList({ registrations, eventTitle, total, organizerWh
       });
       if (res.ok) {
         setClaimedIds((prev) => new Set(prev).add(id));
+        const popup = window.open(verifyHref, "_blank", "noopener,noreferrer");
+        if (!popup) window.location.assign(verifyHref);
       } else {
         const body = await res.json().catch(() => null);
         setError(body?.error ?? "Could not report payment. Please try again.");
@@ -57,74 +62,54 @@ export function CartCategoryList({ registrations, eventTitle, total, organizerWh
       <ul className="divide-y divide-line">
       {registrations.map((registration) => {
         const isClaimed = claimedIds.has(registration.id);
-        // Same structured text as the checkout button on the custom audition
-        // event; other events keep the legacy one-line message.
         const verifyHref = whatsappLink(
           organizerWhatsapp ?? BILL_WHATSAPP_NUMBER,
           isCustomAuditionEvent(eventSlug)
             ? buildStructuredVerifyMessage({
                 studio: organizerStudioName ?? organizerName ?? "Organizer",
                 sender: sender ?? "a participant",
+                age: registration.age,
+                city: registration.auditionCity,
                 team: registration.teamName,
                 choreographer: registration.choreographerName,
-                address: registration.address,
                 categories: registration.name,
                 payment: formatFee(registration.entryFee, registration.entryCurrency),
-                audMode,
-                audCity,
+                musicFileName: registration.musicFileName,
+                musicFileUrl: registration.musicFileUrl,
               })
             : `Hi ${organizerName ?? "Organizer"}, I'm ${sender ?? "a participant"}. I've paid for ${eventTitle ?? "my event registration"}. Total: ${formatInr(total ?? 0)}. Attaching the payment screenshot for verification.`,
         );
         return (
-          <li
-            key={registration.id}
-            className="flex items-center justify-between gap-md px-lg py-md"
-          >
+          <li key={registration.id} className="flex items-center justify-between gap-md px-lg py-md">
             <div>
-              <p className="font-display text-title-md uppercase">
-                {registration.teamName ?? registration.name}
-              </p>
+              <p className="font-display text-title-md uppercase">{registration.teamName ?? registration.name}</p>
               <p className="mt-xs text-[0.65rem] uppercase text-ink-muted">{registration.format ?? "SOLO"} · {registration.members.length} member{registration.members.length === 1 ? "" : "s"}</p>
+              {registration.age != null ? <p className="mt-xs text-[0.7rem] text-ink-muted">Age: {registration.age}</p> : null}
+              {registration.auditionCity ? <p className="mt-xs text-[0.7rem] text-ink-muted">City: {registration.auditionCity}</p> : null}
+              {registration.choreographerName ? <p className="mt-xs text-[0.7rem] text-ink-muted">Choreographer: {registration.choreographerName}</p> : null}
+              {registration.musicFileName ? (
+                <p className="mt-xs text-[0.7rem] text-ink-muted">
+                  Music: {registration.musicFileUrl ? <a href={registration.musicFileUrl} target="_blank" rel="noopener noreferrer" className="text-accent underline">{registration.musicFileName}</a> : registration.musicFileName}
+                </p>
+              ) : null}
               {registration.members.length > 1 ? <p className="mt-xs text-[0.7rem] text-ink-muted">{registration.members.map((member) => member.name ?? member.username ?? "Unnamed").join(" · ")}</p> : null}
-              <p
-                className={`mt-xs font-mono text-[0.65rem] uppercase ${
-                  registration.paid || isClaimed ? "text-accent" : "text-ink-muted"
-                }`}
-              >
-                {registration.paid
-                  ? "Confirmed"
-                  : "Wait for verification"}
+              <p className={`mt-xs font-mono text-[0.65rem] uppercase ${registration.paid || isClaimed ? "text-accent" : "text-ink-muted"}`}>
+                {registration.paid ? "Confirmed" : "Wait for verification"}
               </p>
             </div>
             <div className="flex shrink-0 flex-col items-end gap-sm">
-              <span className="font-mono text-body-sm uppercase text-accent">
-                {formatFee(registration.entryFee, registration.entryCurrency)}
-              </span>
+              <span className="font-mono text-body-sm uppercase text-accent">{formatFee(registration.entryFee, registration.entryCurrency)}</span>
               {!registration.paid && (
                 <>
                   {isClaimed ? (
                     <div className="border border-accent bg-accent/10 p-md text-center">
                       <p className="font-display text-title-md uppercase">Waiting for verification</p>
-                      <p className="mt-xs text-body-sm text-ink-muted">
-                        Send your payment screenshot to get verified faster.
-                      </p>
-                      <Link
-                        href={verifyHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-sm block w-full border border-accent bg-accent px-md py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper hover:opacity-80"
-                      >
-                        Verify now
-                      </Link>
+                      <p className="mt-xs text-body-sm text-ink-muted">Payment reported. Send your screenshot on WhatsApp if you haven&apos;t already.</p>
+                      <Link href={verifyHref} target="_blank" rel="noopener noreferrer" className="mt-sm block w-full border border-accent bg-accent px-md py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper hover:opacity-80">Open WhatsApp</Link>
                     </div>
                   ) : (
-                    <button
-                      className="border border-accent px-md py-xs text-[0.7rem] font-bold uppercase text-accent hover:bg-accent hover:text-paper disabled:cursor-wait disabled:opacity-60"
-                      disabled={updating !== null || isClaimed || !registration.allMembersAccepted}
-                      onClick={() => void handleClaim(registration.id)}
-                      type="button"
-                    >
-                      {updating === registration.id ? "Sending…" : registration.allMembersAccepted ? "I have paid" : "Awaiting roster"}
+                    <button className="border border-accent bg-accent px-md py-xs text-[0.7rem] font-bold uppercase text-paper hover:opacity-80 disabled:cursor-wait disabled:opacity-60" disabled={updating !== null || isClaimed || !registration.allMembersAccepted} onClick={() => void handleClaim(registration.id, verifyHref)} type="button">
+                      {updating === registration.id ? "Reporting…" : registration.allMembersAccepted ? "Paid & Verify Now" : "Awaiting roster"}
                     </button>
                   )}
                 </>

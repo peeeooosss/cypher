@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatFee } from "@/lib/format";
 import { defaultRosterSize, formatLabel, isTeamFormat } from "@/lib/event-types";
-import type { CustomAuditionMode } from "@/lib/audition-events";
+import { CUSTOM_AUDITION_CITIES } from "@/lib/audition-events";
+import { useUploadThing } from "@/lib/uploadthing";
 
 type CategoryOption = {
   id: string;
@@ -27,10 +28,17 @@ type ArtistResult = {
   crew: string | null;
 };
 
+type UploadedMusic = {
+  url: string;
+  key: string;
+  name: string;
+  size: number;
+  type: string;
+};
+
 export function RegistrationForm({
   eventId,
-  auditionMode,
-  auditionCity,
+  isCustomAudition = false,
   categories,
   registeredCategoryIds,
   paidCategoryIds,
@@ -39,8 +47,7 @@ export function RegistrationForm({
   currentUser,
 }: {
   eventId: string;
-  auditionMode?: CustomAuditionMode | null;
-  auditionCity?: string | null;
+  isCustomAudition?: boolean;
   categories: CategoryOption[];
   registeredCategoryIds: Set<string>;
   paidCategoryIds: Set<string>;
@@ -49,24 +56,28 @@ export function RegistrationForm({
   currentUser: { name: string | null; username: string | null };
 }) {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [teamName, setTeamName] = useState("");
   const [choreographerName, setChoreographerName] = useState("");
-  const [address, setAddress] = useState("");
+  const [age, setAge] = useState("");
+  const [auditionCity, setAuditionCity] = useState("");
+  const [music, setMusic] = useState<UploadedMusic | null>(null);
+  const [uploadingMusic, setUploadingMusic] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<ArtistResult[]>([]);
   const [members, setMembers] = useState<ArtistResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState("");
 
+  const { startUpload } = useUploadThing("registrationMusicUploader", {
+    onUploadProgress: (p) => setUploadProgress(p),
+  });
+
   const selectedCategories = categories.filter((category) => selected.has(category.id));
   const selectedCategory = selectedCategories[0];
   const isTeam = selectedCategory ? isTeamFormat(selectedCategory.format) : false;
-  // Born to Dance uses a captain-only flow: no member search — the captain
-  // registers the whole crew with a crew name + choreographer name.
-  const isCustomAudition = Boolean(auditionMode);
-  // The server enforces max(format floor, category min) — mirror it so the UI
-  // never promises a smaller roster than the API accepts (e.g. Group min 4).
   const formatFloor = selectedCategory ? defaultRosterSize(selectedCategory.format).min : 1;
   const requiredMin = Math.max(selectedCategory?.minMembers ?? 1, formatFloor);
   const requiredMax = selectedCategory?.maxMembers ?? 1;
@@ -99,12 +110,61 @@ export function RegistrationForm({
     setQuery("");
   }
 
+  async function handleMusicChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError("");
+    if (!file.type.startsWith("audio/")) {
+      setError("Please upload an audio file (MP3, WAV, M4A, AAC).");
+      e.target.value = "";
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      setError("Music file must be under 20MB.");
+      e.target.value = "";
+      return;
+    }
+
+    setUploadingMusic(true);
+    setUploadProgress(0);
+    try {
+      const oldKey = music?.key;
+      const res = await startUpload([file]);
+      const uploaded = res?.[0];
+      if (!uploaded) throw new Error("Upload failed");
+      setMusic({
+        url: uploaded.ufsUrl,
+        key: uploaded.key,
+        name: uploaded.name,
+        size: uploaded.size,
+        type: uploaded.type ?? file.type,
+      });
+      void oldKey;
+    } catch (err) {
+      console.error(err);
+      setError("Music upload failed. Please try again.");
+      setMusic(null);
+    } finally {
+      setUploadingMusic(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
     if (selectedCategories.length === 0) return;
 
     if (isCustomAudition) {
+      const parsedAge = Number(age);
+      if (!Number.isInteger(parsedAge) || parsedAge < 1 || parsedAge > 120) {
+        setError("Add a valid age.");
+        return;
+      }
+      if (!auditionCity) {
+        setError("Select your city.");
+        return;
+      }
       if (isTeam && !teamName.trim()) {
         setError("Add your crew name.");
         return;
@@ -113,17 +173,21 @@ export function RegistrationForm({
         setError("Add the choreographer name.");
         return;
       }
-      if (!address.trim()) {
-        setError("Add your address.");
+      if (!music) {
+        setError("Upload your music file.");
         return;
       }
 
       const params = new URLSearchParams({ event: eventId, cats: [...selected].join(",") });
       if (isTeam && teamName.trim()) params.set("team", teamName.trim());
+      params.set("age", String(parsedAge));
+      params.set("city", auditionCity);
       params.set("choreo", choreographerName.trim());
-      params.set("addr", address.trim());
-      if (auditionMode) params.set("audmode", auditionMode);
-      if (auditionMode === "offline" && auditionCity) params.set("audcity", auditionCity);
+      params.set("musicUrl", music.url);
+      params.set("musicKey", music.key);
+      params.set("musicName", music.name);
+      params.set("musicSize", String(music.size));
+      params.set("musicType", music.type);
       router.push(`/cart?${params.toString()}`);
       return;
     }
@@ -141,8 +205,6 @@ export function RegistrationForm({
     const trimmedTeamName = teamName.trim();
     if (trimmedTeamName) params.set("team", trimmedTeamName);
     if (members.length > 0) params.set("members", members.map((member) => member.id).join(","));
-    if (auditionMode) params.set("audmode", auditionMode);
-    if (auditionMode === "offline" && auditionCity) params.set("audcity", auditionCity);
     router.push(`/cart?${params.toString()}`);
   }
 
@@ -203,33 +265,51 @@ export function RegistrationForm({
         selectedCategory ? (
           <div className="mt-section border border-line">
             <div className="border-b border-line bg-paper-soft px-lg py-md">
-              <p className="font-display text-title-md uppercase">Entry details</p>
+              <p className="font-display text-title-md uppercase">Qualifier details</p>
               <p className="mt-xs text-body-sm text-ink-muted">
-                {isTeam
-                  ? "Only you register — you are entering on behalf of the whole crew. Add your crew name, choreographer and address."
-                  : "Add your choreographer name and address to complete the entry."}
+                {isTeam ? "Captain registers the whole crew. Add crew details and upload one music file." : "Fill your details and upload one music file for this qualifier."}
               </p>
             </div>
             <div className="space-y-md p-lg">
+              <div>
+                <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">Name</p>
+                <p className="mt-xs font-display text-title-md uppercase text-accent">{selfLabel}</p>
+              </div>
+
+              <label className="block">
+                <span className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">Age</span>
+                <input className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm" type="number" min={1} max={120} value={age} onChange={(e) => setAge(e.target.value)} placeholder="Your age" />
+              </label>
+
+              <label className="block">
+                <span className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">City</span>
+                <select className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm" value={auditionCity} onChange={(e) => setAuditionCity(e.target.value)}>
+                  <option value="">Select city</option>
+                  {CUSTOM_AUDITION_CITIES.map((city) => (
+                    <option key={city} value={city}>{city}</option>
+                  ))}
+                </select>
+              </label>
+
               {isTeam ? (
                 <label className="block">
                   <span className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">Crew name</span>
                   <input className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm" value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="Your crew / team name" />
                 </label>
-              ) : (
-                <div>
-                  <p className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">Entering as</p>
-                  <p className="mt-xs font-display text-title-md uppercase text-accent">{selfLabel}</p>
-                </div>
-              )}
+              ) : null}
+
               <label className="block">
                 <span className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">Choreographer name</span>
                 <input className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm" value={choreographerName} onChange={(e) => setChoreographerName(e.target.value)} placeholder="Choreographer name" />
               </label>
-              <label className="block">
-                <span className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">Address</span>
-                <input className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Your address" />
-              </label>
+
+              <div className="block">
+                <span className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">Music file</span>
+                <input ref={fileInputRef} className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm" type="file" accept="audio/*,.mp3,.wav,.m4a,.aac" onChange={(e) => void handleMusicChange(e)} disabled={uploadingMusic} />
+                <p className="mt-xs font-mono text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">
+                  {uploadingMusic ? `Uploading… ${uploadProgress}%` : music ? `Uploaded: ${music.name}` : "MP3/WAV/M4A/AAC, max 20MB"}
+                </p>
+              </div>
             </div>
           </div>
         ) : null
@@ -267,7 +347,7 @@ export function RegistrationForm({
       )}
 
       {error ? <p className="mt-md text-body-sm text-accent">{error}</p> : null}
-      <button className="mt-xl w-full border border-accent bg-accent px-lg py-md text-button-md font-bold uppercase text-paper disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={selected.size === 0}>{selected.size === 0 ? "Select at least one category" : `Continue to payment — ${formatFee(total, "INR")}`}</button>
+      <button className="mt-xl w-full border border-accent bg-accent px-lg py-md text-button-md font-bold uppercase text-paper disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={selected.size === 0 || uploadingMusic}>{uploadingMusic ? "Uploading music…" : selected.size === 0 ? "Select at least one category" : `Continue to payment — ${formatFee(total, "INR")}`}</button>
     </form>
   );
 }

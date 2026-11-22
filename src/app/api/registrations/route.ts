@@ -5,7 +5,8 @@ import { badRequest, conflict, forbidden, isUniqueConstraintError, notFound, ser
 import { getCurrentUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { defaultRosterSize, isTeamFormat } from "@/lib/event-types";
-import { isCustomAuditionEvent } from "@/lib/audition-events";
+import { CUSTOM_AUDITION_CITIES, isCustomAuditionEvent } from "@/lib/audition-events";
+import { isUploadThingUrl } from "@/lib/uploadthing-url";
 
 const registrationSchema = z.object({
   categoryId: z.string().cuid().optional(),
@@ -13,6 +14,13 @@ const registrationSchema = z.object({
   teamName: z.string().trim().max(120).optional(),
   choreographerName: z.string().trim().max(120).optional(),
   address: z.string().trim().max(240).optional(),
+  age: z.number().int().min(1).max(120).optional(),
+  auditionCity: z.string().trim().max(120).optional(),
+  musicFileUrl: z.string().url().max(2048).optional(),
+  musicFileKey: z.string().trim().max(512).optional(),
+  musicFileName: z.string().trim().max(255).optional(),
+  musicFileSize: z.number().int().min(1).max(20 * 1024 * 1024).optional(),
+  musicMimeType: z.string().trim().max(100).optional(),
   memberIds: z.array(z.string().cuid()).max(20).optional(),
   claim: z.literal(true).optional(),
 }).refine((data) => data.categoryId !== undefined || data.categoryIds !== undefined, {
@@ -131,6 +139,21 @@ export async function POST(request: Request) {
     if (isCustomAudition && !parsed.data.address) {
       return badRequest("Address is required");
     }
+    if (isCustomAudition) {
+      if (parsed.data.age == null) return badRequest("Age is required");
+      if (!parsed.data.auditionCity || !(CUSTOM_AUDITION_CITIES as readonly string[]).includes(parsed.data.auditionCity)) {
+        return badRequest("Select a valid city");
+      }
+      if (!parsed.data.musicFileUrl || !parsed.data.musicFileKey || !parsed.data.musicFileName) {
+        return badRequest("Music file is required");
+      }
+      if (!isUploadThingUrl(parsed.data.musicFileUrl)) {
+        return badRequest("Music file must be uploaded through UploadThing");
+      }
+      if (parsed.data.musicMimeType && !parsed.data.musicMimeType.startsWith("audio/")) {
+        return badRequest("Music file must be an audio file");
+      }
+    }
 
     const activeStatuses = { notIn: [RegistrationStatus.WITHDRAWN] };
     const registrations = await prisma.$transaction(async (transaction) => {
@@ -167,6 +190,13 @@ export async function POST(request: Request) {
             teamName: parsed.data.teamName ?? null,
             choreographerName: parsed.data.choreographerName ?? null,
             address: parsed.data.address ?? null,
+            age: isCustomAudition ? parsed.data.age ?? null : null,
+            auditionCity: isCustomAudition ? parsed.data.auditionCity ?? null : null,
+            musicFileUrl: isCustomAudition ? parsed.data.musicFileUrl ?? null : null,
+            musicFileKey: isCustomAudition ? parsed.data.musicFileKey ?? null : null,
+            musicFileName: isCustomAudition ? parsed.data.musicFileName ?? null : null,
+            musicFileSize: isCustomAudition ? parsed.data.musicFileSize ?? null : null,
+            musicMimeType: isCustomAudition ? parsed.data.musicMimeType ?? null : null,
             entryFee: category.entryFee,
             entryCurrency: category.entryCurrency,
             style: profile?.style ?? null,
