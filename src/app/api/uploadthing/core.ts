@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/rbac";
 
 const f = createUploadthing();
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const ALLOWED_AUDIO_TYPES = new Set(["audio/mpeg", "audio/mp3", "audio/wav", "audio/x-wav", "audio/mp4", "audio/x-m4a", "audio/aac"]);
+const ALLOWED_AUDIO_TYPES = new Set(["audio/mpeg", "audio/mp3", "audio/wav", "audio/x-wav", "audio/wave", "audio/mp4", "audio/x-m4a", "audio/m4a", "audio/aac", "audio/mp4a-latm", "audio/ogg"]);
 
 async function requireUser() {
   const user = await getCurrentUser();
@@ -120,8 +120,11 @@ export const ourFileRouter = {
       if (user.role !== "ARTIST") throw new UploadThingError("Artist access required");
       const file = files[0];
       if (!file) throw new UploadThingError("Music file is required");
-      if (!ALLOWED_AUDIO_TYPES.has(file.type)) {
-        throw new UploadThingError("Only MP3, WAV, M4A, or AAC audio files are allowed");
+      const type = (file.type || "").toLowerCase();
+      const name = (file.name || "").toLowerCase();
+      const hasAllowedExt = /\.(mp3|wav|m4a|aac|mp4|ogg)$/i.test(name);
+      if (!type.startsWith("audio/") && !ALLOWED_AUDIO_TYPES.has(type) && !hasAllowedExt) {
+        throw new UploadThingError("Only MP3, WAV, M4A, AAC, or OGG audio files are allowed");
       }
       if (file.size > 20 * 1024 * 1024) {
         throw new UploadThingError("Audio is too large. Keep it under 20MB");

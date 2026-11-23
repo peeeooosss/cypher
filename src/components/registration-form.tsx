@@ -73,6 +73,10 @@ export function RegistrationForm({
 
   const { startUpload } = useUploadThing("registrationMusicUploader", {
     onUploadProgress: (p) => setUploadProgress(p),
+    onUploadError: (e) => {
+      setError(e.message || "Music upload failed. Please try again.");
+      setUploadingMusic(false);
+    },
   });
 
   const selectedCategories = categories.filter((category) => selected.has(category.id));
@@ -114,8 +118,9 @@ export function RegistrationForm({
     const file = e.target.files?.[0];
     if (!file) return;
     setError("");
-    if (!file.type.startsWith("audio/")) {
-      setError("Please upload an audio file (MP3, WAV, M4A, AAC).");
+    const hasAllowedExt = /\.(mp3|wav|m4a|aac|mp4|ogg)$/i.test(file.name);
+    if (!file.type.startsWith("audio/") && !hasAllowedExt) {
+      setError("Please upload an audio file (MP3, WAV, M4A, AAC, OGG).");
       e.target.value = "";
       return;
     }
@@ -131,7 +136,7 @@ export function RegistrationForm({
       const oldKey = music?.key;
       const res = await startUpload([file]);
       const uploaded = res?.[0];
-      if (!uploaded) throw new Error("Upload failed");
+      if (!uploaded) throw new Error("Upload failed. Please check file format/size and try again.");
       setMusic({
         url: uploaded.ufsUrl,
         key: uploaded.key,
@@ -142,7 +147,7 @@ export function RegistrationForm({
       void oldKey;
     } catch (err) {
       console.error(err);
-      setError("Music upload failed. Please try again.");
+      setError(err instanceof Error && err.message ? err.message : "Music upload failed. Please try again.");
       setMusic(null);
     } finally {
       setUploadingMusic(false);
