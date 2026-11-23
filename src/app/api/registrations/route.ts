@@ -136,9 +136,6 @@ export async function POST(request: Request) {
     if (isCustomAudition && !parsed.data.choreographerName) {
       return badRequest("Choreographer name is required");
     }
-    if (isCustomAudition && !parsed.data.address) {
-      return badRequest("Address is required");
-    }
     if (isCustomAudition) {
       if (parsed.data.age == null) return badRequest("Age is required");
       if (!parsed.data.auditionCity || !(CUSTOM_AUDITION_CITIES as readonly string[]).includes(parsed.data.auditionCity)) {
