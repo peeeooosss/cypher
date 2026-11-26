@@ -3137,6 +3137,7 @@ function RegistrationRow({
   onUpdate: () => void;
 }) {
   const [seed, setSeed] = useState(registration.seed?.toString() ?? "");
+  const [address, setAddress] = useState(registration.address ?? "");
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState("");
   const [showMessage, setShowMessage] = useState(false);
@@ -3191,6 +3192,12 @@ function RegistrationRow({
 
   async function handleSeed() {
     await patchRegistration({ seed: seed ? Number(seed) : null });
+  }
+
+  async function handleAddress() {
+    const nextAddress = address.trim() || null;
+    if (nextAddress === (registration.address ?? null)) return;
+    await patchRegistration({ address: nextAddress });
   }
 
   async function handleDelete() {
@@ -3257,7 +3264,18 @@ function RegistrationRow({
         </td>
         <td className="px-md py-sm">{registration.crew ?? "—"}</td>
         <td className="px-md py-sm">{registration.choreographerName ?? "—"}</td>
-        <td className="px-md py-sm">{registration.address ?? "—"}</td>
+        <td className="px-md py-sm">
+          <input
+            className="w-48 border border-line bg-paper px-sm py-xs text-body-sm"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            onBlur={() => void handleAddress()}
+            placeholder="Add address"
+            maxLength={240}
+            aria-label={`Address for ${registration.teamName ?? registration.user.name ?? "artist"}`}
+            disabled={updating}
+          />
+        </td>
         <td className="px-md py-sm">{registration.age ?? "—"}</td>
         <td className="px-md py-sm">{registration.auditionCity ?? "—"}</td>
         <td className="px-md py-sm">

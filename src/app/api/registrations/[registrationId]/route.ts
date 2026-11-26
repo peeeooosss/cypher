@@ -9,6 +9,7 @@ const updateRegistrationSchema = z.object({
   status: z.enum(RegistrationStatus).optional(),
   paid: z.boolean().optional(),
   paidClaimed: z.literal(true).optional(),
+  address: z.string().trim().max(240).nullable().optional(),
   seed: z.number().int().min(0).optional(),
   style: z.string().trim().max(80).optional(),
   crew: z.string().trim().max(120).optional(),
@@ -116,6 +117,7 @@ export async function PATCH(request: Request, { params }: RegistrationRouteConte
     if (parsed.data.status) updateData.status = parsed.data.status;
     if (isEventOrganizer) {
       if (parsed.data.seed !== undefined) updateData.seed = parsed.data.seed;
+      if (parsed.data.address !== undefined) updateData.address = parsed.data.address ?? null;
       if (parsed.data.paid !== undefined) {
         if (parsed.data.paid && registration.members.length > 0 && registration.members.some((member) => member.status !== RegistrationMemberStatus.ACCEPTED)) {
           return badRequest("Every invited team member must accept before payment can be confirmed");
