@@ -11,6 +11,8 @@ import { formatInr, isEventFlatFeePaid } from "@/lib/money";
 import { BATTLE_FORMATS, CATEGORY_FORMAT_LABELS, COMPETITION_FORMATS, EVENT_TYPE_LABELS, EVENT_TYPE_LIST, defaultRosterSize, formatLabel, isCompetitionType, isWorkshopType } from "@/lib/event-types";
 import { INDIAN_STATES } from "@/lib/states";
 import { responseError } from "@/lib/client-error";
+import { downloadRosterXlsx } from "@/lib/registration-export";
+import type { RegistrationRosterRow } from "@/lib/registration-roster";
 import { AdvancementStudio } from "@/components/advancement-studio";
 import { StaffCodesTab } from "@/components/staff-codes-tab";
 import { EventJudgesManager, type EventJudgeRecord } from "@/components/event-judges-manager";
@@ -153,6 +155,10 @@ type RegistrationRow = {
   teamName?: string | null;
   choreographerName?: string | null;
   address?: string | null;
+  age?: number | null;
+  auditionCity?: string | null;
+  musicFileName?: string | null;
+  musicFileUrl?: string | null;
   format?: CategoryFormat | null;
   members?: Array<{ id: string; userId: string; role: string; status: string; user: { id: string; name: string | null; username: string | null; whatsappNumber: string | null } }>;
 };
@@ -2748,6 +2754,7 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
   const [registrations, setRegistrations] = useState<RegistrationRow[]>([]);
   const [loading, setLoading] = useState(event.categories.length > 0);
   const [refreshing, setRefreshing] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -2820,6 +2827,24 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
     }
   }
 
+  async function handleDownload() {
+    setExporting(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/events/${event.id}/registrations/export`);
+      if (!res.ok) {
+        setError(await responseError(res, "Failed to download registrations."));
+        return;
+      }
+      const payload = (await res.json()) as { rows: RegistrationRosterRow[] };
+      downloadRosterXlsx(payload.rows ?? [], event.slug);
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const filteredRegistrations = registrations.filter((reg) => {
     const q = searchQuery.toLowerCase().trim();
     if (!q) return true;
@@ -2831,6 +2856,9 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
       reg.teamName,
       reg.choreographerName,
       reg.address,
+      reg.auditionCity,
+      reg.musicFileName,
+      reg.musicFileUrl,
       reg.crew,
       memberNames,
     ]
@@ -2921,7 +2949,15 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
         </span>
         {error ? <span className="text-body-sm text-accent">{error}</span> : null}
         <button
-          className="ml-auto border border-line px-md py-sm font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted transition-colors hover:border-accent hover:text-accent disabled:cursor-wait disabled:opacity-60"
+          className="ml-auto border border-accent bg-accent px-md py-sm font-mono text-[0.7rem] font-bold uppercase tracking-[0.15em] text-paper transition-opacity hover:opacity-80 disabled:cursor-wait disabled:opacity-60"
+          disabled={exporting}
+          onClick={() => void handleDownload()}
+          type="button"
+        >
+          {exporting ? "Preparing..." : "Download XLSX"}
+        </button>
+        <button
+          className="border border-line px-md py-sm font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted transition-colors hover:border-accent hover:text-accent disabled:cursor-wait disabled:opacity-60"
           disabled={refreshing}
           onClick={() => void handleRefresh()}
           type="button"
@@ -3010,6 +3046,18 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
                 </th>
                 <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
                   Address
+                </th>
+                <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
+                  Age
+                </th>
+                <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
+                  City
+                </th>
+                <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
+                  Music file
+                </th>
+                <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
+                  Song link
                 </th>
                 <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
                   Phone
@@ -3187,7 +3235,7 @@ function RegistrationRow({
           />
         </td>
       )}
-       <td className="px-md py-sm">
+        <td className="px-md py-sm">
           <p className="font-bold uppercase">{registration.teamName ?? registration.user.name ?? "—"}</p>
           {registration.members && registration.members.length > 0 ? (
             <p className="mt-xs max-w-64 text-[0.7rem] text-ink-muted">
@@ -3195,30 +3243,52 @@ function RegistrationRow({
             </p>
           ) : <p className="mt-xs text-[0.7rem] text-ink-muted">{registration.user.email ?? registration.user.phone ?? ""}</p>}
         </td>
-       <td className="px-md py-sm">{registration.crew ?? "—"}</td>
-       <td className="px-md py-sm">{registration.choreographerName ?? "—"}</td>
-       <td className="px-md py-sm">{registration.address ?? "—"}</td>
-       <td className="px-md py-sm">
-         {contactPhone ? (
-           <div className="flex flex-col gap-xs">
-             <a className="font-mono text-[0.7rem] text-accent hover:underline" href={callHref ?? "#"}>
-               {contactPhone}
-             </a>
-             {waHref ? (
-               <a
-                 className="font-mono text-[0.6rem] uppercase text-ink-muted hover:text-accent"
-                 href={waHref}
-                 target="_blank"
-                 rel="noopener noreferrer"
-               >
-                 WhatsApp
-               </a>
-             ) : null}
-           </div>
-         ) : (
-           "—"
-         )}
-       </td>
+        <td className="px-md py-sm">{registration.crew ?? "—"}</td>
+        <td className="px-md py-sm">{registration.choreographerName ?? "—"}</td>
+        <td className="px-md py-sm">{registration.address ?? "—"}</td>
+        <td className="px-md py-sm">{registration.age ?? "—"}</td>
+        <td className="px-md py-sm">{registration.auditionCity ?? "—"}</td>
+        <td className="px-md py-sm">
+          <span className="max-w-48 break-words text-[0.7rem]" title={registration.musicFileName ?? undefined}>
+            {registration.musicFileName ?? "—"}
+          </span>
+        </td>
+        <td className="px-md py-sm">
+          {registration.musicFileUrl ? (
+            <a
+              className="font-mono text-[0.7rem] text-accent hover:underline"
+              href={registration.musicFileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={registration.musicFileUrl}
+            >
+              Open song
+            </a>
+          ) : (
+            <span className="text-ink-muted">—</span>
+          )}
+        </td>
+        <td className="px-md py-sm">
+          {contactPhone ? (
+            <div className="flex flex-col gap-xs">
+              <a className="font-mono text-[0.7rem] text-accent hover:underline" href={callHref ?? "#"}>
+                {contactPhone}
+              </a>
+              {waHref ? (
+                <a
+                  className="font-mono text-[0.6rem] uppercase text-ink-muted hover:text-accent"
+                  href={waHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  WhatsApp
+                </a>
+              ) : null}
+            </div>
+          ) : (
+            "—"
+          )}
+        </td>
        <td className="px-md py-sm">{registration.style ?? "—"}</td>
        <td className="px-md py-sm">{registration.experience ?? "—"}</td>
        <td className="px-md py-sm font-mono text-[0.7rem] uppercase">

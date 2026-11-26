@@ -1,25 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import * as XLSX from "xlsx";
 import { responseError } from "@/lib/client-error";
-import { formatFee } from "@/lib/format";
+import { downloadRosterXlsx, paymentLabel, statusLabel } from "@/lib/registration-export";
 import type { AdminRosterRow } from "@/lib/admin";
 
 type RosterPayload = {
   event: { id: string; title: string; slug: string; status: string };
   rows: AdminRosterRow[];
 };
-
-function paymentLabel(row: AdminRosterRow): string {
-  if (!row.paid) return "Unpaid";
-  return `Paid ${formatFee(row.entryFee, row.entryCurrency)}`;
-}
-
-function statusLabel(row: AdminRosterRow): string {
-  if (row.role === "CAPTAIN") return `Captain · ${row.entryStatus}`;
-  return `Member · ${row.memberStatus ?? "—"}`;
-}
 
 async function copyText(text: string): Promise<boolean> {
   try {
@@ -87,21 +76,7 @@ export function AdminEventRoster({ eventId }: { eventId: string }) {
 
   function handleDownload() {
     if (!data || data.rows.length === 0) return;
-    const sheet = data.rows.map((row) => ({
-      NAME: row.name ?? (row.username ? `@${row.username}` : "—"),
-      PHONE: row.phone ?? "—",
-      CATEGORY: row.categoryName,
-      TEAM: row.teamName ?? "",
-      CHOREOGRAPHER: row.choreographerName ?? "",
-      ADDRESS: row.address ?? "",
-      PAYMENT: paymentLabel(row),
-      STATUS: statusLabel(row),
-    }));
-    const ws = XLSX.utils.json_to_sheet(sheet);
-    ws["!cols"] = [{ wch: 24 }, { wch: 16 }, { wch: 20 }, { wch: 20 }, { wch: 24 }, { wch: 32 }, { wch: 16 }, { wch: 20 }];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Roster");
-    XLSX.writeFile(wb, `${data.event.slug}-roster.xlsx`);
+    downloadRosterXlsx(data.rows, data.event.slug);
   }
 
   if (loading) {
@@ -163,6 +138,12 @@ export function AdminEventRoster({ eventId }: { eventId: string }) {
                     <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">Team</th>
                     <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">Choreographer</th>
                     <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">Address</th>
+                    <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">Email</th>
+                    <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">Age</th>
+                    <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">City</th>
+                    <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">Music file</th>
+                    <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">Song link</th>
+                    <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">Registered</th>
                     <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">Payment</th>
                     <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">Status</th>
                   </tr>
@@ -196,6 +177,26 @@ export function AdminEventRoster({ eventId }: { eventId: string }) {
                       <td className="px-md py-sm">{row.teamName ?? "—"}</td>
                       <td className="px-md py-sm">{row.choreographerName ?? "—"}</td>
                       <td className="px-md py-sm">{row.address ?? "—"}</td>
+                      <td className="px-md py-sm">{row.email ?? "—"}</td>
+                      <td className="px-md py-sm">{row.age ?? "—"}</td>
+                      <td className="px-md py-sm">{row.auditionCity ?? "—"}</td>
+                      <td className="px-md py-sm text-[0.7rem]">{row.musicFileName ?? "—"}</td>
+                      <td className="px-md py-sm">
+                        {row.musicFileUrl ? (
+                          <a
+                            className="font-mono text-[0.7rem] text-accent hover:underline"
+                            href={row.musicFileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={row.musicFileUrl}
+                          >
+                            Open song
+                          </a>
+                        ) : (
+                          <span className="text-ink-muted">—</span>
+                        )}
+                      </td>
+                      <td className="px-md py-sm font-mono text-[0.65rem] uppercase text-ink-muted">{row.createdAt ? new Date(row.createdAt).toLocaleDateString("en-IN") : "—"}</td>
                       <td className="px-md py-sm">
                         {row.paid ? (
                           <span className="font-mono text-[0.7rem] uppercase">{paymentLabel(row)}</span>
