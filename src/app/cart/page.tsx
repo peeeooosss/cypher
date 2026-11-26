@@ -21,6 +21,7 @@ type CartSearchParams = Promise<{
   event?: string;
   team?: string;
   choreo?: string;
+  addr?: string;
   age?: string;
   city?: string;
   musicUrl?: string;
@@ -205,6 +206,7 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
     const organizer = event.organizer;
     const teamName = params.team?.trim();
     const choreographerName = params.choreo?.trim();
+    const address = params.addr?.trim();
     const age = params.age ? Number(params.age) : undefined;
     const auditionCity = params.city?.trim();
     const musicFileUrl = params.musicUrl?.trim();
@@ -331,6 +333,7 @@ export default async function CartPage({ searchParams }: { searchParams: CartSea
                   categoryIds={event.categories.map((category) => category.id)}
                   teamName={teamName ?? undefined}
                   choreographerName={choreographerName ?? undefined}
+                  address={address || undefined}
                   age={Number.isFinite(age) ? age : undefined}
                   auditionCity={auditionCity || undefined}
                   musicFileUrl={musicFileUrl || undefined}

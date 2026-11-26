@@ -9,6 +9,7 @@ export function CartSubmit({
   categoryIds,
   teamName,
   choreographerName,
+  address,
   age,
   auditionCity,
   musicFileUrl,
@@ -24,6 +25,7 @@ export function CartSubmit({
   categoryIds: string[];
   teamName?: string;
   choreographerName?: string;
+  address?: string;
   age?: number;
   auditionCity?: string;
   musicFileUrl?: string;
@@ -52,6 +54,7 @@ export function CartSubmit({
           categoryIds,
           teamName: teamName?.trim() || undefined,
           choreographerName: choreographerName?.trim() || undefined,
+          address: address?.trim() || undefined,
           age,
           auditionCity: auditionCity?.trim() || undefined,
           musicFileUrl,

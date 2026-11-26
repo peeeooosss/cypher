@@ -3039,6 +3039,9 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
                   Entry / roster
                 </th>
                 <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
+                  Song
+                </th>
+                <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
                   Crew
                 </th>
                 <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
@@ -3052,12 +3055,6 @@ function RegistrationsTab({ event }: { event: EventWithRelations }) {
                 </th>
                 <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
                   City
-                </th>
-                <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
-                  Music file
-                </th>
-                <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
-                  Song link
                 </th>
                 <th className="px-md py-sm font-mono text-[0.7rem] uppercase text-ink-muted">
                   Phone
@@ -3243,31 +3240,26 @@ function RegistrationRow({
             </p>
           ) : <p className="mt-xs text-[0.7rem] text-ink-muted">{registration.user.email ?? registration.user.phone ?? ""}</p>}
         </td>
-        <td className="px-md py-sm">{registration.crew ?? "—"}</td>
-        <td className="px-md py-sm">{registration.choreographerName ?? "—"}</td>
-        <td className="px-md py-sm">{registration.address ?? "—"}</td>
-        <td className="px-md py-sm">{registration.age ?? "—"}</td>
-        <td className="px-md py-sm">{registration.auditionCity ?? "—"}</td>
-        <td className="px-md py-sm">
-          <span className="max-w-48 break-words text-[0.7rem]" title={registration.musicFileName ?? undefined}>
-            {registration.musicFileName ?? "—"}
-          </span>
-        </td>
         <td className="px-md py-sm">
           {registration.musicFileUrl ? (
             <a
-              className="font-mono text-[0.7rem] text-accent hover:underline"
+              className="block max-w-48 break-words text-[0.7rem] text-accent underline hover:opacity-80"
               href={registration.musicFileUrl}
               target="_blank"
               rel="noopener noreferrer"
               title={registration.musicFileUrl}
             >
-              Open song
+              {registration.musicFileName ?? "Open song"}
             </a>
           ) : (
-            <span className="text-ink-muted">—</span>
+            <span className="text-ink-muted">{registration.musicFileName ?? "—"}</span>
           )}
         </td>
+        <td className="px-md py-sm">{registration.crew ?? "—"}</td>
+        <td className="px-md py-sm">{registration.choreographerName ?? "—"}</td>
+        <td className="px-md py-sm">{registration.address ?? "—"}</td>
+        <td className="px-md py-sm">{registration.age ?? "—"}</td>
+        <td className="px-md py-sm">{registration.auditionCity ?? "—"}</td>
         <td className="px-md py-sm">
           {contactPhone ? (
             <div className="flex flex-col gap-xs">

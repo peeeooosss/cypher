@@ -60,6 +60,7 @@ export function RegistrationForm({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [teamName, setTeamName] = useState("");
   const [choreographerName, setChoreographerName] = useState("");
+  const [address, setAddress] = useState("");
   const [age, setAge] = useState("");
   const [auditionCity, setAuditionCity] = useState("");
   const [music, setMusic] = useState<UploadedMusic | null>(null);
@@ -178,6 +179,10 @@ export function RegistrationForm({
         setError("Add the choreographer name.");
         return;
       }
+      if (!address.trim()) {
+        setError("Add your address.");
+        return;
+      }
       if (!music) {
         setError("Upload your music file.");
         return;
@@ -188,6 +193,7 @@ export function RegistrationForm({
       params.set("age", String(parsedAge));
       params.set("city", auditionCity);
       params.set("choreo", choreographerName.trim());
+      params.set("addr", address.trim());
       params.set("musicUrl", music.url);
       params.set("musicKey", music.key);
       params.set("musicName", music.name);
@@ -306,6 +312,11 @@ export function RegistrationForm({
               <label className="block">
                 <span className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">Choreographer name</span>
                 <input className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm" value={choreographerName} onChange={(e) => setChoreographerName(e.target.value)} placeholder="Choreographer name" />
+              </label>
+
+              <label className="block">
+                <span className="font-mono text-[0.7rem] uppercase tracking-[0.15em] text-ink-muted">Address</span>
+                <input className="mt-xs w-full border border-line bg-paper px-md py-sm text-body-sm" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Your address" />
               </label>
 
               <div className="block">

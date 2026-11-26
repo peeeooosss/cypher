@@ -11,7 +11,16 @@ import { ListSkeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import { responseError } from "@/lib/client-error";
 
-type Lane = { corner: string; registrationId: string | null; name: string; seed: number | null };
+type Lane = {
+  corner: string;
+  registrationId: string | null;
+  name: string;
+  seed: number | null;
+  crew?: string | null;
+  style?: string | null;
+  musicFileName?: string | null;
+  musicFileUrl?: string | null;
+};
 type PortalMatch = {
   id: string;
   round: number;
@@ -49,6 +58,8 @@ type Category = {
   activePhase: Phase | null;
   participants: Participant[];
   matches: PortalMatch[];
+  currentMatch: PortalMatch | null;
+  nextMatch: PortalMatch | null;
 };
 type PortalState = {
   eventTitle: string;
@@ -86,6 +97,79 @@ function entryTone(status: string): "neutral" | "success" | "warning" {
 }
 
 const NO_BATTLE_ROUND = ["CYPHER", "QUALIFIER"];
+
+function NowNextCard({
+  label,
+  match,
+  categoryName,
+  phaseLabel,
+}: {
+  label: "Current" | "Next";
+  match: PortalMatch | null;
+  categoryName: string;
+  phaseLabel: string | null;
+}) {
+  return (
+    <div className="rounded-md border border-line bg-paper p-md">
+      <div className="flex flex-wrap items-center justify-between gap-sm">
+        <p className="font-display text-title-sm uppercase tracking-wide text-accent">{label}</p>
+        <span className="font-mono text-[0.65rem] uppercase text-ink-muted">
+          {categoryName}
+          {phaseLabel ? ` · ${phaseLabel}` : ""}
+        </span>
+      </div>
+      {match ? (
+        <>
+          <p className="mt-xs font-mono text-[0.65rem] uppercase text-ink-muted">
+            Round {match.round} · Match {match.position} · {match.status}
+          </p>
+          <div className="mt-sm grid gap-sm sm:grid-cols-3">
+            {match.lanes.map((lane) => (
+              <div
+                key={lane.corner}
+                className={`rounded-md border border-l-4 border-line px-3 py-3 ${cornerBorder[lane.corner] ?? ""}`}
+              >
+                <p className={`font-mono text-[0.6rem] uppercase ${cornerColor[lane.corner] ?? ""}`}>
+                  {lane.corner}
+                  {lane.seed != null ? ` · #${lane.seed}` : ""}
+                </p>
+                <p className="mt-0.5 break-words font-display text-title-sm uppercase tracking-wide">{lane.name}</p>
+                {lane.crew ? (
+                  <p className="mt-0.5 break-words text-[0.65rem] uppercase text-ink-muted">{lane.crew}</p>
+                ) : null}
+                {lane.style ? (
+                  <p className="mt-0.5 break-words text-[0.65rem] uppercase text-ink-muted">{lane.style}</p>
+                ) : null}
+                <p className="mt-1 break-words font-mono text-[0.65rem] uppercase text-ink-muted">
+                  Song:{" "}
+                  {lane.musicFileName ? (
+                    lane.musicFileUrl ? (
+                      <a
+                        className="text-accent underline"
+                        href={lane.musicFileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={lane.musicFileUrl}
+                      >
+                        {lane.musicFileName}
+                      </a>
+                    ) : (
+                      <span className="text-ink">{lane.musicFileName}</span>
+                    )
+                  ) : (
+                    "No song uploaded"
+                  )}
+                </p>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : (
+        <p className="mt-sm text-body-sm text-ink-muted">No {label.toLowerCase()} match yet.</p>
+      )}
+    </div>
+  );
+}
 
 export function McPortal() {
   const router = useRouter();
@@ -249,7 +333,7 @@ export function McPortal() {
             : category.participants;
           const visibleMatches = needle
             ? category.matches.filter((m) =>
-                `${m.lanes.map((lane) => `${lane.name} ${lane.seed ?? ""}`).join(" ")} r${m.round} m${m.position}`
+                `${m.lanes.map((lane) => `${lane.name} ${lane.seed ?? ""} ${lane.crew ?? ""} ${lane.style ?? ""} ${lane.musicFileName ?? ""}`).join(" ")} r${m.round} m${m.position}`
                   .toLowerCase()
                   .includes(needle),
               )
@@ -321,6 +405,21 @@ export function McPortal() {
                     {category.activePhase?.id === r.id ? <Badge tone="accent">On now</Badge> : <Badge>{r.phaseStatus ?? "PENDING"}</Badge>}
                   </p>
                 ))}
+              </div>
+
+              <div className="mt-lg grid gap-sm lg:grid-cols-2">
+                <NowNextCard
+                  label="Current"
+                  match={category.currentMatch}
+                  categoryName={category.name}
+                  phaseLabel={category.activePhase?.label ?? category.activePhase?.type ?? null}
+                />
+                <NowNextCard
+                  label="Next"
+                  match={category.nextMatch}
+                  categoryName={category.name}
+                  phaseLabel={category.activePhase?.label ?? category.activePhase?.type ?? null}
+                />
               </div>
 
               <div className="mt-lg">
