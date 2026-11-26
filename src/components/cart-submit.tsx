@@ -42,38 +42,44 @@ export function CartSubmit({
   async function handleClaim() {
     setSubmitting(true);
     setError("");
-    const response = await fetch("/api/registrations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        categoryIds,
-        teamName: teamName?.trim() || undefined,
-        choreographerName: choreographerName?.trim() || undefined,
-        age,
-        auditionCity: auditionCity?.trim() || undefined,
-        musicFileUrl,
-        musicFileKey,
-        musicFileName,
-        musicFileSize,
-        musicMimeType,
-        memberIds,
-        claim: true,
-      }),
-    });
-    const body = await response.json().catch(() => null);
-    if (!response.ok) {
-      setError(body?.error ?? "Unable to register. Please try again.");
+    const popup = window.open("", "_blank");
+    if (popup) popup.opener = null;
+    try {
+      const response = await fetch("/api/registrations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          categoryIds,
+          teamName: teamName?.trim() || undefined,
+          choreographerName: choreographerName?.trim() || undefined,
+          age,
+          auditionCity: auditionCity?.trim() || undefined,
+          musicFileUrl,
+          musicFileKey,
+          musicFileName,
+          musicFileSize,
+          musicMimeType,
+          memberIds,
+          claim: true,
+        }),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        popup?.close();
+        setError(body?.error ?? "Unable to register. Please try again.");
+        return;
+      }
+      const created = body as { id: string }[];
+      const next = new URLSearchParams({ event: eventId, ids: created.map((item) => item.id).join(",") });
+      if (popup) popup.location.href = verifyHref;
+      else window.location.assign(verifyHref);
+      router.replace(`/cart?${next.toString()}`);
+    } catch {
+      popup?.close();
+      setError("Network error. Please check your connection and try again.");
+    } finally {
       setSubmitting(false);
-      return;
     }
-    const created = body as { id: string }[];
-    const next = new URLSearchParams({
-      event: eventId,
-      ids: created.map((registration) => registration.id).join(","),
-    });
-    const popup = window.open(verifyHref, "_blank", "noopener,noreferrer");
-    if (!popup) window.location.assign(verifyHref);
-    router.replace(`/cart?${next.toString()}`);
   }
 
   return (

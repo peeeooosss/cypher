@@ -3339,15 +3339,19 @@ function RegistrationRow({
        <td className="px-md py-sm">
          <div className="flex flex-col gap-xs">
            <div className="flex gap-xs">
-             <button
-               className="border border-accent px-sm py-xs text-[0.7rem] font-bold uppercase text-accent hover:bg-accent hover:text-paper disabled:opacity-60"
-               disabled={updating || registration.paid || registration.status === "WITHDRAWN"}
-               onClick={() => void handlePaid()}
-               type="button"
-             >
-               {registration.paid ? "Paid" : "Mark paid"}
-             </button>
-<button
+              <button
+                className={`border border-accent px-sm py-xs text-[0.7rem] font-bold uppercase disabled:opacity-60 ${
+                  registration.paidClaimedAt && !registration.paid
+                    ? "bg-accent text-paper hover:bg-accent/80"
+                    : "text-accent hover:bg-accent hover:text-paper"
+                }`}
+                disabled={updating || registration.paid || registration.status === "WITHDRAWN"}
+                onClick={() => void handlePaid()}
+                type="button"
+              >
+                {registration.paid ? "Paid" : registration.paidClaimedAt ? "Verify payment" : "Mark paid"}
+              </button>
+              <button
                 className="border border-line px-sm py-xs text-[0.7rem] font-bold uppercase text-ink-muted hover:border-accent disabled:opacity-60"
                 disabled={updating || registration.status === "WITHDRAWN"}
                 onClick={() => void handleWithdraw()}

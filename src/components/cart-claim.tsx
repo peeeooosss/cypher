@@ -35,6 +35,8 @@ export function CartCategoryList({ registrations, eventTitle, total, organizerWh
   async function handleClaim(id: string, verifyHref: string) {
     setUpdating(id);
     setError("");
+    const popup = window.open("", "_blank");
+    if (popup) popup.opener = null;
     try {
       const res = await fetch(`/api/registrations/${id}`, {
         method: "PATCH",
@@ -43,13 +45,15 @@ export function CartCategoryList({ registrations, eventTitle, total, organizerWh
       });
       if (res.ok) {
         setClaimedIds((prev) => new Set(prev).add(id));
-        const popup = window.open(verifyHref, "_blank", "noopener,noreferrer");
-        if (!popup) window.location.assign(verifyHref);
+        if (popup) popup.location.href = verifyHref;
+        else window.location.assign(verifyHref);
       } else {
+        popup?.close();
         const body = await res.json().catch(() => null);
         setError(body?.error ?? "Could not report payment. Please try again.");
       }
     } catch {
+      popup?.close();
       setError("Network error. Please check your connection and try again.");
     } finally {
       setUpdating(null);

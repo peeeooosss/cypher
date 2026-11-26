@@ -1,0 +1,7 @@
+ALTER TABLE "Registration" ADD COLUMN IF NOT EXISTS "age" INTEGER;
+ALTER TABLE "Registration" ADD COLUMN IF NOT EXISTS "auditionCity" TEXT;
+ALTER TABLE "Registration" ADD COLUMN IF NOT EXISTS "musicFileUrl" TEXT;
+ALTER TABLE "Registration" ADD COLUMN IF NOT EXISTS "musicFileKey" TEXT;
+ALTER TABLE "Registration" ADD COLUMN IF NOT EXISTS "musicFileName" TEXT;
+ALTER TABLE "Registration" ADD COLUMN IF NOT EXISTS "musicFileSize" INTEGER;
+ALTER TABLE "Registration" ADD COLUMN IF NOT EXISTS "musicMimeType" TEXT;
